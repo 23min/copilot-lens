@@ -28,6 +28,11 @@ Examples:
 
 Keep the subject line under 72 characters. Use imperative mood ("add", not "added").
 
+## Working style
+
+- Never guess or assume. If unsure about something, or there are multiple valid approaches, ask the user and let them choose.
+- Never infer personal information (names, emails, etc.) from filesystem paths or environment variables.
+
 ## Development
 
 - TDD: red-green-refactor
