@@ -32,10 +32,14 @@
     "package": "npx @vscode/vsce package"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.0.0",
     "@types/vscode": "^1.100.0",
     "esbuild": "^0.25.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.1"
   }
 }
