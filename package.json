@@ -1,0 +1,41 @@
+{
+  "name": "copilot-lens",
+  "displayName": "Copilot Lens",
+  "description": "Visualize your GitHub Copilot agents, skills, and handoffs as an interactive graph. Parses chat sessions to surface usage metrics.",
+  "version": "0.0.1",
+  "publisher": "23min",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Visualization"
+  ],
+  "activationEvents": [
+    "workspaceContains:**/.github/agents/*.agent.md",
+    "workspaceContains:**/.github/skills/*/SKILL.md"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "copilotLens.showGraph",
+        "title": "Copilot Lens: Show Agent Graph"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node",
+    "watch": "npm run build -- --watch --sourcemap",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "package": "npx @vscode/vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.100.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
