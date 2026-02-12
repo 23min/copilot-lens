@@ -21,8 +21,39 @@
       {
         "command": "copilotLens.showGraph",
         "title": "Copilot Lens: Show Agent Graph"
+      },
+      {
+        "command": "copilotLens.refresh",
+        "title": "Copilot Lens: Refresh",
+        "icon": "$(refresh)"
       }
-    ]
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "copilot-lens",
+          "title": "Copilot Lens",
+          "icon": "$(telescope)"
+        }
+      ]
+    },
+    "views": {
+      "copilot-lens": [
+        {
+          "id": "copilotLens.treeView",
+          "name": "Agents & Skills"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "copilotLens.refresh",
+          "when": "view == copilotLens.treeView",
+          "group": "navigation"
+        }
+      ]
+    }
   },
   "scripts": {
     "build": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node",
