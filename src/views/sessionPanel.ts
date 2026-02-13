@@ -55,6 +55,12 @@ export class SessionPanel {
     this.panel.webview.postMessage({ type: "update-sessions", sessions });
   }
 
+  static updateIfOpen(sessions: Session[]): void {
+    if (SessionPanel.instance && !SessionPanel.instance.disposed) {
+      SessionPanel.instance.updateSessions(sessions);
+    }
+  }
+
   private getHtml(webview: vscode.Webview): string {
     const scriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.extensionUri, "out", "webview", "session.js"),

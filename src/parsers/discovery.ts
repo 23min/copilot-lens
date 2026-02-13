@@ -29,6 +29,7 @@ export async function discoverAgents(): Promise<Agent[]> {
     }
   }
 
+  agents.sort((a, b) => a.name.localeCompare(b.name));
   return agents;
 }
 
@@ -52,5 +53,6 @@ export async function discoverSkills(): Promise<Skill[]> {
     }
   }
 
+  skills.sort((a, b) => a.name.localeCompare(b.name));
   return skills;
 }
