@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as path from "node:path";
 import * as fs from "node:fs/promises";
 import { parseSessionJsonl } from "./sessionParser.js";
+import { discoverClaudeSessions } from "./claudeLocator.js";
 import type { Session } from "../models/session.js";
 import { getLogger } from "../logger.js";
 
@@ -134,13 +135,39 @@ export async function discoverSessions(
   const ourName = await getWorkspaceFolderName(context);
   log.info(`Session discovery: workspace name = "${ourName ?? "(unknown)"}"`);
 
+  const copilotSessions = await discoverCopilotSessions(context, ourName);
+
+  // Discover Claude Code sessions
+  const workspacePath =
+    vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null;
+  let claudeSessions: Session[] = [];
+  if (workspacePath) {
+    const claudeEntries = await discoverClaudeSessions(workspacePath);
+    if (claudeEntries.length > 0) {
+      log.info(
+        `Claude: found ${claudeEntries.length} session(s) (parser not yet implemented)`,
+      );
+      // TODO (#5): parse Claude session JSONL files into Session objects
+      // claudeSessions = await parseClaudeSessions(claudeEntries);
+    }
+  }
+
+  return [...copilotSessions, ...claudeSessions];
+}
+
+async function discoverCopilotSessions(
+  context: vscode.ExtensionContext,
+  ourName: string | null,
+): Promise<Session[]> {
+  const log = getLogger();
+
   // 1. Check user-configured sessionDir first (for devcontainers with mounts)
   const configDir = vscode.workspace
     .getConfiguration("copilotLens")
     .get<string>("sessionDir");
 
   if (configDir) {
-    log.info(`Strategy 1: user-configured sessionDir = "${configDir}"`);
+    log.info(`Copilot strategy 1: user-configured sessionDir = "${configDir}"`);
     const direct = await readSessionsFromDir(configDir);
     if (direct.length > 0) {
       log.info(`  Found ${direct.length} session(s) directly`);
@@ -162,7 +189,7 @@ export async function discoverSessions(
   // 2. Try primary location (current workspace hash)
   const primaryDir = getChatSessionsDir(context);
   if (primaryDir) {
-    log.info(`Strategy 2: primary dir = "${primaryDir}"`);
+    log.info(`Copilot strategy 2: primary dir = "${primaryDir}"`);
     const primary = await readSessionsFromDir(primaryDir);
     if (primary.length > 0) {
       log.info(`  Found ${primary.length} session(s)`);
@@ -170,14 +197,14 @@ export async function discoverSessions(
     }
     log.info("  No sessions found in primary dir");
   } else {
-    log.info("Strategy 2: skipped (no storageUri)");
+    log.info("Copilot strategy 2: skipped (no storageUri)");
   }
 
   // 3. Fallback: scan sibling hash directories for the same workspace
   if (ourName && context.storageUri) {
     const hashDir = path.dirname(context.storageUri.fsPath);
     const storageRoot = path.dirname(hashDir);
-    log.info(`Strategy 3: scanning sibling dirs under "${storageRoot}"`);
+    log.info(`Copilot strategy 3: scanning sibling dirs under "${storageRoot}"`);
     const result = await collectFromDirs(
       await scanWorkspaceStorageRoot(storageRoot, ourName),
     );
@@ -185,7 +212,7 @@ export async function discoverSessions(
     return result;
   }
 
-  log.warn("Session discovery: no sessions found (all strategies exhausted)");
+  log.info("Copilot: no sessions found");
   return [];
 }
 
