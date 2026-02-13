@@ -30,12 +30,14 @@ src/
   extension.ts          # Activation, command registration
   models/               # TypeScript interfaces (Agent, Skill, Graph)
   parsers/              # Pure-function parsers for agents, skills, and sessions
-  analyzers/            # Graph builder, metrics collector (planned)
+  analyzers/            # Graph builder, metrics collector
   views/
     treeProvider.ts     # Sidebar tree view (agents & skills)
     graphPanel.ts       # Webview panel host for the graph
+    metricsPanel.ts     # Webview panel host for the dashboard
 webview/
   graph.ts              # Lit + D3.js force-directed graph component
+  metrics.ts            # Lit metrics dashboard component
 ```
 
 ## License

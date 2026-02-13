@@ -14,3 +14,8 @@ export type {
   ToolCallInfo,
   SkillRef,
 } from "./session.js";
+export type {
+  AggregatedMetrics,
+  CountEntry,
+  ActivityEntry,
+} from "./metrics.js";

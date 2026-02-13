@@ -40,3 +40,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Skill detection: parses `<skills>` XML for available skills, `read_file` tool calls for loaded skills
 - Session locator: finds `chatSessions/` directory from extension storage URI
 - 50 unit tests total
+- Metrics data model: `AggregatedMetrics`, `CountEntry`, `ActivityEntry`
+- Metrics collector: aggregates agent/model/tool/skill usage, token totals, activity timeline, unused detection
+- Metrics dashboard webview (Lit): stat cards, bar charts, activity timeline, unused agents/skills warnings
+- `Copilot Lens: Show Metrics Dashboard` command
+- Auto-discovers session files on activation
+- 61 unit tests total
