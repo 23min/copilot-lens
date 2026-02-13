@@ -12,16 +12,16 @@ let instance: Logger = {
   error: () => {},
 };
 
-export function initLogger(channel: vscode.OutputChannel): void {
+export function initLogger(channel: vscode.LogOutputChannel): void {
   instance = {
     info(message: string) {
-      channel.appendLine(`[INFO]  ${message}`);
+      channel.info(message);
     },
     warn(message: string) {
-      channel.appendLine(`[WARN]  ${message}`);
+      channel.warn(message);
     },
     error(message: string) {
-      channel.appendLine(`[ERROR] ${message}`);
+      channel.error(message);
     },
   };
 }
