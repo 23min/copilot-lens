@@ -1,5 +1,8 @@
 # Copilot Lens
 
+[![CI](https://github.com/23min/copilot-lens/actions/workflows/ci.yml/badge.svg)](https://github.com/23min/copilot-lens/actions/workflows/ci.yml)
+[![Release](https://github.com/23min/copilot-lens/actions/workflows/release.yml/badge.svg)](https://github.com/23min/copilot-lens/actions/workflows/release.yml)
+
 VS Code extension that visualizes your GitHub Copilot agents, skills, and handoffs as an interactive graph. Parses chat sessions to surface usage metrics — which agents run, how often, and how sessions flow.
 
 ## Status
