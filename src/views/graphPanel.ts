@@ -50,6 +50,12 @@ export class GraphPanel {
     this.panel.webview.postMessage({ type: "update-graph", graph });
   }
 
+  static updateIfOpen(graph: Graph): void {
+    if (GraphPanel.instance && !GraphPanel.instance.disposed) {
+      GraphPanel.instance.updateGraph(graph);
+    }
+  }
+
   private getHtml(webview: vscode.Webview): string {
     const scriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.extensionUri, "out", "webview", "graph.js"),

@@ -258,6 +258,22 @@ class SessionExplorer extends LitElement {
   private handleMessage = (e: MessageEvent): void => {
     if (e.data.type === "update-sessions") {
       this.sessions = e.data.sessions;
+
+      // Keep the selected session/request in sync with fresh data
+      if (this.selectedSession) {
+        const updated = this.sessions.find(
+          (s) => s.sessionId === this.selectedSession!.sessionId,
+        );
+        if (updated) {
+          this.selectedSession = updated;
+          if (this.selectedRequest) {
+            this.selectedRequest =
+              updated.requests.find(
+                (r) => r.requestId === this.selectedRequest!.requestId,
+              ) ?? null;
+          }
+        }
+      }
     }
   };
 

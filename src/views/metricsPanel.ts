@@ -55,6 +55,12 @@ export class MetricsPanel {
     this.panel.webview.postMessage({ type: "update-metrics", metrics });
   }
 
+  static updateIfOpen(metrics: AggregatedMetrics): void {
+    if (MetricsPanel.instance && !MetricsPanel.instance.disposed) {
+      MetricsPanel.instance.updateMetrics(metrics);
+    }
+  }
+
   private getHtml(webview: vscode.Webview): string {
     const scriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.extensionUri, "out", "webview", "metrics.js"),

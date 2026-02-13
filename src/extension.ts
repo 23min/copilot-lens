@@ -3,7 +3,7 @@ import type { Agent } from "./models/agent.js";
 import type { Skill } from "./models/skill.js";
 import type { Session } from "./models/session.js";
 import { discoverAgents, discoverSkills } from "./parsers/discovery.js";
-import { discoverSessions } from "./parsers/sessionLocator.js";
+import { discoverSessions, getChatSessionsDir } from "./parsers/sessionLocator.js";
 import { buildGraph } from "./analyzers/graphBuilder.js";
 import { collectMetrics } from "./analyzers/metricsCollector.js";
 import { CopilotLensTreeProvider } from "./views/treeProvider.js";
@@ -35,6 +35,17 @@ async function refresh(
     cachedSessions = sessions;
     treeProvider.update(agents, skills);
 
+    // Push fresh data to any open panels (without stealing focus)
+    GraphPanel.updateIfOpen(buildGraph(agents, skills));
+    MetricsPanel.updateIfOpen(
+      collectMetrics(
+        sessions,
+        agents.map((a) => a.name),
+        skills.map((s) => s.name),
+      ),
+    );
+    SessionPanel.updateIfOpen(sessions);
+
     const elapsed = Date.now() - start;
     log.info(
       `Refresh complete in ${elapsed}ms — ${agents.length} agents, ${skills.length} skills, ${sessions.length} sessions`,
@@ -63,7 +74,8 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const showGraph = vscode.commands.registerCommand(
     "copilotLens.showGraph",
-    () => {
+    async () => {
+      await refresh(context, treeProvider);
       const graph = buildGraph(cachedAgents, cachedSkills);
       GraphPanel.show(context.extensionUri, graph);
     },
@@ -71,7 +83,8 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const openMetrics = vscode.commands.registerCommand(
     "copilotLens.openMetrics",
-    () => {
+    async () => {
+      await refresh(context, treeProvider);
       const metrics = collectMetrics(
         cachedSessions,
         cachedAgents.map((a) => a.name),
@@ -83,10 +96,38 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const openSession = vscode.commands.registerCommand(
     "copilotLens.openSession",
-    () => {
+    async () => {
+      await refresh(context, treeProvider);
       SessionPanel.show(context.extensionUri, cachedSessions);
     },
   );
+
+  // File watchers — auto-refresh on agent/skill/session changes
+  let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+  function scheduleRefresh() {
+    if (refreshTimer) clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(() => refresh(context, treeProvider), 500);
+  }
+
+  const agentWatcher = vscode.workspace.createFileSystemWatcher(
+    "**/.github/agents/*.agent.md",
+  );
+  const skillWatcher = vscode.workspace.createFileSystemWatcher(
+    "**/.github/skills/*/SKILL.md",
+  );
+  const skillFlatWatcher = vscode.workspace.createFileSystemWatcher(
+    "**/.github/skills/*.skill.md",
+  );
+
+  agentWatcher.onDidCreate(scheduleRefresh);
+  agentWatcher.onDidChange(scheduleRefresh);
+  agentWatcher.onDidDelete(scheduleRefresh);
+  skillWatcher.onDidCreate(scheduleRefresh);
+  skillWatcher.onDidChange(scheduleRefresh);
+  skillWatcher.onDidDelete(scheduleRefresh);
+  skillFlatWatcher.onDidCreate(scheduleRefresh);
+  skillFlatWatcher.onDidChange(scheduleRefresh);
+  skillFlatWatcher.onDidDelete(scheduleRefresh);
 
   context.subscriptions.push(
     outputChannel,
@@ -95,7 +136,21 @@ export function activate(context: vscode.ExtensionContext): void {
     showGraph,
     openMetrics,
     openSession,
+    agentWatcher,
+    skillWatcher,
+    skillFlatWatcher,
   );
+
+  // Watch session files (outside workspace, in workspaceStorage)
+  const sessionDir = getChatSessionsDir(context);
+  if (sessionDir) {
+    const sessionWatcher = vscode.workspace.createFileSystemWatcher(
+      new vscode.RelativePattern(vscode.Uri.file(sessionDir), "*.jsonl"),
+    );
+    sessionWatcher.onDidCreate(scheduleRefresh);
+    sessionWatcher.onDidChange(scheduleRefresh);
+    context.subscriptions.push(sessionWatcher);
+  }
 
   // Initial scan
   void refresh(context, treeProvider);
