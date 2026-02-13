@@ -36,7 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Session data models: `Session`, `SessionRequest`, `ToolCallInfo`, `SkillRef`
 - JSONL session parser: reconstructs sessions from kind=0/1/2 incremental patches
 - Chat replay parser: imports `.chatreplay.json` manual exports
-- Custom agent detection: extracts agent name from `<modeInstructions>` in system prompt
+- Custom agent detection: extracts agent name from `inputState.mode` file URI in JSONL sessions, with `<modeInstructions>` fallback
 - Skill detection: parses `<skills>` XML for available skills, `read_file` tool calls for loaded skills
 - Session locator: finds `chatSessions/` directory from extension storage URI
 - 50 unit tests total
@@ -62,3 +62,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `copilotLens.sessionDir` setting: manually specify a session directory or mounted `workspaceStorage` root for devcontainer environments where sessions live on the host
 - Click-to-open agent/skill files broken on Windows: was using relative path with `Uri.file()`, now preserves the original URI from discovery
 - Malformed YAML frontmatter in agent/skill files no longer crashes the Refresh command; bad files are skipped with a console warning (fixes #1)
+- Custom agent names now correctly detected from JSONL sessions: tracks `inputState.mode` changes and correlates them with requests instead of relying solely on system prompt regex

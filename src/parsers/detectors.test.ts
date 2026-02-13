@@ -3,6 +3,7 @@ import {
   detectCustomAgent,
   detectAvailableSkills,
   detectLoadedSkills,
+  extractAgentNameFromUri,
 } from "./detectors.js";
 
 describe("detectCustomAgent", () => {
@@ -109,5 +110,31 @@ describe("detectLoadedSkills", () => {
       "1": "not valid json",
     };
     expect(detectLoadedSkills(toolCalls, toolCallArgs)).toEqual([]);
+  });
+});
+
+describe("extractAgentNameFromUri", () => {
+  it("extracts agent name from file URI", () => {
+    expect(
+      extractAgentNameFromUri(
+        "file:///Users/me/project/.github/agents/architect.agent.md",
+      ),
+    ).toBe("architect");
+  });
+
+  it("extracts agent name from Windows-style URI", () => {
+    expect(
+      extractAgentNameFromUri(
+        "file:///c:/Users/me/project/.github/agents/planner.agent.md",
+      ),
+    ).toBe("planner");
+  });
+
+  it("returns null for non-agent paths", () => {
+    expect(extractAgentNameFromUri("file:///Users/me/README.md")).toBeNull();
+  });
+
+  it("returns null for empty string", () => {
+    expect(extractAgentNameFromUri("")).toBeNull();
   });
 });

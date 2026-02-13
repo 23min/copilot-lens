@@ -8,6 +8,7 @@ import {
   detectCustomAgent,
   detectAvailableSkills,
   detectLoadedSkills,
+  extractAgentNameFromUri,
 } from "./detectors.js";
 
 // --- JSONL parser ---
@@ -58,6 +59,13 @@ export function parseSessionJsonl(content: string): Session {
   const lines = content.split("\n").filter((l) => l.trim());
   const state: Record<string, unknown> = {};
 
+  // Track inputState.mode changes to attribute custom agents to requests.
+  // Mode changes (kind=1 patches to ["inputState","mode"]) are interleaved
+  // with request appends (kind=2 to ["requests"]), so the most recently set
+  // mode tells us which custom agent was active for each request.
+  let currentAgentName: string | null = null;
+  const agentNameByRequest: (string | null)[] = [];
+
   for (const line of lines) {
     let parsed: JsonlLine;
     try {
@@ -67,23 +75,43 @@ export function parseSessionJsonl(content: string): Session {
     }
 
     switch (parsed.kind) {
-      case 0:
+      case 0: {
         Object.assign(state, parsed.v as Record<string, unknown>);
+        const v = parsed.v as Record<string, unknown>;
+        const inputState = v.inputState as Record<string, unknown> | undefined;
+        const mode = inputState?.mode as Record<string, unknown> | undefined;
+        if (mode?.kind === "agent" && typeof mode.id === "string") {
+          currentAgentName = extractAgentNameFromUri(mode.id);
+        }
         break;
+      }
       case 1:
         if (parsed.k) {
           setNestedValue(state, parsed.k, parsed.v);
+          if (parsed.k[0] === "inputState" && parsed.k[1] === "mode") {
+            const mode = parsed.v as Record<string, unknown> | null;
+            if (mode?.kind === "agent" && typeof mode.id === "string") {
+              currentAgentName = extractAgentNameFromUri(mode.id);
+            } else {
+              currentAgentName = null;
+            }
+          }
         }
         break;
       case 2:
         if (parsed.k && Array.isArray(parsed.v)) {
+          if (parsed.k.length === 1 && parsed.k[0] === "requests") {
+            for (let i = 0; i < parsed.v.length; i++) {
+              agentNameByRequest.push(currentAgentName);
+            }
+          }
           appendToArray(state, parsed.k, parsed.v);
         }
         break;
     }
   }
 
-  return extractSession(state, "jsonl");
+  return extractSession(state, "jsonl", agentNameByRequest);
 }
 
 // --- Chat replay parser ---
@@ -164,10 +192,11 @@ export function parseChatReplay(content: string): Session {
 function extractSession(
   state: Record<string, unknown>,
   source: "jsonl" | "json",
+  agentNameByRequest?: (string | null)[],
 ): Session {
   const rawRequests = (state.requests as unknown[]) ?? [];
 
-  const requests: SessionRequest[] = rawRequests.map((raw) => {
+  const requests: SessionRequest[] = rawRequests.map((raw, index) => {
     const r = raw as Record<string, unknown>;
     const agent = r.agent as Record<string, unknown> | undefined;
     const result = r.result as Record<string, unknown> | undefined;
@@ -213,7 +242,7 @@ function extractSession(
       }
     }
 
-    const customAgentName = detectCustomAgent(systemText);
+    const customAgentName = agentNameByRequest?.[index] ?? detectCustomAgent(systemText);
     const availableSkills = detectAvailableSkills(systemText);
     const loadedSkills = detectLoadedSkills(toolCalls, toolCallArgs);
 
