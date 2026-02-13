@@ -5,6 +5,14 @@
   "version": "0.0.1",
   "publisher": "23min",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/23min/copilot-lens"
+  },
+  "homepage": "https://github.com/23min/copilot-lens#readme",
+  "bugs": {
+    "url": "https://github.com/23min/copilot-lens/issues"
+  },
   "engines": {
     "vscode": "^1.100.0"
   },

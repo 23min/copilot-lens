@@ -1,0 +1,23 @@
+# Source files (bundled by esbuild)
+src/**
+webview/**
+
+# Config and tooling
+tsconfig.json
+webview/tsconfig.json
+vitest.config.ts
+.vscode/**
+.github/**
+
+# Development files
+data/**
+docs/**
+node_modules/**
+*.test.ts
+
+# Git and misc
+.gitignore
+.node-version
+.claude/**
+CLAUDE.md
+ROADMAP.md
