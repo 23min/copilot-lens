@@ -13,11 +13,16 @@ export async function discoverAgents(): Promise<Agent[]> {
   const agents: Agent[] = [];
 
   for (const uri of uris) {
-    const content = await fs.readFile(uri.fsPath, "utf-8");
-    const relativePath = vscode.workspace.asRelativePath(uri);
-    const agent = parseAgent(content, relativePath);
-    agent.fileUri = uri.toString();
-    agents.push(agent);
+    try {
+      const content = await fs.readFile(uri.fsPath, "utf-8");
+      const relativePath = vscode.workspace.asRelativePath(uri);
+      const agent = parseAgent(content, relativePath);
+      agent.fileUri = uri.toString();
+      agents.push(agent);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[Copilot Lens] Skipping agent ${uri.fsPath}: ${msg}`);
+    }
   }
 
   return agents;
@@ -28,11 +33,16 @@ export async function discoverSkills(): Promise<Skill[]> {
   const skills: Skill[] = [];
 
   for (const uri of uris) {
-    const content = await fs.readFile(uri.fsPath, "utf-8");
-    const relativePath = vscode.workspace.asRelativePath(uri);
-    const skill = parseSkill(content, relativePath);
-    skill.fileUri = uri.toString();
-    skills.push(skill);
+    try {
+      const content = await fs.readFile(uri.fsPath, "utf-8");
+      const relativePath = vscode.workspace.asRelativePath(uri);
+      const skill = parseSkill(content, relativePath);
+      skill.fileUri = uri.toString();
+      skills.push(skill);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[Copilot Lens] Skipping skill ${uri.fsPath}: ${msg}`);
+    }
   }
 
   return skills;
