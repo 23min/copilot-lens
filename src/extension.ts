@@ -7,6 +7,7 @@ import { discoverSessions } from "./parsers/sessionLocator.js";
 import { buildGraph } from "./analyzers/graphBuilder.js";
 import { collectMetrics } from "./analyzers/metricsCollector.js";
 import { CopilotLensTreeProvider } from "./views/treeProvider.js";
+import { initLogger, getLogger } from "./logger.js";
 import { GraphPanel } from "./views/graphPanel.js";
 import { MetricsPanel } from "./views/metricsPanel.js";
 import { SessionPanel } from "./views/sessionPanel.js";
@@ -19,20 +20,35 @@ async function refresh(
   context: vscode.ExtensionContext,
   treeProvider: CopilotLensTreeProvider,
 ): Promise<void> {
-  const [agents, skills, sessions] = await Promise.all([
-    discoverAgents(),
-    discoverSkills(),
-    discoverSessions(context),
-  ]);
-  cachedAgents = agents;
-  cachedSkills = skills;
-  cachedSessions = sessions;
-  treeProvider.update(agents, skills);
+  const log = getLogger();
+  const start = Date.now();
+  log.info("Refresh started");
+
+  try {
+    const [agents, skills, sessions] = await Promise.all([
+      discoverAgents(),
+      discoverSkills(),
+      discoverSessions(context),
+    ]);
+    cachedAgents = agents;
+    cachedSkills = skills;
+    cachedSessions = sessions;
+    treeProvider.update(agents, skills);
+
+    const elapsed = Date.now() - start;
+    log.info(
+      `Refresh complete in ${elapsed}ms — ${agents.length} agents, ${skills.length} skills, ${sessions.length} sessions`,
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log.error(`Refresh failed: ${msg}`);
+  }
 }
 
 export function activate(context: vscode.ExtensionContext): void {
-  const outputChannel = vscode.window.createOutputChannel("Copilot Lens");
-  outputChannel.appendLine("Copilot Lens activated");
+  const outputChannel = vscode.window.createOutputChannel("Copilot Lens", { log: true });
+  initLogger(outputChannel);
+  getLogger().info("Copilot Lens activated");
 
   const treeProvider = new CopilotLensTreeProvider();
   const treeView = vscode.window.createTreeView("copilotLens.treeView", {

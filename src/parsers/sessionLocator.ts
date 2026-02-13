@@ -3,6 +3,7 @@ import * as path from "node:path";
 import * as fs from "node:fs/promises";
 import { parseSessionJsonl } from "./sessionParser.js";
 import type { Session } from "../models/session.js";
+import { getLogger } from "../logger.js";
 
 export function getChatSessionsDir(
   context: vscode.ExtensionContext,
@@ -23,7 +24,9 @@ async function readSessionsFromDir(dir: string): Promise<Session[]> {
   let entries: string[];
   try {
     entries = await fs.readdir(dir);
-  } catch {
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    getLogger().warn(`  Cannot read session dir "${dir}": ${msg}`);
     return [];
   }
 
@@ -35,8 +38,9 @@ async function readSessionsFromDir(dir: string): Promise<Session[]> {
       const content = await fs.readFile(filePath, "utf-8");
       const session = parseSessionJsonl(content);
       sessions.push(session);
-    } catch {
-      // skip unreadable files
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      getLogger().warn(`  Skipping session file "${filePath}": ${msg}`);
     }
   }
   return sessions;
@@ -84,13 +88,17 @@ async function scanWorkspaceStorageRoot(
   workspaceStorageRoot: string,
   targetName: string,
 ): Promise<string[]> {
+  const log = getLogger();
   let hashDirs: string[];
   try {
     hashDirs = await fs.readdir(workspaceStorageRoot);
-  } catch {
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log.warn(`  Cannot read storage root "${workspaceStorageRoot}": ${msg}`);
     return [];
   }
 
+  log.info(`  Scanning ${hashDirs.length} hash dir(s) for workspace "${targetName}"`);
   const dirs: string[] = [];
   for (const entry of hashDirs) {
     const candidateDir = path.join(workspaceStorageRoot, entry);
@@ -122,7 +130,9 @@ async function getWorkspaceFolderName(
 export async function discoverSessions(
   context: vscode.ExtensionContext,
 ): Promise<Session[]> {
+  const log = getLogger();
   const ourName = await getWorkspaceFolderName(context);
+  log.info(`Session discovery: workspace name = "${ourName ?? "(unknown)"}"`);
 
   // 1. Check user-configured sessionDir first (for devcontainers with mounts)
   const configDir = vscode.workspace
@@ -130,35 +140,52 @@ export async function discoverSessions(
     .get<string>("sessionDir");
 
   if (configDir) {
-    // Try reading .jsonl files directly from the configured path
+    log.info(`Strategy 1: user-configured sessionDir = "${configDir}"`);
     const direct = await readSessionsFromDir(configDir);
-    if (direct.length > 0) return direct;
+    if (direct.length > 0) {
+      log.info(`  Found ${direct.length} session(s) directly`);
+      return direct;
+    }
 
-    // Otherwise treat it as a workspaceStorage root and scan hash dirs
     if (ourName) {
       const scanned = await collectFromDirs(
         await scanWorkspaceStorageRoot(configDir, ourName),
       );
-      if (scanned.length > 0) return scanned;
+      if (scanned.length > 0) {
+        log.info(`  Found ${scanned.length} session(s) via storage root scan`);
+        return scanned;
+      }
     }
+    log.info("  No sessions found via configured dir");
   }
 
   // 2. Try primary location (current workspace hash)
   const primaryDir = getChatSessionsDir(context);
   if (primaryDir) {
+    log.info(`Strategy 2: primary dir = "${primaryDir}"`);
     const primary = await readSessionsFromDir(primaryDir);
-    if (primary.length > 0) return primary;
+    if (primary.length > 0) {
+      log.info(`  Found ${primary.length} session(s)`);
+      return primary;
+    }
+    log.info("  No sessions found in primary dir");
+  } else {
+    log.info("Strategy 2: skipped (no storageUri)");
   }
 
   // 3. Fallback: scan sibling hash directories for the same workspace
   if (ourName && context.storageUri) {
     const hashDir = path.dirname(context.storageUri.fsPath);
     const storageRoot = path.dirname(hashDir);
-    return collectFromDirs(
+    log.info(`Strategy 3: scanning sibling dirs under "${storageRoot}"`);
+    const result = await collectFromDirs(
       await scanWorkspaceStorageRoot(storageRoot, ourName),
     );
+    log.info(`  Found ${result.length} session(s) via sibling scan`);
+    return result;
   }
 
+  log.warn("Session discovery: no sessions found (all strategies exhausted)");
   return [];
 }
 
