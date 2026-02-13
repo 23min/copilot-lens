@@ -1,12 +1,21 @@
 import * as vscode from "vscode";
+import type { Agent } from "./models/agent.js";
+import type { Skill } from "./models/skill.js";
 import { discoverAgents, discoverSkills } from "./parsers/discovery.js";
+import { buildGraph } from "./analyzers/graphBuilder.js";
 import { CopilotLensTreeProvider } from "./views/treeProvider.js";
+import { GraphPanel } from "./views/graphPanel.js";
+
+let cachedAgents: Agent[] = [];
+let cachedSkills: Skill[] = [];
 
 async function refresh(treeProvider: CopilotLensTreeProvider): Promise<void> {
   const [agents, skills] = await Promise.all([
     discoverAgents(),
     discoverSkills(),
   ]);
+  cachedAgents = agents;
+  cachedSkills = skills;
   treeProvider.update(agents, skills);
 }
 
@@ -28,7 +37,8 @@ export function activate(context: vscode.ExtensionContext): void {
   const showGraph = vscode.commands.registerCommand(
     "copilotLens.showGraph",
     () => {
-      vscode.window.showInformationMessage("Copilot Lens: Graph coming soon!");
+      const graph = buildGraph(cachedAgents, cachedSkills);
+      GraphPanel.show(context.extensionUri, graph);
     },
   );
 
