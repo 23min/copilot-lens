@@ -6,7 +6,8 @@ type TreeItemData =
   | { kind: "category"; label: string }
   | { kind: "agent"; agent: Agent }
   | { kind: "skill"; skill: Skill }
-  | { kind: "detail"; label: string; description: string };
+  | { kind: "detail"; label: string; description: string }
+  | { kind: "action"; label: string; command: string; icon: string };
 
 export class CopilotLensTreeProvider
   implements vscode.TreeDataProvider<TreeItemData>
@@ -71,12 +72,25 @@ export class CopilotLensTreeProvider
         item.description = element.description;
         return item;
       }
+      case "action": {
+        const item = new vscode.TreeItem(
+          element.label,
+          vscode.TreeItemCollapsibleState.None,
+        );
+        item.iconPath = new vscode.ThemeIcon(element.icon);
+        item.command = {
+          command: element.command,
+          title: element.label,
+        };
+        return item;
+      }
     }
   }
 
   getChildren(element?: TreeItemData): TreeItemData[] {
     if (!element) {
       const children: TreeItemData[] = [];
+      children.push({ kind: "category", label: "Actions" });
       if (this.agents.length > 0) {
         children.push({ kind: "category", label: "Agents" });
       }
@@ -84,6 +98,14 @@ export class CopilotLensTreeProvider
         children.push({ kind: "category", label: "Skills" });
       }
       return children;
+    }
+
+    if (element.kind === "category" && element.label === "Actions") {
+      return [
+        { kind: "action", label: "Show Agent Graph", command: "copilotLens.showGraph", icon: "type-hierarchy" },
+        { kind: "action", label: "Show Metrics Dashboard", command: "copilotLens.openMetrics", icon: "graph" },
+        { kind: "action", label: "Session Explorer", command: "copilotLens.openSession", icon: "history" },
+      ];
     }
 
     if (element.kind === "category" && element.label === "Agents") {

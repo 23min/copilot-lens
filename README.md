@@ -37,7 +37,7 @@ src/
     metricsPanel.ts     # Webview panel host for the dashboard
     sessionPanel.ts     # Webview panel host for session explorer
 webview/
-  graph.ts              # Lit + D3.js force-directed graph component
+  graph.ts              # Lit + D3.js DAG graph component
   metrics.ts            # Lit metrics dashboard component
   session.ts            # Lit session explorer component
 ```

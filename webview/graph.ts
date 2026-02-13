@@ -9,13 +9,11 @@ interface GraphNode {
   description: string;
   x?: number;
   y?: number;
-  fx?: number | null;
-  fy?: number | null;
 }
 
 interface GraphEdge {
-  source: string | GraphNode;
-  target: string | GraphNode;
+  source: string;
+  target: string;
   label: string;
   kind: "handoff" | "skill-link";
   send: boolean;
@@ -26,15 +24,11 @@ interface Graph {
   edges: GraphEdge[];
 }
 
-interface VsCodeApi {
+declare function acquireVsCodeApi(): {
   postMessage(msg: unknown): void;
   getState(): unknown;
   setState(state: unknown): void;
-}
-
-declare function acquireVsCodeApi(): VsCodeApi;
-
-const vscode = acquireVsCodeApi();
+};
 
 const NODE_COLORS: Record<string, string> = {
   agent: "#4fc1ff",
@@ -43,6 +37,112 @@ const NODE_COLORS: Record<string, string> = {
 };
 
 const NODE_RADIUS = 28;
+const LAYER_GAP = 240;
+const NODE_GAP = 90;
+const PADDING = 80;
+
+/**
+ * Assign each node to a layer using longest-path from roots (nodes with no
+ * incoming edges). This produces a left-to-right DAG ordering.
+ */
+function assignLayers(
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+): Map<string, number> {
+  const inDegree = new Map<string, number>();
+  const outEdges = new Map<string, string[]>();
+  for (const n of nodes) {
+    inDegree.set(n.id, 0);
+    outEdges.set(n.id, []);
+  }
+  for (const e of edges) {
+    inDegree.set(e.target, (inDegree.get(e.target) ?? 0) + 1);
+    outEdges.get(e.source)?.push(e.target);
+  }
+
+  // BFS from roots using longest path
+  const layer = new Map<string, number>();
+  const queue: string[] = [];
+  for (const [id, deg] of inDegree) {
+    if (deg === 0) {
+      queue.push(id);
+      layer.set(id, 0);
+    }
+  }
+
+  // If no roots (cycle), just start from first node
+  if (queue.length === 0 && nodes.length > 0) {
+    queue.push(nodes[0].id);
+    layer.set(nodes[0].id, 0);
+  }
+
+  let idx = 0;
+  while (idx < queue.length) {
+    const id = queue[idx++];
+    const currentLayer = layer.get(id) ?? 0;
+    for (const target of outEdges.get(id) ?? []) {
+      const prev = layer.get(target);
+      const next = currentLayer + 1;
+      if (prev === undefined || next > prev) {
+        layer.set(target, next);
+      }
+      // Only queue if all incoming edges have been visited
+      // (simplified: always queue but we use max layer)
+      if (!queue.includes(target)) {
+        queue.push(target);
+      }
+    }
+  }
+
+  // Any disconnected nodes get layer 0
+  for (const n of nodes) {
+    if (!layer.has(n.id)) {
+      layer.set(n.id, 0);
+    }
+  }
+
+  return layer;
+}
+
+function layoutGraph(nodes: GraphNode[], edges: GraphEdge[]): GraphNode[] {
+  const layers = assignLayers(nodes, edges);
+
+  // Group by layer
+  const byLayer = new Map<number, GraphNode[]>();
+  for (const n of nodes) {
+    const l = layers.get(n.id) ?? 0;
+    if (!byLayer.has(l)) byLayer.set(l, []);
+    byLayer.get(l)!.push(n);
+  }
+
+  const maxLayer = Math.max(...byLayer.keys(), 0);
+  const positioned: GraphNode[] = [];
+
+  for (let l = 0; l <= maxLayer; l++) {
+    const group = byLayer.get(l) ?? [];
+    // Sort within layer: agents first, then builtin, then skills
+    const kindOrder: Record<string, number> = {
+      agent: 0,
+      "builtin-agent": 1,
+      skill: 2,
+    };
+    group.sort((a, b) => (kindOrder[a.kind] ?? 9) - (kindOrder[b.kind] ?? 9));
+
+    const x = PADDING + l * LAYER_GAP;
+    const groupHeight = (group.length - 1) * NODE_GAP;
+    const startY = PADDING + Math.max(0, (400 - groupHeight) / 2);
+
+    for (let row = 0; row < group.length; row++) {
+      positioned.push({
+        ...group[row],
+        x,
+        y: startY + row * NODE_GAP,
+      });
+    }
+  }
+
+  return positioned;
+}
 
 @customElement("graph-view")
 class GraphView extends LitElement {
@@ -57,7 +157,6 @@ class GraphView extends LitElement {
       height: 100%;
     }
     .node-circle {
-      cursor: grab;
       stroke-width: 2;
     }
     .node-circle:hover {
@@ -71,12 +170,12 @@ class GraphView extends LitElement {
       pointer-events: none;
       font-family: var(--vscode-font-family, sans-serif);
     }
-    .edge-line {
+    .edge-path {
       fill: none;
       stroke: var(--vscode-editorWidget-border, #555);
       stroke-width: 1.5;
     }
-    .edge-line.dashed {
+    .edge-path.dashed {
       stroke-dasharray: 6 3;
     }
     .edge-label {
@@ -113,10 +212,9 @@ class GraphView extends LitElement {
 
   @state() private nodes: GraphNode[] = [];
   @state() private edges: GraphEdge[] = [];
-  @state() private tooltip: { x: number; y: number; text: string } | null = null;
+  @state() private tooltip: { x: number; y: number; text: string } | null =
+    null;
   @state() private transform = d3.zoomIdentity;
-
-  private simulation: d3.Simulation<GraphNode, GraphEdge> | null = null;
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -126,7 +224,6 @@ class GraphView extends LitElement {
   disconnectedCallback(): void {
     super.disconnectedCallback();
     window.removeEventListener("message", this.handleMessage);
-    this.simulation?.stop();
   }
 
   private handleMessage = (e: MessageEvent): void => {
@@ -136,74 +233,80 @@ class GraphView extends LitElement {
     }
   };
 
+  private zoom: d3.ZoomBehavior<SVGSVGElement, unknown> | null = null;
+
   private setGraph(graph: Graph): void {
-    this.simulation?.stop();
-
-    this.nodes = graph.nodes.map((n) => ({ ...n }));
+    this.nodes = layoutGraph(graph.nodes, graph.edges);
     this.edges = graph.edges.map((e) => ({ ...e }));
-
-    const width = this.clientWidth || 800;
-    const height = this.clientHeight || 600;
-
-    this.simulation = d3
-      .forceSimulation<GraphNode>(this.nodes)
-      .force(
-        "link",
-        d3
-          .forceLink<GraphNode, GraphEdge>(this.edges)
-          .id((d) => d.id)
-          .distance(150),
-      )
-      .force("charge", d3.forceManyBody().strength(-400))
-      .force("center", d3.forceCenter(width / 2, height / 2))
-      .force("collision", d3.forceCollide(NODE_RADIUS + 10))
-      .on("tick", () => {
-        this.requestUpdate();
-      });
+    // Fit to viewport after next render
+    this.updateComplete.then(() => this.fitToView());
   }
 
-  protected firstUpdated(): void {
+  private fitToView(): void {
+    if (this.nodes.length === 0) return;
     const svgEl = this.renderRoot.querySelector("svg");
     if (!svgEl) return;
 
-    const zoom = d3
-      .zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.2, 4])
-      .on("zoom", (event: d3.D3ZoomEvent<SVGSVGElement, unknown>) => {
-        this.transform = event.transform;
-        this.requestUpdate();
-      });
+    const vw = this.clientWidth || 800;
+    const vh = this.clientHeight || 600;
+    const margin = 60;
 
-    d3.select(svgEl).call(zoom);
+    // Compute bounding box of all nodes (accounting for radius + badge)
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const n of this.nodes) {
+      const nx = n.x ?? 0;
+      const ny = n.y ?? 0;
+      minX = Math.min(minX, nx - NODE_RADIUS - 10);
+      minY = Math.min(minY, ny - NODE_RADIUS - 10);
+      maxX = Math.max(maxX, nx + NODE_RADIUS + 10);
+      maxY = Math.max(maxY, ny + NODE_RADIUS + 20); // extra for kind badge
+    }
+
+    const graphW = maxX - minX;
+    const graphH = maxY - minY;
+    const availW = vw - margin * 2;
+    const availH = vh - margin * 2;
+    const scale = Math.min(availW / graphW, availH / graphH, 2);
+    const tx = (vw - graphW * scale) / 2 - minX * scale;
+    const ty = (vh - graphH * scale) / 2 - minY * scale;
+
+    const t = d3.zoomIdentity.translate(tx, ty).scale(scale);
+    this.transform = t;
+
+    // Sync zoom state so further pan/zoom works from this position
+    if (this.zoom) {
+      d3.select(svgEl).call(this.zoom.transform, t);
+    }
   }
 
-  private onNodeMouseDown(e: MouseEvent, node: GraphNode): void {
-    e.stopPropagation();
-    const svgEl = this.renderRoot.querySelector("svg")!;
-    const svgRect = svgEl.getBoundingClientRect();
+  protected firstUpdated(): void {
+    this.setupZoom();
+  }
 
-    const onMouseMove = (moveEvent: MouseEvent) => {
-      const x = (moveEvent.clientX - svgRect.left - this.transform.x) / this.transform.k;
-      const y = (moveEvent.clientY - svgRect.top - this.transform.y) / this.transform.k;
-      node.fx = x;
-      node.fy = y;
-      this.simulation?.alpha(0.3).restart();
-    };
+  protected updated(): void {
+    this.setupZoom();
+  }
 
-    const onMouseUp = () => {
-      document.removeEventListener("mousemove", onMouseMove);
-      document.removeEventListener("mouseup", onMouseUp);
-      node.fx = null;
-      node.fy = null;
-      this.simulation?.alpha(0.3).restart();
-    };
+  private zoomAttached = false;
 
-    node.fx = node.x;
-    node.fy = node.y;
-    this.simulation?.alphaTarget(0.3).restart();
+  private setupZoom(): void {
+    if (this.zoomAttached) return;
+    const svgEl = this.renderRoot.querySelector("svg");
+    if (!svgEl) return;
+    this.zoomAttached = true;
 
-    document.addEventListener("mousemove", onMouseMove);
-    document.addEventListener("mouseup", onMouseUp);
+    this.zoom = d3
+      .zoom<SVGSVGElement, unknown>()
+      .scaleExtent([0.3, 3])
+      .on("zoom", (event: d3.D3ZoomEvent<SVGSVGElement, unknown>) => {
+        this.transform = event.transform;
+      });
+
+    d3.select(svgEl).call(this.zoom);
+  }
+
+  private nodeById(id: string): GraphNode | undefined {
+    return this.nodes.find((n) => n.id === id);
   }
 
   private onNodeHover(e: MouseEvent, node: GraphNode): void {
@@ -219,11 +322,6 @@ class GraphView extends LitElement {
   }
 
   protected render() {
-    const sourceNode = (e: GraphEdge) =>
-      typeof e.source === "string" ? this.nodes.find((n) => n.id === e.source) : e.source;
-    const targetNode = (e: GraphEdge) =>
-      typeof e.target === "string" ? this.nodes.find((n) => n.id === e.target) : e.target;
-
     return html`
       <svg>
         <defs>
@@ -240,53 +338,7 @@ class GraphView extends LitElement {
           </marker>
         </defs>
         <g transform="${this.transform.toString()}">
-          ${this.edges.map((edge) => {
-            const s = sourceNode(edge);
-            const t = targetNode(edge);
-            if (!s?.x || !t?.x || !s?.y || !t?.y) return null;
-
-            const dx = t.x - s.x;
-            const dy = t.y - s.y;
-            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-            const offsetX = (dx / dist) * NODE_RADIUS;
-            const offsetY = (dy / dist) * NODE_RADIUS;
-
-            return svg`
-              <line
-                class="edge-line ${edge.send ? "" : "dashed"}"
-                x1="${s.x + offsetX}"
-                y1="${s.y + offsetY}"
-                x2="${t.x - offsetX}"
-                y2="${t.y - offsetY}"
-                marker-end="url(#arrowhead)"
-              />
-              <text
-                class="edge-label"
-                x="${(s.x + t.x) / 2}"
-                y="${(s.y + t.y) / 2 - 6}"
-              >${edge.label}</text>
-            `;
-          })}
-          ${this.nodes.map(
-            (node) => svg`
-            <g
-              transform="translate(${node.x ?? 0}, ${node.y ?? 0})"
-              @mousedown="${(e: MouseEvent) => this.onNodeMouseDown(e, node)}"
-              @mouseenter="${(e: MouseEvent) => this.onNodeHover(e, node)}"
-              @mouseleave="${() => this.onNodeLeave()}"
-            >
-              <circle
-                class="node-circle"
-                r="${NODE_RADIUS}"
-                fill="${NODE_COLORS[node.kind] ?? "#888"}"
-                stroke="${NODE_COLORS[node.kind] ?? "#888"}"
-                fill-opacity="0.15"
-              />
-              <text class="node-label" dy="2">${node.label}</text>
-              <text class="kind-badge" dy="${NODE_RADIUS + 14}">${node.kind}</text>
-            </g>
-          `,
-          )}
+          ${this.renderEdges()} ${this.renderNodes()}
         </g>
       </svg>
       ${this.tooltip
@@ -298,5 +350,60 @@ class GraphView extends LitElement {
           </div>`
         : null}
     `;
+  }
+
+  private renderEdges() {
+    return this.edges.map((edge) => {
+      const s = this.nodeById(edge.source);
+      const t = this.nodeById(edge.target);
+      if (!s?.x || !t?.x || !s?.y || !t?.y) return null;
+
+      // Bezier curve: exit right of source, enter left of target
+      const sx = s.x + NODE_RADIUS;
+      const sy = s.y;
+      const tx = t.x - NODE_RADIUS;
+      const ty = t.y;
+      const cpOffset = Math.min(Math.abs(tx - sx) * 0.5, 120);
+      const path = `M ${sx} ${sy} C ${sx + cpOffset} ${sy}, ${tx - cpOffset} ${ty}, ${tx} ${ty}`;
+
+      // Place label at midpoint of the curve
+      const midX = (sx + tx) / 2;
+      const midY = (sy + ty) / 2;
+
+      return svg`
+        <path
+          class="edge-path ${edge.send ? "" : "dashed"}"
+          d="${path}"
+          marker-end="url(#arrowhead)"
+        />
+        <text
+          class="edge-label"
+          x="${midX}"
+          y="${midY - 8}"
+        >${edge.label}</text>
+      `;
+    });
+  }
+
+  private renderNodes() {
+    return this.nodes.map(
+      (node) => svg`
+        <g
+          transform="translate(${node.x ?? 0}, ${node.y ?? 0})"
+          @mouseenter="${(e: MouseEvent) => this.onNodeHover(e, node)}"
+          @mouseleave="${() => this.onNodeLeave()}"
+        >
+          <circle
+            class="node-circle"
+            r="${NODE_RADIUS}"
+            fill="${NODE_COLORS[node.kind] ?? "#888"}"
+            stroke="${NODE_COLORS[node.kind] ?? "#888"}"
+            fill-opacity="0.15"
+          />
+          <text class="node-label" dy="2">${node.label}</text>
+          <text class="kind-badge" dy="${NODE_RADIUS + 14}">${node.kind}</text>
+        </g>
+      `,
+    );
   }
 }

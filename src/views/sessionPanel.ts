@@ -81,7 +81,7 @@ export class SessionPanel {
   </style>
 </head>
 <body>
-  <div id="session-container"></div>
+  <session-explorer></session-explorer>
   <script nonce="${nonce}" type="module" src="${scriptUri}"></script>
 </body>
 </html>`;
