@@ -9,6 +9,7 @@ import { collectMetrics } from "./analyzers/metricsCollector.js";
 import { CopilotLensTreeProvider } from "./views/treeProvider.js";
 import { GraphPanel } from "./views/graphPanel.js";
 import { MetricsPanel } from "./views/metricsPanel.js";
+import { SessionPanel } from "./views/sessionPanel.js";
 
 let cachedAgents: Agent[] = [];
 let cachedSkills: Skill[] = [];
@@ -64,12 +65,20 @@ export function activate(context: vscode.ExtensionContext): void {
     },
   );
 
+  const openSession = vscode.commands.registerCommand(
+    "copilotLens.openSession",
+    () => {
+      SessionPanel.show(context.extensionUri, cachedSessions);
+    },
+  );
+
   context.subscriptions.push(
     outputChannel,
     treeView,
     refreshCmd,
     showGraph,
     openMetrics,
+    openSession,
   );
 
   // Initial scan

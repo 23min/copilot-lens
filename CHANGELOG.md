@@ -46,3 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Copilot Lens: Show Metrics Dashboard` command
 - Auto-discovers session files on activation
 - 61 unit tests total
+- Session Explorer webview: session picker sorted by date, vertical timeline of requests
+- Agent switch and model switch highlighting with colored badges
+- Click request to expand detail view (full prompt, tool calls, skills, timing, tokens)
+- `Copilot Lens: Session Explorer` command
