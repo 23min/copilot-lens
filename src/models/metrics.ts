@@ -8,6 +8,12 @@ export interface ActivityEntry {
   count: number;
 }
 
+export interface TokenEntry {
+  name: string;
+  promptTokens: number;
+  completionTokens: number;
+}
+
 export interface AggregatedMetrics {
   totalSessions: number;
   totalRequests: number;
@@ -16,6 +22,8 @@ export interface AggregatedMetrics {
   modelUsage: CountEntry[];
   toolUsage: CountEntry[];
   skillUsage: CountEntry[];
+  tokensByAgent: TokenEntry[];
+  tokensByModel: TokenEntry[];
   activity: ActivityEntry[];
   unusedAgents: string[];
   unusedSkills: string[];

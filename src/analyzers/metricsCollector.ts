@@ -1,10 +1,30 @@
 import type { Session } from "../models/session.js";
-import type { AggregatedMetrics, CountEntry, ActivityEntry } from "../models/metrics.js";
+import type {
+  AggregatedMetrics,
+  CountEntry,
+  ActivityEntry,
+  TokenEntry,
+} from "../models/metrics.js";
 
 function countMap(map: Map<string, number>): CountEntry[] {
   return Array.from(map.entries())
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count);
+}
+
+function tokenMap(
+  map: Map<string, { prompt: number; completion: number }>,
+): TokenEntry[] {
+  return Array.from(map.entries())
+    .map(([name, t]) => ({
+      name,
+      promptTokens: t.prompt,
+      completionTokens: t.completion,
+    }))
+    .sort(
+      (a, b) =>
+        b.promptTokens + b.completionTokens - (a.promptTokens + a.completionTokens),
+    );
 }
 
 export function collectMetrics(
@@ -17,6 +37,8 @@ export function collectMetrics(
   const toolCounts = new Map<string, number>();
   const skillCounts = new Map<string, number>();
   const activityMap = new Map<string, number>();
+  const agentTokens = new Map<string, { prompt: number; completion: number }>();
+  const modelTokens = new Map<string, { prompt: number; completion: number }>();
 
   let totalRequests = 0;
   let promptTokens = 0;
@@ -39,6 +61,18 @@ export function collectMetrics(
       // Token usage
       promptTokens += req.usage.promptTokens;
       completionTokens += req.usage.completionTokens;
+
+      // Tokens by agent
+      const agentTok = agentTokens.get(agentName) ?? { prompt: 0, completion: 0 };
+      agentTok.prompt += req.usage.promptTokens;
+      agentTok.completion += req.usage.completionTokens;
+      agentTokens.set(agentName, agentTok);
+
+      // Tokens by model
+      const modelTok = modelTokens.get(req.modelId) ?? { prompt: 0, completion: 0 };
+      modelTok.prompt += req.usage.promptTokens;
+      modelTok.completion += req.usage.completionTokens;
+      modelTokens.set(req.modelId, modelTok);
 
       // Tool usage
       for (const tc of req.toolCalls) {
@@ -74,6 +108,8 @@ export function collectMetrics(
     modelUsage: countMap(modelCounts),
     toolUsage: countMap(toolCounts),
     skillUsage: countMap(skillCounts),
+    tokensByAgent: tokenMap(agentTokens),
+    tokensByModel: tokenMap(modelTokens),
     activity,
     unusedAgents,
     unusedSkills,
