@@ -2,7 +2,7 @@
   "name": "copilot-lens",
   "displayName": "Copilot Lens",
   "description": "Visualize your GitHub Copilot agents, skills, and handoffs as an interactive graph. Parses chat sessions to surface usage metrics.",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "publisher": "23min",
   "license": "MIT",
   "repository": {
@@ -60,6 +60,16 @@
           "name": "Agents & Skills"
         }
       ]
+    },
+    "configuration": {
+      "title": "Copilot Lens",
+      "properties": {
+        "copilotLens.sessionDir": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Path to a directory containing Copilot chat session files (`.jsonl`). Can be a `chatSessions/` directory or a `workspaceStorage/` root (scanned automatically). Useful in devcontainers where sessions live on the host — mount the host's `workspaceStorage` and point this setting to the mount path."
+        }
+      }
     },
     "menus": {
       "view/title": [

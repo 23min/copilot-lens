@@ -75,28 +75,15 @@ function workspaceName(uri: string): string {
 }
 
 /**
- * Find all chatSessions directories under workspaceStorage/ that belong
- * to the same workspace (by folder name). This handles devcontainers,
- * WSL2, and hash changes that create multiple storage directories for
- * the same project.
+ * Scan a workspaceStorage root for chatSessions directories that match
+ * the current workspace (by folder name). Handles devcontainers, WSL2,
+ * and hash changes that create multiple storage directories for the
+ * same project.
  */
-async function findAllMatchingSessionDirs(
-  context: vscode.ExtensionContext,
+async function scanWorkspaceStorageRoot(
+  workspaceStorageRoot: string,
+  targetName: string,
 ): Promise<string[]> {
-  const storageUri = context.storageUri;
-  if (!storageUri) return [];
-
-  // workspaceStorage/{hash}/copilot-lens/ → workspaceStorage/
-  const hashDir = path.dirname(storageUri.fsPath);
-  const workspaceStorageRoot = path.dirname(hashDir);
-
-  // Determine our workspace's folder name
-  const ourUri = await readWorkspaceUri(hashDir);
-  const ourName = ourUri
-    ? workspaceName(ourUri)
-    : vscode.workspace.workspaceFolders?.[0]?.name ?? null;
-  if (!ourName) return [];
-
   let hashDirs: string[];
   try {
     hashDirs = await fs.readdir(workspaceStorageRoot);
@@ -105,38 +92,79 @@ async function findAllMatchingSessionDirs(
   }
 
   const dirs: string[] = [];
-
   for (const entry of hashDirs) {
     const candidateDir = path.join(workspaceStorageRoot, entry);
     const candidateUri = await readWorkspaceUri(candidateDir);
     if (!candidateUri) continue;
 
-    if (workspaceName(candidateUri) === ourName) {
-      const sessionsDir = path.join(candidateDir, "chatSessions");
-      dirs.push(sessionsDir);
+    if (workspaceName(candidateUri) === targetName) {
+      dirs.push(path.join(candidateDir, "chatSessions"));
     }
   }
-
   return dirs;
+}
+
+/**
+ * Get the current workspace's folder name for matching.
+ */
+async function getWorkspaceFolderName(
+  context: vscode.ExtensionContext,
+): Promise<string | null> {
+  const storageUri = context.storageUri;
+  if (storageUri) {
+    const hashDir = path.dirname(storageUri.fsPath);
+    const ourUri = await readWorkspaceUri(hashDir);
+    if (ourUri) return workspaceName(ourUri);
+  }
+  return vscode.workspace.workspaceFolders?.[0]?.name ?? null;
 }
 
 export async function discoverSessions(
   context: vscode.ExtensionContext,
 ): Promise<Session[]> {
-  // Try the primary location first (current workspace hash)
+  const ourName = await getWorkspaceFolderName(context);
+
+  // 1. Check user-configured sessionDir first (for devcontainers with mounts)
+  const configDir = vscode.workspace
+    .getConfiguration("copilotLens")
+    .get<string>("sessionDir");
+
+  if (configDir) {
+    // Try reading .jsonl files directly from the configured path
+    const direct = await readSessionsFromDir(configDir);
+    if (direct.length > 0) return direct;
+
+    // Otherwise treat it as a workspaceStorage root and scan hash dirs
+    if (ourName) {
+      const scanned = await collectFromDirs(
+        await scanWorkspaceStorageRoot(configDir, ourName),
+      );
+      if (scanned.length > 0) return scanned;
+    }
+  }
+
+  // 2. Try primary location (current workspace hash)
   const primaryDir = getChatSessionsDir(context);
   if (primaryDir) {
     const primary = await readSessionsFromDir(primaryDir);
     if (primary.length > 0) return primary;
   }
 
-  // Fallback: scan all sibling hash directories for the same workspace.
-  // This finds sessions when hash changes (devcontainer reconnects, WSL2,
-  // workspace renames).
-  const dirs = await findAllMatchingSessionDirs(context);
+  // 3. Fallback: scan sibling hash directories for the same workspace
+  if (ourName && context.storageUri) {
+    const hashDir = path.dirname(context.storageUri.fsPath);
+    const storageRoot = path.dirname(hashDir);
+    return collectFromDirs(
+      await scanWorkspaceStorageRoot(storageRoot, ourName),
+    );
+  }
+
+  return [];
+}
+
+async function collectFromDirs(dirs: string[]): Promise<Session[]> {
   const seen = new Set<string>();
   const sessions: Session[] = [];
-
   for (const dir of dirs) {
     const found = await readSessionsFromDir(dir);
     for (const s of found) {
@@ -146,6 +174,5 @@ export async function discoverSessions(
       }
     }
   }
-
   return sessions;
 }
