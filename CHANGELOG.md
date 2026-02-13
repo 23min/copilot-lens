@@ -50,3 +50,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Agent switch and model switch highlighting with colored badges
 - Click request to expand detail view (full prompt, tool calls, skills, timing, tokens)
 - `Copilot Lens: Session Explorer` command
+- Actions section in sidebar tree view with quick-launch buttons for Graph, Metrics, and Session Explorer
+- DAG layout for agent graph: layered left-to-right topological ordering with auto-fit to viewport
+- Bezier curve edges between graph nodes
+
+### Fixed
+- Webview panels rendering blank: HTML now uses Lit custom elements instead of empty div containers
+- Graph fills full viewport height (was clipped mid-screen)
+- VS Code build task failing with exit code 127: tasks.json uses shell type with fnm init

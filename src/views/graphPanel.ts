@@ -66,21 +66,24 @@ export class GraphPanel {
     content="default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline';">
   <title>Copilot Lens: Agent Graph</title>
   <style>
-    body {
+    html, body {
       margin: 0;
       overflow: hidden;
+      width: 100vw;
+      height: 100vh;
       background: var(--vscode-editor-background);
       color: var(--vscode-editor-foreground);
       font-family: var(--vscode-font-family);
     }
-    #graph-container {
+    graph-view {
+      display: block;
       width: 100vw;
       height: 100vh;
     }
   </style>
 </head>
 <body>
-  <div id="graph-container"></div>
+  <graph-view></graph-view>
   <script nonce="${nonce}" type="module" src="${scriptUri}"></script>
 </body>
 </html>`;

@@ -81,7 +81,7 @@ export class MetricsPanel {
   </style>
 </head>
 <body>
-  <div id="metrics-container"></div>
+  <metrics-dashboard></metrics-dashboard>
   <script nonce="${nonce}" type="module" src="${scriptUri}"></script>
 </body>
 </html>`;

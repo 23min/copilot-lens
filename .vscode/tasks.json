@@ -2,8 +2,8 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "type": "npm",
-      "script": "build",
+      "type": "shell",
+      "command": "export PATH=\"$HOME/.fnm:$PATH\" && eval \"$(fnm env)\" && npm run build",
       "group": {
         "kind": "build",
         "isDefault": true
@@ -12,8 +12,8 @@
       "problemMatcher": ["$esbuild"]
     },
     {
-      "type": "npm",
-      "script": "watch",
+      "type": "shell",
+      "command": "export PATH=\"$HOME/.fnm:$PATH\" && eval \"$(fnm env)\" && npm run watch",
       "group": "build",
       "label": "npm: watch",
       "isBackground": true,
