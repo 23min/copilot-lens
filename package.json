@@ -2,7 +2,7 @@
   "name": "copilot-lens",
   "displayName": "Copilot Lens",
   "description": "Visualize your GitHub Copilot agents, skills, and handoffs as an interactive graph. Parses chat sessions to surface usage metrics.",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "publisher": "23min",
   "license": "MIT",
   "repository": {

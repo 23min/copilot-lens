@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.7] - 2026-02-13
+
 ### Added
 - Token distribution donut charts: tokens by agent, tokens by model, prompt vs completion ratio (closes #2)
 - Hover tooltips on Agent Usage bar chart: shows total tokens, avg prompt size, avg completion size per agent
