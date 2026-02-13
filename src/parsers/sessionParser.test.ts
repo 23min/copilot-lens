@@ -121,6 +121,130 @@ describe("parseSessionJsonl", () => {
     expect(session.sessionId).toBe("unknown");
     expect(session.requests).toEqual([]);
   });
+
+  it("detects custom agent from inputState.mode in initial state", () => {
+    const lines = [
+      JSON.stringify({
+        kind: 0,
+        v: {
+          sessionId: "s1",
+          creationDate: 0,
+          requests: [],
+          inputState: {
+            mode: {
+              id: "file:///repo/.github/agents/planner.agent.md",
+              kind: "agent",
+            },
+          },
+        },
+      }),
+      JSON.stringify({
+        kind: 2,
+        k: ["requests"],
+        v: [
+          {
+            requestId: "req-1",
+            timestamp: 0,
+            agent: { id: "github.copilot.editsAgent" },
+            modelId: "copilot/claude-sonnet-4",
+            message: { text: "plan this" },
+          },
+        ],
+      }),
+    ].join("\n");
+
+    const session = parseSessionJsonl(lines);
+    expect(session.requests[0].customAgentName).toBe("planner");
+  });
+
+  it("tracks mode changes between requests", () => {
+    const lines = [
+      JSON.stringify({
+        kind: 0,
+        v: {
+          sessionId: "s2",
+          creationDate: 0,
+          requests: [],
+          inputState: {
+            mode: {
+              id: "file:///repo/.github/agents/planner.agent.md",
+              kind: "agent",
+            },
+          },
+        },
+      }),
+      JSON.stringify({
+        kind: 2,
+        k: ["requests"],
+        v: [
+          {
+            requestId: "req-1",
+            timestamp: 0,
+            agent: { id: "github.copilot.editsAgent" },
+            modelId: "m1",
+            message: { text: "first" },
+          },
+        ],
+      }),
+      // Mode switches to architect
+      JSON.stringify({
+        kind: 1,
+        k: ["inputState", "mode"],
+        v: {
+          id: "file:///repo/.github/agents/architect.agent.md",
+          kind: "agent",
+        },
+      }),
+      JSON.stringify({
+        kind: 2,
+        k: ["requests"],
+        v: [
+          {
+            requestId: "req-2",
+            timestamp: 1,
+            agent: { id: "github.copilot.editsAgent" },
+            modelId: "m1",
+            message: { text: "second" },
+          },
+        ],
+      }),
+      // Mode switches to tester
+      JSON.stringify({
+        kind: 1,
+        k: ["inputState", "mode"],
+        v: {
+          id: "file:///repo/.github/agents/tester.agent.md",
+          kind: "agent",
+        },
+      }),
+      JSON.stringify({
+        kind: 2,
+        k: ["requests"],
+        v: [
+          {
+            requestId: "req-3",
+            timestamp: 2,
+            agent: { id: "github.copilot.editsAgent" },
+            modelId: "m1",
+            message: { text: "third" },
+          },
+        ],
+      }),
+    ].join("\n");
+
+    const session = parseSessionJsonl(lines);
+    expect(session.requests).toHaveLength(3);
+    expect(session.requests[0].customAgentName).toBe("planner");
+    expect(session.requests[1].customAgentName).toBe("architect");
+    expect(session.requests[2].customAgentName).toBe("tester");
+  });
+
+  it("falls back to modeInstructions when no inputState.mode", () => {
+    // The original JSONL_FIXTURE has no inputState.mode but has
+    // renderedUserMessage with modeInstructions — should still detect "Planner"
+    const session = parseSessionJsonl(JSONL_FIXTURE);
+    expect(session.requests[0].customAgentName).toBe("Planner");
+  });
 });
 
 const CHATREPLAY_FIXTURE = JSON.stringify({

@@ -7,6 +7,11 @@ export function detectCustomAgent(text: string): string | null {
   return match ? match[1] : null;
 }
 
+export function extractAgentNameFromUri(uri: string): string | null {
+  const match = uri.match(/\/([^/]+)\.agent\.md$/);
+  return match ? match[1] : null;
+}
+
 export function detectAvailableSkills(text: string): SkillRef[] {
   const skillsBlockMatch = text.match(/<skills>([\s\S]*?)<\/skills>/);
   if (!skillsBlockMatch) return [];
