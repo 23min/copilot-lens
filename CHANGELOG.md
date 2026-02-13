@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Frontmatter parser: extracts YAML frontmatter + markdown body from `.agent.md` and `SKILL.md` files
 - Agent parser: `.agent.md` content → `Agent` model (name, tools, model, handoffs, body)
 - Skill parser: `SKILL.md` content → `Skill` model (name, description, body)
-- File discovery: find all agent/skill files in workspace via `vscode.workspace.findFiles`
+- File discovery: find all agent/skill files in workspace via `vscode.workspace.findFiles`; supports both `skills/*/SKILL.md` and `skills/*.skill.md` conventions
 - Graph builder: constructs node/edge graph from agents and skills, resolves handoff targets, warns on broken references
 - Optional built-in Copilot agents (Ask, Edit, Agent) as graph nodes
 - 28 unit tests across parsers and graph builder

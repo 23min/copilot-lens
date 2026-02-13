@@ -7,7 +7,10 @@ import type { Skill } from "../models/skill.js";
 import { getLogger } from "../logger.js";
 
 const AGENT_GLOB = "**/.github/agents/*.agent.md";
-const SKILL_GLOB = "**/.github/skills/*/SKILL.md";
+const SKILL_GLOBS = [
+  "**/.github/skills/*/SKILL.md",
+  "**/.github/skills/*.skill.md",
+];
 
 export async function discoverAgents(): Promise<Agent[]> {
   const log = getLogger();
@@ -35,7 +38,10 @@ export async function discoverAgents(): Promise<Agent[]> {
 
 export async function discoverSkills(): Promise<Skill[]> {
   const log = getLogger();
-  const uris = await vscode.workspace.findFiles(SKILL_GLOB);
+  const uriArrays = await Promise.all(
+    SKILL_GLOBS.map((g) => vscode.workspace.findFiles(g)),
+  );
+  const uris = uriArrays.flat();
   log.info(`Skill discovery: found ${uris.length} file(s)`);
   const skills: Skill[] = [];
 

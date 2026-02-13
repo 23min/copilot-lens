@@ -70,4 +70,25 @@ Instructions.`;
     expect(skill.name).toBe("raw");
     expect(skill.body).toBe("# Just Markdown\n\nNo frontmatter here.");
   });
+
+  it("infers name from flat *.skill.md filename", () => {
+    const content = `---
+description: Branching strategy guide
+---
+
+Branch naming conventions.`;
+    const skill = parseSkill(content, ".github/skills/branching.skill.md");
+    expect(skill.name).toBe("branching");
+    expect(skill.description).toBe("Branching strategy guide");
+  });
+
+  it("prefers frontmatter name over flat filename", () => {
+    const content = `---
+name: my-branching-skill
+---
+
+Content.`;
+    const skill = parseSkill(content, ".github/skills/branching.skill.md");
+    expect(skill.name).toBe("my-branching-skill");
+  });
 });

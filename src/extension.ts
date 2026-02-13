@@ -115,6 +115,9 @@ export function activate(context: vscode.ExtensionContext): void {
   const skillWatcher = vscode.workspace.createFileSystemWatcher(
     "**/.github/skills/*/SKILL.md",
   );
+  const skillFlatWatcher = vscode.workspace.createFileSystemWatcher(
+    "**/.github/skills/*.skill.md",
+  );
 
   agentWatcher.onDidCreate(scheduleRefresh);
   agentWatcher.onDidChange(scheduleRefresh);
@@ -122,6 +125,9 @@ export function activate(context: vscode.ExtensionContext): void {
   skillWatcher.onDidCreate(scheduleRefresh);
   skillWatcher.onDidChange(scheduleRefresh);
   skillWatcher.onDidDelete(scheduleRefresh);
+  skillFlatWatcher.onDidCreate(scheduleRefresh);
+  skillFlatWatcher.onDidChange(scheduleRefresh);
+  skillFlatWatcher.onDidDelete(scheduleRefresh);
 
   context.subscriptions.push(
     outputChannel,
@@ -132,6 +138,7 @@ export function activate(context: vscode.ExtensionContext): void {
     openSession,
     agentWatcher,
     skillWatcher,
+    skillFlatWatcher,
   );
 
   // Watch session files (outside workspace, in workspaceStorage)
