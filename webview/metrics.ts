@@ -1,14 +1,16 @@
 import { LitElement, html, css, svg } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import { arc as d3Arc, pie as d3Pie } from "d3";
 
 interface CountEntry {
   name: string;
   count: number;
 }
 
-interface ActivityEntry {
-  date: string;
-  count: number;
+interface TokenEntry {
+  name: string;
+  promptTokens: number;
+  completionTokens: number;
 }
 
 interface AggregatedMetrics {
@@ -19,10 +21,29 @@ interface AggregatedMetrics {
   modelUsage: CountEntry[];
   toolUsage: CountEntry[];
   skillUsage: CountEntry[];
-  activity: ActivityEntry[];
+  tokensByAgent: TokenEntry[];
+  tokensByModel: TokenEntry[];
+  activity: { date: string; count: number }[];
   unusedAgents: string[];
   unusedSkills: string[];
 }
+
+interface DonutSlice {
+  name: string;
+  value: number;
+  color: string;
+}
+
+const DONUT_PALETTE = [
+  "#4fc1ff",
+  "#c586c0",
+  "#4ec9b0",
+  "#dcdcaa",
+  "#ce9178",
+  "#9cdcfe",
+  "#d4d4d4",
+  "#608b4e",
+];
 
 @customElement("metrics-dashboard")
 class MetricsDashboard extends LitElement {
@@ -121,12 +142,78 @@ class MetricsDashboard extends LitElement {
       font-size: 13px;
       padding: 8px 0;
     }
-    .activity-chart {
-      margin: 8px 0 16px;
+    .donut-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin: 8px 0 24px;
+    }
+    .donut-card {
+      background: var(--vscode-editorWidget-background, #252526);
+      border: 1px solid var(--vscode-editorWidget-border, #454545);
+      border-radius: 6px;
+      padding: 16px;
+    }
+    .donut-title {
+      font-size: 11px;
+      opacity: 0.6;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .donut-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .donut-legend {
+      width: 100%;
+      font-size: 12px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 3px 0;
+    }
+    .legend-swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+    .legend-label {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .legend-value {
+      opacity: 0.7;
+      flex-shrink: 0;
+    }
+    .tooltip {
+      position: fixed;
+      background: var(--vscode-editorHoverWidget-background, #252526);
+      border: 1px solid var(--vscode-editorHoverWidget-border, #454545);
+      color: var(--vscode-editorHoverWidget-foreground, #ccc);
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      pointer-events: none;
+      z-index: 100;
+      max-width: 280px;
+      line-height: 1.5;
     }
   `;
 
   @state() private metrics: AggregatedMetrics | null = null;
+  @state() private tooltip: {
+    x: number;
+    y: number;
+    text: string;
+  } | null = null;
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -148,6 +235,10 @@ class MetricsDashboard extends LitElement {
     entries: CountEntry[],
     color: string,
     maxItems = 10,
+    tooltipData?: Map<
+      string,
+      { totalTokens: number; avgPrompt: number; avgCompletion: number }
+    >,
   ) {
     const items = entries.slice(0, maxItems);
     const maxCount = Math.max(...items.map((e) => e.count), 1);
@@ -156,7 +247,31 @@ class MetricsDashboard extends LitElement {
       <div class="bar-chart">
         ${items.map(
           (entry) => html`
-            <div class="bar-row">
+            <div
+              class="bar-row"
+              @mouseenter="${(e: MouseEvent) => {
+                if (!tooltipData) return;
+                const data = tooltipData.get(entry.name);
+                if (!data) return;
+                this.tooltip = {
+                  x: e.clientX + 12,
+                  y: e.clientY - 10,
+                  text: `${entry.name}\n${entry.count} requests · ${this.formatNumber(data.totalTokens)} tokens\nAvg prompt: ${this.formatNumber(data.avgPrompt)} · Avg completion: ${this.formatNumber(data.avgCompletion)}`,
+                };
+              }}"
+              @mouseleave="${() => {
+                this.tooltip = null;
+              }}"
+              @mousemove="${(e: MouseEvent) => {
+                if (this.tooltip) {
+                  this.tooltip = {
+                    ...this.tooltip,
+                    x: e.clientX + 12,
+                    y: e.clientY - 10,
+                  };
+                }
+              }}"
+            >
               <span class="bar-label" title="${entry.name}">${entry.name}</span>
               <div class="bar-track">
                 <div
@@ -175,54 +290,66 @@ class MetricsDashboard extends LitElement {
     `;
   }
 
-  private renderActivityChart(activity: ActivityEntry[]) {
-    if (activity.length === 0) {
-      return html`<div class="empty-state">No activity data</div>`;
+  private renderDonutChart(slices: DonutSlice[], size = 140) {
+    const total = slices.reduce((sum, s) => sum + s.value, 0);
+    if (total === 0) {
+      return html`<div class="empty-state">No data</div>`;
     }
 
-    const maxCount = Math.max(...activity.map((a) => a.count), 1);
-    const width = 800;
-    const height = 120;
-    const padding = { top: 10, right: 10, bottom: 25, left: 10 };
-    const barWidth = Math.min(
-      30,
-      (width - padding.left - padding.right) / activity.length - 2,
-    );
+    const outerR = size / 2 - 4;
+    const innerR = outerR * 0.6;
+
+    const arcGen = d3Arc<d3.PieArcDatum<DonutSlice>>()
+      .innerRadius(innerR)
+      .outerRadius(outerR);
+
+    const pieGen = d3Pie<DonutSlice>()
+      .value((d) => d.value)
+      .sort(null);
+
+    const arcs = pieGen(slices);
 
     return html`
-      <div class="activity-chart">
-        <svg viewBox="0 0 ${width} ${height}" style="width: 100%; height: ${height}px;">
-          ${activity.map((entry, i) => {
-            const x =
-              padding.left +
-              i * ((width - padding.left - padding.right) / activity.length) +
-              barWidth / 4;
-            const barHeight =
-              (entry.count / maxCount) *
-              (height - padding.top - padding.bottom);
-            const y = height - padding.bottom - barHeight;
-
-            return svg`
-              <rect
-                x="${x}"
-                y="${y}"
-                width="${barWidth}"
-                height="${barHeight}"
-                fill="#4fc1ff"
-                opacity="0.8"
-                rx="2"
-              />
-              <text
-                x="${x + barWidth / 2}"
-                y="${height - 5}"
-                text-anchor="middle"
-                fill="currentColor"
-                font-size="9"
-                opacity="0.5"
-              >${entry.date.slice(5)}</text>
-            `;
-          })}
+      <div class="donut-container">
+        <svg
+          viewBox="0 0 ${size} ${size}"
+          width="${size}"
+          height="${size}"
+        >
+          <g transform="translate(${size / 2}, ${size / 2})">
+            ${arcs.map(
+              (a) => svg`
+                <path d="${arcGen(a)}" fill="${a.data.color}" opacity="0.85" />
+              `,
+            )}
+            <text
+              text-anchor="middle"
+              dy="5"
+              fill="currentColor"
+              font-size="14"
+              font-weight="600"
+            >
+              ${this.formatNumber(total)}
+            </text>
+          </g>
         </svg>
+        <div class="donut-legend">
+          ${slices.map(
+            (s) => html`
+              <div class="legend-item">
+                <span
+                  class="legend-swatch"
+                  style="background: ${s.color}"
+                ></span>
+                <span class="legend-label" title="${s.name}">${s.name}</span>
+                <span class="legend-value">
+                  ${this.formatNumber(s.value)}
+                  (${Math.round((s.value / total) * 100)}%)
+                </span>
+              </div>
+            `,
+          )}
+        </div>
       </div>
     `;
   }
@@ -239,6 +366,43 @@ class MetricsDashboard extends LitElement {
     }
 
     const m = this.metrics;
+
+    // Build tooltip data for agent bar chart
+    const agentTooltipData = new Map<
+      string,
+      { totalTokens: number; avgPrompt: number; avgCompletion: number }
+    >();
+    for (const t of m.tokensByAgent) {
+      const requestCount =
+        m.agentUsage.find((a) => a.name === t.name)?.count ?? 1;
+      agentTooltipData.set(t.name, {
+        totalTokens: t.promptTokens + t.completionTokens,
+        avgPrompt: Math.round(t.promptTokens / requestCount),
+        avgCompletion: Math.round(t.completionTokens / requestCount),
+      });
+    }
+
+    // Build donut slices
+    const agentSlices: DonutSlice[] = m.tokensByAgent.map((t, i) => ({
+      name: t.name,
+      value: t.promptTokens + t.completionTokens,
+      color: DONUT_PALETTE[i % DONUT_PALETTE.length],
+    }));
+
+    const modelSlices: DonutSlice[] = m.tokensByModel.map((t, i) => ({
+      name: t.name,
+      value: t.promptTokens + t.completionTokens,
+      color: DONUT_PALETTE[i % DONUT_PALETTE.length],
+    }));
+
+    const promptCompSlices: DonutSlice[] = [
+      { name: "Prompt", value: m.totalTokens.prompt, color: "#4fc1ff" },
+      {
+        name: "Completion",
+        value: m.totalTokens.completion,
+        color: "#c586c0",
+      },
+    ];
 
     return html`
       <h1>Copilot Lens Metrics</h1>
@@ -266,11 +430,24 @@ class MetricsDashboard extends LitElement {
         </div>
       </div>
 
-      <h2>Activity</h2>
-      ${this.renderActivityChart(m.activity)}
+      <h2>Token Distribution</h2>
+      <div class="donut-row">
+        <div class="donut-card">
+          <div class="donut-title">By Agent</div>
+          ${this.renderDonutChart(agentSlices)}
+        </div>
+        <div class="donut-card">
+          <div class="donut-title">By Model</div>
+          ${this.renderDonutChart(modelSlices)}
+        </div>
+        <div class="donut-card">
+          <div class="donut-title">Prompt vs Completion</div>
+          ${this.renderDonutChart(promptCompSlices)}
+        </div>
+      </div>
 
       <h2>Agent Usage</h2>
-      ${this.renderBarChart(m.agentUsage, "#4fc1ff")}
+      ${this.renderBarChart(m.agentUsage, "#4fc1ff", 10, agentTooltipData)}
 
       <h2>Model Usage</h2>
       ${this.renderBarChart(m.modelUsage, "#c586c0")}
@@ -311,6 +488,14 @@ class MetricsDashboard extends LitElement {
                 `
               : null}
           `
+        : null}
+      ${this.tooltip
+        ? html`<div
+            class="tooltip"
+            style="left: ${this.tooltip.x}px; top: ${this.tooltip.y}px; white-space: pre-line;"
+          >
+            ${this.tooltip.text}
+          </div>`
         : null}
     `;
   }

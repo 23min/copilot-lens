@@ -18,4 +18,5 @@ export type {
   AggregatedMetrics,
   CountEntry,
   ActivityEntry,
+  TokenEntry,
 } from "./metrics.js";

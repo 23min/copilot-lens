@@ -164,5 +164,50 @@ describe("collectMetrics", () => {
     expect(metrics.totalSessions).toBe(0);
     expect(metrics.totalRequests).toBe(0);
     expect(metrics.agentUsage).toEqual([]);
+    expect(metrics.tokensByAgent).toEqual([]);
+    expect(metrics.tokensByModel).toEqual([]);
+  });
+
+  it("aggregates tokens by agent", () => {
+    const metrics = collectMetrics(SESSIONS, [], []);
+    const impl = metrics.tokensByAgent.find((a) => a.name === "Implementer");
+    expect(impl?.promptTokens).toBe(2000);
+    expect(impl?.completionTokens).toBe(500);
+
+    const planner = metrics.tokensByAgent.find((a) => a.name === "Planner");
+    expect(planner?.promptTokens).toBe(1000);
+    expect(planner?.completionTokens).toBe(200);
+
+    const defaultAgent = metrics.tokensByAgent.find(
+      (a) => a.name === "github.copilot.editsAgent",
+    );
+    expect(defaultAgent?.promptTokens).toBe(500);
+    expect(defaultAgent?.completionTokens).toBe(100);
+  });
+
+  it("aggregates tokens by model", () => {
+    const metrics = collectMetrics(SESSIONS, [], []);
+    const claude = metrics.tokensByModel.find(
+      (m) => m.name === "copilot/claude-opus-4.6",
+    );
+    expect(claude?.promptTokens).toBe(3000);
+    expect(claude?.completionTokens).toBe(700);
+
+    const gpt = metrics.tokensByModel.find((m) => m.name === "copilot/gpt-4o");
+    expect(gpt?.promptTokens).toBe(500);
+    expect(gpt?.completionTokens).toBe(100);
+  });
+
+  it("sorts tokensByAgent by total tokens descending", () => {
+    const metrics = collectMetrics(SESSIONS, [], []);
+    for (let i = 1; i < metrics.tokensByAgent.length; i++) {
+      const prev =
+        metrics.tokensByAgent[i - 1].promptTokens +
+        metrics.tokensByAgent[i - 1].completionTokens;
+      const curr =
+        metrics.tokensByAgent[i].promptTokens +
+        metrics.tokensByAgent[i].completionTokens;
+      expect(prev).toBeGreaterThanOrEqual(curr);
+    }
   });
 });

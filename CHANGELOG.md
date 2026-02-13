@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Token distribution donut charts: tokens by agent, tokens by model, prompt vs completion ratio (closes #2)
+- Hover tooltips on Agent Usage bar chart: shows total tokens, avg prompt size, avg completion size per agent
+- `TokenEntry` data model and `tokensByAgent` / `tokensByModel` fields in aggregated metrics
+- Design spec for donut charts feature (`docs/design/donut-charts.md`)
+
+### Removed
+- Activity timeline chart from the Metrics Dashboard (low value)
+
 ## [0.0.6] - 2026-02-13
 
 ### Added
