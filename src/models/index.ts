@@ -8,3 +8,9 @@ export type {
   NodeKind,
   EdgeKind,
 } from "./graph.js";
+export type {
+  Session,
+  SessionRequest,
+  ToolCallInfo,
+  SkillRef,
+} from "./session.js";
