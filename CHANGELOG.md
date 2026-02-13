@@ -25,3 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Graph builder: constructs node/edge graph from agents and skills, resolves handoff targets, warns on broken references
 - Optional built-in Copilot agents (Ask, Edit, Agent) as graph nodes
 - 28 unit tests across parsers and graph builder
+- Sidebar tree view: agents and skills with collapsible hierarchy (tools, models, handoffs as children)
+- Activity bar icon (telescope) and refresh command
+- Click-to-open agent/skill files from tree view
+- Interactive D3 force-directed graph webview (Lit + D3.js)
+- Color-coded nodes: agents (blue), skills (teal), built-in (light blue)
+- Directed edges with arrowheads, dashed lines for manual handoffs
+- Zoom, pan, node dragging, hover tooltips, edge labels
+- Separate browser bundle for webview (esbuild ESM)

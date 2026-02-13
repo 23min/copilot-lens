@@ -31,6 +31,11 @@ src/
   models/               # TypeScript interfaces (Agent, Skill, Graph)
   parsers/              # Pure-function parsers for .agent.md and SKILL.md
   analyzers/            # Graph builder, metrics collector (planned)
+  views/
+    treeProvider.ts     # Sidebar tree view (agents & skills)
+    graphPanel.ts       # Webview panel host for the graph
+webview/
+  graph.ts              # Lit + D3.js force-directed graph component
 ```
 
 ## License
