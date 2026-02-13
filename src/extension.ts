@@ -46,7 +46,7 @@ async function refresh(
 }
 
 export function activate(context: vscode.ExtensionContext): void {
-  const outputChannel = vscode.window.createOutputChannel("Copilot Lens");
+  const outputChannel = vscode.window.createOutputChannel("Copilot Lens", { log: true });
   initLogger(outputChannel);
   getLogger().info("Copilot Lens activated");
 

@@ -10,26 +10,32 @@ describe("logger", () => {
   });
 
   describe("after initialization", () => {
-    const appendLine = vi.fn();
+    const channel = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    };
 
     beforeEach(() => {
-      appendLine.mockClear();
-      initLogger({ appendLine } as any);
+      channel.info.mockClear();
+      channel.warn.mockClear();
+      channel.error.mockClear();
+      initLogger(channel as any);
     });
 
-    it("logs info messages", () => {
+    it("delegates info to channel.info", () => {
       getLogger().info("hello");
-      expect(appendLine).toHaveBeenCalledWith("[INFO]  hello");
+      expect(channel.info).toHaveBeenCalledWith("hello");
     });
 
-    it("logs warn messages", () => {
+    it("delegates warn to channel.warn", () => {
       getLogger().warn("careful");
-      expect(appendLine).toHaveBeenCalledWith("[WARN]  careful");
+      expect(channel.warn).toHaveBeenCalledWith("careful");
     });
 
-    it("logs error messages", () => {
+    it("delegates error to channel.error", () => {
       getLogger().error("boom");
-      expect(appendLine).toHaveBeenCalledWith("[ERROR] boom");
+      expect(channel.error).toHaveBeenCalledWith("boom");
     });
   });
 });
