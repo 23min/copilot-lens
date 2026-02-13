@@ -45,7 +45,7 @@ export class CopilotLensTreeProvider
         item.command = {
           command: "vscode.open",
           title: "Open Agent File",
-          arguments: [vscode.Uri.file(element.agent.filePath)],
+          arguments: [element.agent.fileUri ? vscode.Uri.parse(element.agent.fileUri) : vscode.Uri.file(element.agent.filePath)],
         };
         return item;
       }
@@ -60,7 +60,7 @@ export class CopilotLensTreeProvider
         item.command = {
           command: "vscode.open",
           title: "Open Skill File",
-          arguments: [vscode.Uri.file(element.skill.filePath)],
+          arguments: [element.skill.fileUri ? vscode.Uri.parse(element.skill.fileUri) : vscode.Uri.file(element.skill.filePath)],
         };
         return item;
       }

@@ -3,4 +3,5 @@ export interface Skill {
   description: string;
   body: string;
   filePath: string;
+  fileUri?: string;
 }

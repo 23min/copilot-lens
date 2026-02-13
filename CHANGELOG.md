@@ -60,3 +60,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - VS Code build task failing with exit code 127: tasks.json uses shell type with fnm init
 - Session discovery in devcontainers/WSL2: scans sibling workspace hash directories to find sessions when the storage hash differs from the original
 - `copilotLens.sessionDir` setting: manually specify a session directory or mounted `workspaceStorage` root for devcontainer environments where sessions live on the host
+- Click-to-open agent/skill files broken on Windows: was using relative path with `Uri.file()`, now preserves the original URI from discovery
