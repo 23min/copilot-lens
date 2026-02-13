@@ -212,7 +212,8 @@ class MetricsDashboard extends LitElement {
   @state() private tooltip: {
     x: number;
     y: number;
-    text: string;
+    name: string;
+    detail: string;
   } | null = null;
 
   connectedCallback(): void {
@@ -256,7 +257,8 @@ class MetricsDashboard extends LitElement {
                 this.tooltip = {
                   x: e.clientX + 12,
                   y: e.clientY - 10,
-                  text: `${entry.name}\n${entry.count} requests · ${this.formatNumber(data.totalTokens)} tokens\nAvg prompt: ${this.formatNumber(data.avgPrompt)} · Avg completion: ${this.formatNumber(data.avgCompletion)}`,
+                  name: entry.name,
+                  detail: `${entry.count} requests · ${this.formatNumber(data.totalTokens)} tokens\nAvg prompt: ${this.formatNumber(data.avgPrompt)} · Avg completion: ${this.formatNumber(data.avgCompletion)}`,
                 };
               }}"
               @mouseleave="${() => {
@@ -493,9 +495,7 @@ class MetricsDashboard extends LitElement {
         ? html`<div
             class="tooltip"
             style="left: ${this.tooltip.x}px; top: ${this.tooltip.y}px; white-space: pre-line;"
-          >
-            ${this.tooltip.text}
-          </div>`
+          ><strong>${this.tooltip.name}</strong>\n${this.tooltip.detail}</div>`
         : null}
     `;
   }
