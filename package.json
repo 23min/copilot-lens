@@ -56,13 +56,16 @@
     }
   },
   "scripts": {
-    "build": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node",
-    "watch": "npm run build -- --watch --sourcemap",
+    "build": "npm run build:ext && npm run build:webview",
+    "build:ext": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node",
+    "build:webview": "esbuild webview/graph.ts --bundle --outfile=out/webview/graph.js --format=esm --platform=browser",
+    "watch": "npm run build:ext -- --watch --sourcemap & npm run build:webview -- --watch --sourcemap",
     "test": "vitest run",
     "test:watch": "vitest",
     "package": "npx @vscode/vsce package"
   },
   "devDependencies": {
+    "@types/d3": "^7.4.3",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.0.0",
     "@types/vscode": "^1.100.0",
@@ -71,6 +74,8 @@
     "vitest": "^3.0.0"
   },
   "dependencies": {
-    "js-yaml": "^4.1.1"
+    "d3": "^7.9.0",
+    "js-yaml": "^4.1.1",
+    "lit": "^3.3.2"
   }
 }
