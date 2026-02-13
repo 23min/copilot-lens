@@ -26,6 +26,10 @@
         "command": "copilotLens.refresh",
         "title": "Copilot Lens: Refresh",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "copilotLens.openMetrics",
+        "title": "Copilot Lens: Show Metrics Dashboard"
       }
     ],
     "viewsContainers": {
@@ -58,7 +62,7 @@
   "scripts": {
     "build": "npm run build:ext && npm run build:webview",
     "build:ext": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node",
-    "build:webview": "esbuild webview/graph.ts --bundle --outfile=out/webview/graph.js --format=esm --platform=browser",
+    "build:webview": "esbuild webview/graph.ts webview/metrics.ts --bundle --outdir=out/webview --format=esm --platform=browser",
     "watch": "npm run build:ext -- --watch --sourcemap & npm run build:webview -- --watch --sourcemap",
     "test": "vitest run",
     "test:watch": "vitest",
