@@ -15,7 +15,9 @@ export async function discoverAgents(): Promise<Agent[]> {
   for (const uri of uris) {
     const content = await fs.readFile(uri.fsPath, "utf-8");
     const relativePath = vscode.workspace.asRelativePath(uri);
-    agents.push(parseAgent(content, relativePath));
+    const agent = parseAgent(content, relativePath);
+    agent.fileUri = uri.toString();
+    agents.push(agent);
   }
 
   return agents;
@@ -28,7 +30,9 @@ export async function discoverSkills(): Promise<Skill[]> {
   for (const uri of uris) {
     const content = await fs.readFile(uri.fsPath, "utf-8");
     const relativePath = vscode.workspace.asRelativePath(uri);
-    skills.push(parseSkill(content, relativePath));
+    const skill = parseSkill(content, relativePath);
+    skill.fileUri = uri.toString();
+    skills.push(skill);
   }
 
   return skills;

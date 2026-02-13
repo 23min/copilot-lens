@@ -13,4 +13,5 @@ export interface Agent {
   handoffs: Handoff[];
   body: string;
   filePath: string;
+  fileUri?: string;
 }
