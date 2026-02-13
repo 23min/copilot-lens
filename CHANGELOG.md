@@ -45,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Metrics dashboard webview (Lit): stat cards, bar charts, activity timeline, unused agents/skills warnings
 - `Copilot Lens: Show Metrics Dashboard` command
 - Auto-discovers session files on activation
-- 62 unit tests total
+- 66 unit tests total
 - Session Explorer webview: session picker sorted by date, vertical timeline of requests
 - Agent switch and model switch highlighting with colored badges
 - Click request to expand detail view (full prompt, tool calls, skills, timing, tokens)
@@ -53,6 +53,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Actions section in sidebar tree view with quick-launch buttons for Graph, Metrics, and Session Explorer
 - DAG layout for agent graph: layered left-to-right topological ordering with auto-fit to viewport
 - Bezier curve edges between graph nodes
+- Structured startup and refresh logging via Output Channel: timing, discovery counts, session strategy tracing, and error diagnostics (closes #4)
+- Logger singleton (`src/logger.ts`) with `[INFO]`/`[WARN]`/`[ERROR]` prefixes for the "Copilot Lens" output channel
+- CI workflow with CodeQL static analysis, npm audit, and dependency review on PRs
 
 ### Fixed
 - Webview panels rendering blank: HTML now uses Lit custom elements instead of empty div containers
