@@ -74,4 +74,15 @@ name: NoBody
     expect(result.data).toEqual({});
     expect(result.body).toBe("");
   });
+
+  it("throws on malformed YAML in frontmatter", () => {
+    const content = `---
+name: Bad Agent
+description: triggered pipelines have 'trigger: none'.  This means that for every repo you want to use this template, the triggered pipelines have 'trigger: none'
+---
+
+Body.`;
+
+    expect(() => parseFrontmatter(content)).toThrow();
+  });
 });

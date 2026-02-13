@@ -45,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Metrics dashboard webview (Lit): stat cards, bar charts, activity timeline, unused agents/skills warnings
 - `Copilot Lens: Show Metrics Dashboard` command
 - Auto-discovers session files on activation
-- 61 unit tests total
+- 62 unit tests total
 - Session Explorer webview: session picker sorted by date, vertical timeline of requests
 - Agent switch and model switch highlighting with colored badges
 - Click request to expand detail view (full prompt, tool calls, skills, timing, tokens)
@@ -61,3 +61,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Session discovery in devcontainers/WSL2: scans sibling workspace hash directories to find sessions when the storage hash differs from the original
 - `copilotLens.sessionDir` setting: manually specify a session directory or mounted `workspaceStorage` root for devcontainer environments where sessions live on the host
 - Click-to-open agent/skill files broken on Windows: was using relative path with `Uri.file()`, now preserves the original URI from discovery
+- Malformed YAML frontmatter in agent/skill files no longer crashes the Refresh command; bad files are skipped with a console warning (fixes #1)
