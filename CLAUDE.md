@@ -33,6 +33,12 @@ Keep the subject line under 72 characters. Use imperative mood ("add", not "adde
 - Never guess or assume. If unsure about something, or there are multiple valid approaches, ask the user and let them choose.
 - Never infer personal information (names, emails, etc.) from filesystem paths or environment variables.
 
+## Merging to main
+
+Before the final commit on a feature branch (or on main after merge), always update:
+- `CHANGELOG.md` — add new entries under `[Unreleased]`
+- `README.md` — update project structure, feature descriptions, etc. if relevant
+
 ## Development
 
 - TDD: red-green-refactor

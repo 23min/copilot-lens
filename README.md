@@ -9,7 +9,7 @@ Work in progress. See [ROADMAP.md](ROADMAP.md) for planned milestones.
 ## What it does
 
 1. **Static analysis** — Parses your `.github/agents/` and `.github/skills/` directories to build a visual graph of agents, their handoff chains, and skills.
-2. **Runtime analysis** *(planned)* — Reads Copilot chat session files to extract usage metrics: which agents ran, how often, what tools they called, and session durations.
+2. **Runtime analysis** — Reads Copilot chat session JSONL files from VS Code workspace storage to extract usage metrics: which agents ran, how often, what tools they called, and session durations. Detects custom agents and skills from system prompts.
 
 ## Development
 
@@ -29,7 +29,7 @@ Press **F5** in VS Code to launch the Extension Development Host.
 src/
   extension.ts          # Activation, command registration
   models/               # TypeScript interfaces (Agent, Skill, Graph)
-  parsers/              # Pure-function parsers for .agent.md and SKILL.md
+  parsers/              # Pure-function parsers for agents, skills, and sessions
   analyzers/            # Graph builder, metrics collector (planned)
   views/
     treeProvider.ts     # Sidebar tree view (agents & skills)

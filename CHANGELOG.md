@@ -33,3 +33,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Directed edges with arrowheads, dashed lines for manual handoffs
 - Zoom, pan, node dragging, hover tooltips, edge labels
 - Separate browser bundle for webview (esbuild ESM)
+- Session data models: `Session`, `SessionRequest`, `ToolCallInfo`, `SkillRef`
+- JSONL session parser: reconstructs sessions from kind=0/1/2 incremental patches
+- Chat replay parser: imports `.chatreplay.json` manual exports
+- Custom agent detection: extracts agent name from `<modeInstructions>` in system prompt
+- Skill detection: parses `<skills>` XML for available skills, `read_file` tool calls for loaded skills
+- Session locator: finds `chatSessions/` directory from extension storage URI
+- 50 unit tests total
