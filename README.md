@@ -9,7 +9,7 @@ Work in progress. See [ROADMAP.md](ROADMAP.md) for planned milestones.
 ## What it does
 
 1. **Static analysis** — Parses your `.github/agents/` and `.github/skills/` directories to build a visual graph of agents, their handoff chains, and skills.
-2. **Runtime analysis** — Reads Copilot chat session JSONL files from VS Code workspace storage to extract usage metrics: which agents ran, how often, what tools they called, and session durations. Detects custom agents and skills from system prompts.
+2. **Runtime analysis** — Reads Copilot chat session JSONL files from VS Code workspace storage to extract usage metrics: which agents ran, how often, what tools they called, and session durations. Detects custom agents and skills from system prompts. Automatically finds sessions across workspace storage hash directories, so it works in devcontainers, WSL2, and after workspace reconnections.
 
 ## Development
 

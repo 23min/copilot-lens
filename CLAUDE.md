@@ -46,3 +46,21 @@ Before the final commit on a feature branch (or on main after merge), always upd
 - Lit + D3.js for webview components
 - Vitest for unit tests
 - Keep parsers as pure functions (easy to test)
+
+## Releasing a new version
+
+Before pushing a release, complete this checklist in order:
+
+1. **All changes on a feature/fix branch** — never release from `main` directly
+2. **Tests pass** — `npm test` must be green
+3. **Build succeeds** — `npm run build` must complete without errors
+4. **Bump version** in `package.json` (semver: patch for fixes, minor for features)
+5. **Update CHANGELOG.md** — add entries under `[Unreleased]` describing what changed
+6. **Update README.md** — if features, structure, or usage changed
+7. **Commit** with message `chore: release vX.Y.Z`
+8. **Merge to main** — `git checkout main && git merge <branch> --no-ff`
+9. **Push** — `git push origin main`
+10. **Tag** — `git tag vX.Y.Z && git push origin vX.Y.Z`
+11. **GitHub Actions** builds the `.vsix` and attaches it to the GitHub Release automatically
+
+To build a `.vsix` locally: `npx @vscode/vsce package`
