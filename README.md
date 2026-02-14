@@ -7,6 +7,8 @@
 
 Agent Lens gives you visibility into your GitHub Copilot and Claude Code sessions — which agents ran, what models they used, how many tokens they consumed, and how your agent workflows connect.
 
+![Metrics Dashboard](https://raw.githubusercontent.com/23min/agent-lens/main/assets/screenshots/donuts.png)
+
 ## Why Agent Lens?
 
 AI coding agents are powerful but opaque. When you use custom agents in GitHub Copilot or sub-agents in Claude Code, it's hard to know:
