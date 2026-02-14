@@ -1,7 +1,9 @@
 import * as vscode from "vscode";
 import * as os from "node:os";
 import * as path from "node:path";
+import * as fs from "node:fs/promises";
 import { discoverClaudeSessions, encodeProjectPath } from "./claudeLocator.js";
+import { parseClaudeSessionJsonl } from "./claudeSessionParser.js";
 import type { Session } from "../models/session.js";
 import type {
   SessionProvider,
@@ -23,14 +25,27 @@ export class ClaudeSessionProvider implements SessionProvider {
     }
 
     const entries = await discoverClaudeSessions(workspacePath);
-    if (entries.length > 0) {
-      log.info(
-        `Claude: found ${entries.length} session(s) (parser not yet implemented)`,
-      );
-      // TODO (#5): parse Claude session JSONL files into Session objects
+    if (entries.length === 0) return [];
+
+    log.info(`Claude: parsing ${entries.length} session(s)`);
+    const sessions: Session[] = [];
+
+    for (const entry of entries) {
+      try {
+        const content = await fs.readFile(entry.fullPath, "utf-8");
+        const session = parseClaudeSessionJsonl(
+          content,
+          entry.summary,
+        );
+        sessions.push(session);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log.warn(`  Skipping Claude session "${entry.fullPath}": ${msg}`);
+      }
     }
 
-    return [];
+    log.info(`Claude: parsed ${sessions.length} session(s)`);
+    return sessions;
   }
 
   getWatchTargets(ctx: SessionDiscoveryContext): WatchTarget[] {
