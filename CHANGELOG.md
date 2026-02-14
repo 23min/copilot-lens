@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Claude Code session parser: parses JSONL session files into `Session`/`SessionRequest` model (closes #5)
+- `ClaudeSessionProvider` now calls the parser and returns parsed sessions
+- 15 unit tests for Claude session parsing (106 total)
+
 ## [0.0.7] - 2026-02-13
 
 ### Added
