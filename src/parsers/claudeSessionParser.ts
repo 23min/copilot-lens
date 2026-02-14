@@ -83,11 +83,19 @@ export function buildSubagentTypeMap(content: string): Map<string, string> {
         : [];
       for (const block of blocks) {
         if (block.type === "tool_result" && block.tool_use_id) {
-          // Look for "agentId: <id> (for resuming" pattern in content
+          // Look for "agentId: <id> (for resuming" pattern in content.
+          // Use the LAST match — tool_result text may contain references
+          // to other agents in the body, but the framework appends the
+          // real agentId at the end.
           const text = extractToolResultText(block);
-          const match = text.match(/agentId: ([a-f0-9]+) \(for resuming/);
-          if (match) {
-            toolIdToAgentId.set(block.tool_use_id, match[1]);
+          let lastAgentId: string | null = null;
+          for (const m of text.matchAll(
+            /agentId: ([\w-]+) \(for resuming/g,
+          )) {
+            lastAgentId = m[1];
+          }
+          if (lastAgentId) {
+            toolIdToAgentId.set(block.tool_use_id, lastAgentId);
           }
         }
       }
@@ -249,7 +257,9 @@ function parseSubagentContent(sub: SubagentInput): SessionRequest[] {
   if (!sub.content.trim()) return [];
 
   const lines = sub.content.split("\n").filter((l) => l.trim());
-  const agentName = sub.subagentType ?? sub.agentId;
+  const agentName =
+    sub.subagentType ??
+    (sub.agentId.startsWith("acompact-") ? "compact" : sub.agentId);
   const requests: SessionRequest[] = [];
 
   for (const line of lines) {

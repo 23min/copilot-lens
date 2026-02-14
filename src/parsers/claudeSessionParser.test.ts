@@ -528,6 +528,82 @@ describe("buildSubagentTypeMap", () => {
     const map = buildSubagentTypeMap(lines);
     expect(map.size).toBe(0);
   });
+
+  it("uses last agentId match when tool_result contains multiple references", () => {
+    // Simulate a tool_result where the Explore agent's output mentions
+    // other agent files, but the real agentId is appended at the end
+    const toolResultWithMultipleAgentIds = JSON.stringify({
+      type: "user",
+      sessionId: "sess-1",
+      uuid: "u2",
+      parentUuid: "a1",
+      isSidechain: false,
+      timestamp: "2026-02-14T10:00:05.000Z",
+      message: {
+        role: "user",
+        content: [
+          {
+            type: "tool_result",
+            tool_use_id: "toolu_1",
+            content: [
+              {
+                type: "text",
+                text: [
+                  "Found subagent files:",
+                  "agent-a605be3.jsonl",
+                  "agentId: a605be3 (for resuming to continue this agent's work if needed)",
+                  "More output here...",
+                ].join("\n"),
+              },
+              {
+                type: "text",
+                text: "agentId: abf0a0e (for resuming to continue this agent's work if needed)\n<usage>total_tokens: 38642</usage>",
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    const lines = [
+      userLine("start", "u1"),
+      taskToolUseLine({
+        uuid: "a1",
+        parentUuid: "u1",
+        toolId: "toolu_1",
+        subagentType: "Explore",
+        description: "find files",
+      }),
+      toolResultWithMultipleAgentIds,
+    ].join("\n");
+
+    const map = buildSubagentTypeMap(lines);
+    expect(map.get("abf0a0e")).toBe("Explore");
+    // Should NOT map the wrong agentId
+    expect(map.has("a605be3")).toBe(false);
+  });
+
+  it("handles agentIds with hyphens", () => {
+    const lines = [
+      userLine("start", "u1"),
+      taskToolUseLine({
+        uuid: "a1",
+        parentUuid: "u1",
+        toolId: "toolu_1",
+        subagentType: "Bash",
+        description: "run cmd",
+      }),
+      taskToolResultLine({
+        uuid: "u2",
+        parentUuid: "a1",
+        toolUseId: "toolu_1",
+        agentId: "acompact-b8acf4",
+      }),
+    ].join("\n");
+
+    const map = buildSubagentTypeMap(lines);
+    expect(map.get("acompact-b8acf4")).toBe("Bash");
+  });
 });
 
 describe("subagent parsing", () => {
@@ -607,6 +683,24 @@ describe("subagent parsing", () => {
 
     const subReq = session.requests.find((r) => r.isSubagent);
     expect(subReq!.customAgentName).toBe("abc123");
+  });
+
+  it("labels acompact-* agents as 'compact' when subagentType is null", () => {
+    const subContent = [
+      subagentUserLine({ uuid: "su1", agentId: "acompact-b8acf4" }),
+      subagentAssistantLine({
+        uuid: "sa1",
+        parentUuid: "su1",
+        agentId: "acompact-b8acf4",
+      }),
+    ].join("\n");
+
+    const session = parseClaudeSessionJsonl(BASIC_SESSION, null, [
+      { content: subContent, agentId: "acompact-b8acf4", subagentType: null },
+    ]);
+
+    const subReq = session.requests.find((r) => r.isSubagent);
+    expect(subReq!.customAgentName).toBe("compact");
   });
 
   it("interleaves subagent requests by timestamp", () => {
