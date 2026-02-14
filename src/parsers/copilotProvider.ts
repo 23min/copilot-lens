@@ -202,14 +202,17 @@ export class CopilotSessionProvider implements SessionProvider {
   }
 
   getWatchTargets(ctx: SessionDiscoveryContext): WatchTarget[] {
-    const sessionDir = getChatSessionsDir(ctx.extensionContext);
-    if (!sessionDir) return [];
+    const storageUri = ctx.extensionContext.storageUri;
+    if (!storageUri) return [];
 
+    // Anchor watcher to the workspace hash dir (parent of chatSessions/)
+    // so it fires even when chatSessions/ doesn't exist yet at activation.
+    const hashDir = path.dirname(storageUri.fsPath);
     return [
       {
         pattern: new vscode.RelativePattern(
-          vscode.Uri.file(sessionDir),
-          "*.jsonl",
+          vscode.Uri.file(hashDir),
+          "chatSessions/*.jsonl",
         ),
         events: ["create", "change"],
       },
