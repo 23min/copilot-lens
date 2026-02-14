@@ -17,10 +17,16 @@ export class CopilotLensTreeProvider
 
   private agents: Agent[] = [];
   private skills: Skill[] = [];
+  private remoteNoSessions = false;
 
-  update(agents: Agent[], skills: Skill[]): void {
+  update(
+    agents: Agent[],
+    skills: Skill[],
+    opts?: { remoteNoSessions?: boolean },
+  ): void {
     this.agents = agents;
     this.skills = skills;
+    this.remoteNoSessions = opts?.remoteNoSessions ?? false;
     this._onDidChangeTreeData.fire();
   }
 
@@ -89,6 +95,9 @@ export class CopilotLensTreeProvider
 
   getChildren(element?: TreeItemData): TreeItemData[] {
     if (!element) {
+      // Return empty so VS Code renders viewsWelcome content
+      if (this.remoteNoSessions) return [];
+
       const children: TreeItemData[] = [];
       children.push({ kind: "category", label: "Actions" });
       if (this.agents.length > 0) {

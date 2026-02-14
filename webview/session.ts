@@ -38,6 +38,7 @@ interface SessionRequest {
   toolCalls: ToolCallInfo[];
   availableSkills: SkillRef[];
   loadedSkills: string[];
+  isSubagent?: boolean;
 }
 
 interface Session {
@@ -222,6 +223,13 @@ class SessionExplorer extends LitElement {
     .switch-badge.model {
       background: rgba(201, 184, 124, 0.2);
       color: #c9b87c;
+    }
+    .timeline-entry.subagent::before {
+      background: #8aab7f;
+    }
+    .switch-badge.subagent {
+      background: rgba(138, 171, 127, 0.2);
+      color: #8aab7f;
     }
 
     /* Detail view */
@@ -439,13 +447,15 @@ class SessionExplorer extends LitElement {
           const prevAgent = prev
             ? prev.customAgentName ?? prev.agentId
             : null;
-          const agentSwitch = prev !== null && agentName !== prevAgent;
+          const isSubagent = req.isSubagent === true;
+          const agentSwitch =
+            prev !== null && agentName !== prevAgent && !isSubagent;
           const modelSwitch =
             prev !== null && req.modelId !== prev.modelId;
 
           return html`
             <div
-              class="timeline-entry ${agentSwitch ? "agent-switch" : ""} ${modelSwitch ? "model-switch" : ""}"
+              class="timeline-entry ${isSubagent ? "subagent" : ""} ${agentSwitch ? "agent-switch" : ""} ${modelSwitch ? "model-switch" : ""}"
               @click="${() => {
                 this.selectedRequest =
                   this.selectedRequest?.requestId === req.requestId
@@ -455,6 +465,9 @@ class SessionExplorer extends LitElement {
             >
               <div class="entry-header">
                 <span class="entry-agent">${agentName}</span>
+                ${isSubagent
+                  ? html`<span class="switch-badge subagent">subagent</span>`
+                  : null}
                 ${agentSwitch
                   ? html`<span class="switch-badge agent">agent switch</span>`
                   : null}
