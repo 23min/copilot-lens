@@ -33,5 +33,5 @@ export interface Session {
   title: string | null;
   creationDate: number;
   requests: SessionRequest[];
-  source: "jsonl" | "json" | "chatreplay" | "claude";
+  source: string;
 }
