@@ -153,14 +153,14 @@ class SessionExplorer extends LitElement {
       width: 10px;
       height: 10px;
       border-radius: 50%;
-      background: #4fc1ff;
+      background: #c4a882;
       border: 2px solid var(--vscode-editor-background, #1e1e1e);
     }
     .timeline-entry.agent-switch::before {
-      background: #c586c0;
+      background: #b09090;
     }
     .timeline-entry.model-switch::before {
-      background: #dcdcaa;
+      background: #c9b87c;
     }
     .entry-header {
       display: flex;
@@ -171,7 +171,7 @@ class SessionExplorer extends LitElement {
     }
     .entry-agent {
       font-weight: 600;
-      color: #4fc1ff;
+      color: #c4a882;
     }
     .entry-model {
       opacity: 0.6;
@@ -216,12 +216,12 @@ class SessionExplorer extends LitElement {
       font-weight: 600;
     }
     .switch-badge.agent {
-      background: rgba(197, 134, 192, 0.2);
-      color: #c586c0;
+      background: rgba(176, 144, 144, 0.2);
+      color: #b09090;
     }
     .switch-badge.model {
-      background: rgba(220, 220, 170, 0.2);
-      color: #dcdcaa;
+      background: rgba(201, 184, 124, 0.2);
+      color: #c9b87c;
     }
 
     /* Detail view */
@@ -294,12 +294,12 @@ class SessionExplorer extends LitElement {
       flex-shrink: 0;
     }
     .provider-badge.copilot {
-      background: rgba(79, 193, 255, 0.15);
-      color: #4fc1ff;
+      background: rgba(196, 168, 130, 0.15);
+      color: #c4a882;
     }
     .provider-badge.claude {
-      background: rgba(197, 134, 192, 0.15);
-      color: #c586c0;
+      background: rgba(176, 144, 144, 0.15);
+      color: #b09090;
     }
   `;
 

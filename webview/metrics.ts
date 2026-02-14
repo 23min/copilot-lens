@@ -46,14 +46,14 @@ interface DonutSlice {
 }
 
 const DONUT_PALETTE = [
-  "#4fc1ff",
-  "#c586c0",
-  "#4ec9b0",
-  "#dcdcaa",
-  "#ce9178",
-  "#9cdcfe",
-  "#d4d4d4",
-  "#608b4e",
+  "#c4a882",
+  "#b09090",
+  "#8aab7f",
+  "#c9b87c",
+  "#b8806a",
+  "#8fa3a3",
+  "#b5a898",
+  "#7a9468",
 ];
 
 @customElement("metrics-dashboard")
@@ -112,20 +112,20 @@ class MetricsDashboard extends LitElement {
       font-weight: 500;
     }
     .stat-cost.full {
-      background: rgba(206, 145, 120, 0.2);
-      color: #ce9178;
+      background: rgba(184, 128, 106, 0.2);
+      color: #b8806a;
     }
     .stat-cost.cheap {
-      background: rgba(78, 201, 176, 0.2);
-      color: #4ec9b0;
+      background: rgba(138, 171, 127, 0.2);
+      color: #8aab7f;
     }
     .stat-cost.premium {
-      background: rgba(220, 220, 170, 0.2);
-      color: #dcdcaa;
+      background: rgba(201, 184, 124, 0.2);
+      color: #c9b87c;
     }
     .stat-cost.free {
-      background: rgba(78, 201, 176, 0.15);
-      color: #4ec9b0;
+      background: rgba(138, 171, 127, 0.15);
+      color: #8aab7f;
     }
     .bar-chart {
       margin: 8px 0 16px;
@@ -328,16 +328,16 @@ class MetricsDashboard extends LitElement {
       font-weight: 400;
     }
     .guide-cost.full {
-      background: rgba(206, 145, 120, 0.2);
-      color: #ce9178;
+      background: rgba(184, 128, 106, 0.2);
+      color: #b8806a;
     }
     .guide-cost.cheap {
-      background: rgba(78, 201, 176, 0.2);
-      color: #4ec9b0;
+      background: rgba(138, 171, 127, 0.2);
+      color: #8aab7f;
     }
     .guide-cost.premium {
-      background: rgba(220, 220, 170, 0.2);
-      color: #dcdcaa;
+      background: rgba(201, 184, 124, 0.2);
+      color: #c9b87c;
     }
   `;
 
@@ -593,11 +593,11 @@ class MetricsDashboard extends LitElement {
     }));
 
     const promptCompSlices: DonutSlice[] = [
-      { name: "Prompt", value: m.totalTokens.prompt, color: "#4fc1ff" },
+      { name: "Prompt", value: m.totalTokens.prompt, color: "#c4a882" },
       {
         name: "Completion",
         value: m.totalTokens.completion,
-        color: "#c586c0",
+        color: "#b09090",
       },
     ];
 
@@ -605,16 +605,16 @@ class MetricsDashboard extends LitElement {
       m.cacheTokens.read > 0 || m.cacheTokens.creation > 0;
     const cacheInputSlices: DonutSlice[] = hasCacheTokens
       ? [
-          { name: "Cache Read", value: m.cacheTokens.read, color: "#4ec9b0" },
+          { name: "Cache Read", value: m.cacheTokens.read, color: "#8aab7f" },
           {
             name: "Cache Creation",
             value: m.cacheTokens.creation,
-            color: "#dcdcaa",
+            color: "#c9b87c",
           },
           {
             name: "Non-cached",
             value: m.totalTokens.prompt,
-            color: "#4fc1ff",
+            color: "#b8806a",
           },
         ]
       : [];
@@ -740,16 +740,16 @@ class MetricsDashboard extends LitElement {
       </div>
 
       <h2>Agent Usage</h2>
-      ${this.renderBarChart(m.agentUsage, "#4fc1ff", 10, agentTooltipData)}
+      ${this.renderBarChart(m.agentUsage, "#c4a882", 10, agentTooltipData)}
 
       <h2>Model Usage</h2>
-      ${this.renderBarChart(m.modelUsage, "#c586c0")}
+      ${this.renderBarChart(m.modelUsage, "#b09090")}
 
       <h2>Tool Calls</h2>
-      ${this.renderBarChart(m.toolUsage, "#dcdcaa")}
+      ${this.renderBarChart(m.toolUsage, "#c9b87c")}
 
       <h2>Skill Usage</h2>
-      ${this.renderBarChart(m.skillUsage, "#4ec9b0")}
+      ${this.renderBarChart(m.skillUsage, "#8aab7f")}
 
       ${m.unusedAgents.length > 0 || m.unusedSkills.length > 0
         ? html`
