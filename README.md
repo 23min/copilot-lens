@@ -1,7 +1,7 @@
 # Agent Lens
 
-[![CI](https://github.com/Proliminal/agent-lens/actions/workflows/ci.yml/badge.svg)](https://github.com/Proliminal/agent-lens/actions/workflows/ci.yml)
-[![Release](https://github.com/Proliminal/agent-lens/actions/workflows/release.yml/badge.svg)](https://github.com/Proliminal/agent-lens/actions/workflows/release.yml)
+[![CI](https://github.com/23min/agent-lens/actions/workflows/ci.yml/badge.svg)](https://github.com/23min/agent-lens/actions/workflows/ci.yml)
+[![Release](https://github.com/23min/agent-lens/actions/workflows/release.yml/badge.svg)](https://github.com/23min/agent-lens/actions/workflows/release.yml)
 
 VS Code extension that visualizes your AI coding agents (GitHub Copilot, Claude Code) as an interactive graph. Parses chat sessions to surface usage metrics — which agents run, how often, and how sessions flow.
 

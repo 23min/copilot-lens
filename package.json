@@ -8,11 +8,11 @@
   "icon": "assets/icon_128.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Proliminal/agent-lens"
+    "url": "https://github.com/23min/agent-lens"
   },
-  "homepage": "https://github.com/Proliminal/agent-lens#readme",
+  "homepage": "https://github.com/23min/agent-lens#readme",
   "bugs": {
-    "url": "https://github.com/Proliminal/agent-lens/issues"
+    "url": "https://github.com/23min/agent-lens/issues"
   },
   "engines": {
     "vscode": "^1.100.0"
