@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.8] - 2026-02-14
+
+### Changed
+- Renamed extension from "Copilot Lens" to "Agent Lens" — new publisher `Proliminal`, updated all command IDs (`agentLens.*`), config keys, view container, and repo URLs
+- CI release workflow now publishes to VS Code Marketplace automatically on git tag push
+
 ### Added
 - Claude Code session parser: parses JSONL session files into `Session`/`SessionRequest` model (closes #5)
 - `ClaudeSessionProvider` now calls the parser and returns parsed sessions
@@ -18,7 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cache stat cards in Metrics Dashboard: Cache Read Tokens, Cache Creation Tokens, Cache Hit Ratio (shown only when cache data exists)
 - Input Token Breakdown donut chart: visualizes cache read vs cache creation vs non-cached input tokens
 - Session Explorer detail view shows cache token counts per request
-- 18 unit tests for Claude session parsing, 111 total
+- Empty state for Agent Graph: shows guidance and doc links when no agents or skills are found
+- 18 unit tests for Claude session parsing, 133 total
+
+### Fixed
+- Claude session discovery in devcontainers/SSH: multi-strategy cascade (encoded path variants, direct scan, folder name suffix match) handles path mismatches between container and host
+- Underscore-to-dash path variant matching for container workspaces (e.g. `ex_a2ui` → `ex-a2ui`)
 
 ## [0.0.7] - 2026-02-13
 
