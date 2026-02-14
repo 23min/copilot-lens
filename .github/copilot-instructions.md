@@ -1,6 +1,6 @@
-# Copilot Lens — Project Instructions
+# Agent Lens — Project Instructions
 
-This is a VS Code extension project called Copilot Lens. It visualizes GitHub Copilot agents, skills, and handoffs as an interactive graph, and analyzes chat session data for usage metrics.
+This is a VS Code extension project called Agent Lens. It visualizes AI coding agents (GitHub Copilot, Claude Code), skills, and handoffs as an interactive graph, and analyzes chat session data for usage metrics.
 
 ## Tech stack
 - TypeScript (extension host)

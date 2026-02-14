@@ -100,7 +100,7 @@ class ContainerSetup extends LitElement {
     return html`
       <h1>Container Setup Guide</h1>
       <p class="subtitle">
-        Copilot Lens needs access to session data that lives on your host
+        Agent Lens needs access to session data that lives on your host
         machine. In a container, this data isn't visible unless you mount it.
       </p>
 
@@ -113,8 +113,8 @@ class ContainerSetup extends LitElement {
 ]</pre>
         </li>
         <li>
-          Set the <code>copilotLens.sessionDir</code> setting to the mount path:
-          <pre>"copilotLens.sessionDir": "/mnt/copilot-sessions"</pre>
+          Set the <code>agentLens.sessionDir</code> setting to the mount path:
+          <pre>"agentLens.sessionDir": "/mnt/copilot-sessions"</pre>
         </li>
         <li>Rebuild the container.</li>
       </ol>
@@ -128,8 +128,8 @@ class ContainerSetup extends LitElement {
 ]</pre>
         </li>
         <li>
-          Set the <code>copilotLens.claudeDir</code> setting to the mount path:
-          <pre>"copilotLens.claudeDir": "/mnt/claude/projects"</pre>
+          Set the <code>agentLens.claudeDir</code> setting to the mount path:
+          <pre>"agentLens.claudeDir": "/mnt/claude/projects"</pre>
         </li>
         <li>Rebuild the container.</li>
       </ol>
@@ -141,19 +141,19 @@ class ContainerSetup extends LitElement {
       </p>
       <ul>
         <li>
-          <code>copilotLens.sessionDir</code> — point to the directory
+          <code>agentLens.sessionDir</code> — point to the directory
           containing Copilot <code>.jsonl</code> files (or the
           <code>workspaceStorage</code> root)
         </li>
         <li>
-          <code>copilotLens.claudeDir</code> — point to the
+          <code>agentLens.claudeDir</code> — point to the
           <code>projects/</code> directory inside <code>.claude</code>
         </li>
       </ul>
 
       <div class="tip">
         <p>
-          After changing settings, run <strong>Copilot Lens: Refresh</strong>
+          After changing settings, run <strong>Agent Lens: Refresh</strong>
           from the command palette to pick up the new paths.
         </p>
       </div>

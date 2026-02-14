@@ -12,7 +12,7 @@ import type { SessionDiscoveryContext } from "./parsers/sessionProvider.js";
 import { CopilotSessionProvider } from "./parsers/copilotProvider.js";
 import { ClaudeSessionProvider } from "./parsers/claudeProvider.js";
 import { buildGraph } from "./analyzers/graphBuilder.js";
-import { CopilotLensTreeProvider } from "./views/treeProvider.js";
+import { AgentLensTreeProvider } from "./views/treeProvider.js";
 import { initLogger, getLogger } from "./logger.js";
 import { GraphPanel } from "./views/graphPanel.js";
 import { MetricsPanel } from "./views/metricsPanel.js";
@@ -25,7 +25,7 @@ let cachedSessions: Session[] = [];
 
 async function refresh(
   sessionCtx: SessionDiscoveryContext,
-  treeProvider: CopilotLensTreeProvider,
+  treeProvider: AgentLensTreeProvider,
 ): Promise<void> {
   const log = getLogger();
   const start = Date.now();
@@ -46,7 +46,7 @@ async function refresh(
     const remoteNoSessions = isRemote && sessions.length === 0;
     void vscode.commands.executeCommand(
       "setContext",
-      "copilotLens.isRemoteNoSessions",
+      "agentLens.isRemoteNoSessions",
       remoteNoSessions,
     );
 
@@ -72,9 +72,9 @@ async function refresh(
 }
 
 export function activate(context: vscode.ExtensionContext): void {
-  const outputChannel = vscode.window.createOutputChannel("Copilot Lens", { log: true });
+  const outputChannel = vscode.window.createOutputChannel("Agent Lens", { log: true });
   initLogger(outputChannel);
-  getLogger().info("Copilot Lens activated");
+  getLogger().info("Agent Lens activated");
 
   // Register session providers
   registerSessionProvider(new CopilotSessionProvider());
@@ -86,19 +86,19 @@ export function activate(context: vscode.ExtensionContext): void {
       vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null,
   };
 
-  const treeProvider = new CopilotLensTreeProvider();
-  const treeView = vscode.window.createTreeView("copilotLens.treeView", {
+  const treeProvider = new AgentLensTreeProvider();
+  const treeView = vscode.window.createTreeView("agentLens.treeView", {
     treeDataProvider: treeProvider,
     showCollapseAll: true,
   });
 
   const refreshCmd = vscode.commands.registerCommand(
-    "copilotLens.refresh",
+    "agentLens.refresh",
     () => refresh(sessionCtx, treeProvider),
   );
 
   const showGraph = vscode.commands.registerCommand(
-    "copilotLens.showGraph",
+    "agentLens.showGraph",
     async () => {
       await refresh(sessionCtx, treeProvider);
       const graph = buildGraph(cachedAgents, cachedSkills);
@@ -107,7 +107,7 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   const openMetrics = vscode.commands.registerCommand(
-    "copilotLens.openMetrics",
+    "agentLens.openMetrics",
     async () => {
       await refresh(sessionCtx, treeProvider);
       MetricsPanel.show(
@@ -120,7 +120,7 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   const openSession = vscode.commands.registerCommand(
-    "copilotLens.openSession",
+    "agentLens.openSession",
     async () => {
       await refresh(sessionCtx, treeProvider);
       SessionPanel.show(context.extensionUri, cachedSessions);
@@ -128,7 +128,7 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   const openContainerSetup = vscode.commands.registerCommand(
-    "copilotLens.openContainerSetup",
+    "agentLens.openContainerSetup",
     () => {
       SetupPanel.show(context.extensionUri);
     },

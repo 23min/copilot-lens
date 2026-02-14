@@ -11,6 +11,7 @@ vitest.config.ts
 
 # Development files
 data/**
+assets/unused/**
 docs/**
 node_modules/**
 *.test.ts

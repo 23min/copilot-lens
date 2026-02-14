@@ -1,17 +1,18 @@
 {
-  "name": "copilot-lens",
-  "displayName": "Copilot Lens",
-  "description": "Visualize your GitHub Copilot agents, skills, and handoffs as an interactive graph. Parses chat sessions to surface usage metrics.",
+  "name": "agent-lens",
+  "displayName": "Agent Lens",
+  "description": "Visualize your AI coding agents, skills, and handoffs as an interactive graph. Parses chat sessions to surface usage metrics.",
   "version": "0.0.7",
-  "publisher": "23min",
+  "publisher": "Proliminal",
   "license": "MIT",
+  "icon": "assets/icon_128.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/23min/copilot-lens"
+    "url": "https://github.com/Proliminal/agent-lens"
   },
-  "homepage": "https://github.com/23min/copilot-lens#readme",
+  "homepage": "https://github.com/Proliminal/agent-lens#readme",
   "bugs": {
-    "url": "https://github.com/23min/copilot-lens/issues"
+    "url": "https://github.com/Proliminal/agent-lens/issues"
   },
   "engines": {
     "vscode": "^1.100.0"
@@ -27,53 +28,53 @@
   "contributes": {
     "commands": [
       {
-        "command": "copilotLens.showGraph",
-        "title": "Copilot Lens: Show Agent Graph"
+        "command": "agentLens.showGraph",
+        "title": "Agent Lens: Show Agent Graph"
       },
       {
-        "command": "copilotLens.refresh",
-        "title": "Copilot Lens: Refresh",
+        "command": "agentLens.refresh",
+        "title": "Agent Lens: Refresh",
         "icon": "$(refresh)"
       },
       {
-        "command": "copilotLens.openMetrics",
-        "title": "Copilot Lens: Show Metrics Dashboard"
+        "command": "agentLens.openMetrics",
+        "title": "Agent Lens: Show Metrics Dashboard"
       },
       {
-        "command": "copilotLens.openSession",
-        "title": "Copilot Lens: Session Explorer"
+        "command": "agentLens.openSession",
+        "title": "Agent Lens: Session Explorer"
       },
       {
-        "command": "copilotLens.openContainerSetup",
-        "title": "Copilot Lens: Container Setup Guide"
+        "command": "agentLens.openContainerSetup",
+        "title": "Agent Lens: Container Setup Guide"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "copilot-lens",
-          "title": "Copilot Lens",
-          "icon": "$(telescope)"
+          "id": "agent-lens",
+          "title": "Agent Lens",
+          "icon": "assets/icon-activitybar.svg"
         }
       ]
     },
     "views": {
-      "copilot-lens": [
+      "agent-lens": [
         {
-          "id": "copilotLens.treeView",
+          "id": "agentLens.treeView",
           "name": "Agents & Skills"
         }
       ]
     },
     "configuration": {
-      "title": "Copilot Lens",
+      "title": "Agent Lens",
       "properties": {
-        "copilotLens.sessionDir": {
+        "agentLens.sessionDir": {
           "type": "string",
           "default": "",
           "markdownDescription": "Path to a directory containing Copilot chat session files (`.jsonl`). Can be a `chatSessions/` directory or a `workspaceStorage/` root (scanned automatically). Useful in devcontainers where sessions live on the host — mount the host's `workspaceStorage` and point this setting to the mount path."
         },
-        "copilotLens.claudeDir": {
+        "agentLens.claudeDir": {
           "type": "string",
           "default": "",
           "markdownDescription": "Path to a directory containing Claude Code session files. Should point to the `projects/` directory (or a specific project directory). Useful in devcontainers where `~/.claude` lives on the host — mount it and point this setting to the mount path."
@@ -82,16 +83,16 @@
     },
     "viewsWelcome": [
       {
-        "view": "copilotLens.treeView",
-        "contents": "You're in a remote environment and no sessions were found.\n\nSession data lives on your host machine and needs to be mounted into this container.\n\n[Open Container Setup Guide](command:copilotLens.openContainerSetup)",
-        "when": "copilotLens.isRemoteNoSessions"
+        "view": "agentLens.treeView",
+        "contents": "You're in a remote environment and no sessions were found.\n\nSession data lives on your host machine and needs to be mounted into this container.\n\n[Open Container Setup Guide](command:agentLens.openContainerSetup)",
+        "when": "agentLens.isRemoteNoSessions"
       }
     ],
     "menus": {
       "view/title": [
         {
-          "command": "copilotLens.refresh",
-          "when": "view == copilotLens.treeView",
+          "command": "agentLens.refresh",
+          "when": "view == agentLens.treeView",
           "group": "navigation"
         }
       ]

@@ -1,4 +1,4 @@
-# Copilot Lens — Design Specification
+# Agent Lens — Design Specification
 
 > VS Code extension that visualizes your GitHub Copilot agents, skills, and handoffs as an interactive graph. Parses chat sessions to surface usage metrics — which agents run, how often, and how sessions flow.
 
@@ -8,7 +8,7 @@
 
 ### What is this?
 
-Copilot Lens is a VS Code extension that provides visibility into your GitHub Copilot agent and skill setup. It does two things:
+Agent Lens is a VS Code extension that provides visibility into your GitHub Copilot agent and skill setup. It does two things:
 
 1. **Static analysis** — Parses your `.github/agents/` and `.github/skills/` directories to build a visual graph of agents, their handoff chains, tools, and skills.
 2. **Runtime analysis** — Reads the raw Copilot chat session JSON files stored by VS Code to extract usage metrics: which agents actually ran, how often, what tools they called, session durations, and activity patterns.
@@ -22,7 +22,7 @@ VS Code's built-in Chat Debug view is a single monolithic dump of the current se
 - Get historical metrics across sessions
 - Identify unused or underperforming agents/skills
 
-Copilot Lens fills this gap.
+Agent Lens fills this gap.
 
 ### Target users
 
@@ -42,7 +42,7 @@ This is a standard VS Code extension (TypeScript) that contributes:
 ### Key components
 
 ```
-copilot-lens/
+agent-lens/
 ├── src/
 │   ├── extension.ts              # Activation, command registration
 │   ├── parsers/
@@ -269,7 +269,7 @@ A timeline/detail view for a single chat session:
 
 ### 4.4 Sidebar Tree View
 
-An activity bar icon ("Copilot Lens" with a lens/magnifying glass icon) that opens a tree view:
+An activity bar icon ("Agent Lens" with a lens/magnifying glass icon) that opens a tree view:
 
 ```
 COPILOT LENS
@@ -305,11 +305,11 @@ Register these in `package.json` under `contributes.commands`:
 
 | Command ID | Title | Description |
 |---|---|---|
-| `copilot-lens.openGraph` | Copilot Lens: Open Agent Graph | Opens the interactive graph panel |
-| `copilot-lens.openMetrics` | Copilot Lens: Open Metrics Dashboard | Opens the metrics panel |
-| `copilot-lens.openSession` | Copilot Lens: Explore Session | Opens the session explorer |
-| `copilot-lens.refresh` | Copilot Lens: Refresh | Re-scan agents, skills, and sessions |
-| `copilot-lens.exportMetrics` | Copilot Lens: Export Metrics | Export metrics data as JSON |
+| `agent-lens.openGraph` | Agent Lens: Open Agent Graph | Opens the interactive graph panel |
+| `agent-lens.openMetrics` | Agent Lens: Open Metrics Dashboard | Opens the metrics panel |
+| `agent-lens.openSession` | Agent Lens: Explore Session | Opens the session explorer |
+| `agent-lens.refresh` | Agent Lens: Refresh | Re-scan agents, skills, and sessions |
+| `agent-lens.exportMetrics` | Agent Lens: Export Metrics | Export metrics data as JSON |
 
 ---
 
@@ -317,15 +317,15 @@ Register these in `package.json` under `contributes.commands`:
 
 The extension should activate when:
 - The workspace contains a `.github/agents/` or `.github/skills/` directory
-- The user runs any `copilot-lens.*` command
-- The user opens the Copilot Lens sidebar
+- The user runs any `agent-lens.*` command
+- The user opens the Agent Lens sidebar
 
 ```json
 "activationEvents": [
   "workspaceContains:.github/agents",
   "workspaceContains:.github/skills",
-  "onView:copilotLens.treeView",
-  "onCommand:copilot-lens.openGraph"
+  "onView:agentLens.treeView",
+  "onCommand:agent-lens.openGraph"
 ]
 ```
 
@@ -337,10 +337,10 @@ Extension settings in `contributes.configuration`:
 
 | Setting | Type | Default | Description |
 |---|---|---|---|
-| `copilotLens.scanPersonalSkills` | boolean | `true` | Include `~/.copilot/skills/` in the graph |
-| `copilotLens.maxSessionsToAnalyze` | number | `50` | Max number of session files to parse for metrics |
-| `copilotLens.sessionMaxSizeMB` | number | `50` | Skip session files larger than this (they can be 100MB+) |
-| `copilotLens.showBuiltInAgents` | boolean | `false` | Show built-in Copilot agents (Ask, Edit, Agent, Plan) in the graph |
+| `agentLens.scanPersonalSkills` | boolean | `true` | Include `~/.copilot/skills/` in the graph |
+| `agentLens.maxSessionsToAnalyze` | number | `50` | Max number of session files to parse for metrics |
+| `agentLens.sessionMaxSizeMB` | number | `50` | Skip session files larger than this (they can be 100MB+) |
+| `agentLens.showBuiltInAgents` | boolean | `false` | Show built-in Copilot agents (Ask, Edit, Agent, Plan) in the graph |
 
 ---
 
@@ -348,8 +348,8 @@ Extension settings in `contributes.configuration`:
 
 ```json
 {
-  "name": "copilot-lens",
-  "displayName": "Copilot Lens",
+  "name": "agent-lens",
+  "displayName": "Agent Lens",
   "description": "Visualize your GitHub Copilot agents, skills, and handoffs as an interactive graph. Analyze chat session metrics and trace agent activity.",
   "version": "0.1.0",
   "publisher": "YOUR_PUBLISHER_ID",
@@ -379,17 +379,17 @@ Extension settings in `contributes.configuration`:
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "copilot-lens",
-          "title": "Copilot Lens",
+          "id": "agent-lens",
+          "title": "Agent Lens",
           "icon": "resources/icon.svg"
         }
       ]
     },
     "views": {
-      "copilot-lens": [
+      "agent-lens": [
         {
-          "id": "copilotLens.treeView",
-          "name": "Copilot Lens"
+          "id": "agentLens.treeView",
+          "name": "Agent Lens"
         }
       ]
     },
@@ -459,8 +459,8 @@ Follow VS Code webview best practices:
 ## 10. Development Setup
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/copilot-lens.git
-cd copilot-lens
+git clone https://github.com/YOUR_USERNAME/agent-lens.git
+cd agent-lens
 npm install
 ```
 
@@ -523,9 +523,9 @@ npx @vscode/vsce package
 
 ## 13. Naming & Publishing
 
-- **Extension ID:** `copilot-lens`
-- **Display name:** `Copilot Lens`
-- **GitHub repo:** `copilot-lens` (or `vscode-copilot-lens`)
+- **Extension ID:** `agent-lens`
+- **Display name:** `Agent Lens`
+- **GitHub repo:** `agent-lens` (or `vscode-agent-lens`)
 - **Description:** "Visualize your GitHub Copilot agents, skills, and handoffs as an interactive graph. Parses chat sessions to surface usage metrics — which agents run, how often, and how sessions flow."
 - **Categories:** Visualization, Other
 - **Keywords:** copilot, github-copilot, agents, skills, handoffs, visualization, metrics, debug, graph, agent-mode

@@ -46,8 +46,8 @@ export class MetricsPanel {
     }
 
     const panel = vscode.window.createWebviewPanel(
-      "copilotLens.metrics",
-      "Copilot Lens: Metrics Dashboard",
+      "agentLens.metrics",
+      "Agent Lens: Metrics Dashboard",
       vscode.ViewColumn.One,
       {
         enableScripts: true,
@@ -122,7 +122,7 @@ export class MetricsPanel {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy"
     content="default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline';">
-  <title>Copilot Lens: Metrics</title>
+  <title>Agent Lens: Metrics</title>
   <style>
     body {
       margin: 0;

@@ -9,7 +9,7 @@ type TreeItemData =
   | { kind: "detail"; label: string; description: string }
   | { kind: "action"; label: string; command: string; icon: string };
 
-export class CopilotLensTreeProvider
+export class AgentLensTreeProvider
   implements vscode.TreeDataProvider<TreeItemData>
 {
   private _onDidChangeTreeData = new vscode.EventEmitter<void>();
@@ -111,9 +111,9 @@ export class CopilotLensTreeProvider
 
     if (element.kind === "category" && element.label === "Actions") {
       return [
-        { kind: "action", label: "Show Agent Graph", command: "copilotLens.showGraph", icon: "type-hierarchy" },
-        { kind: "action", label: "Show Metrics Dashboard", command: "copilotLens.openMetrics", icon: "graph" },
-        { kind: "action", label: "Session Explorer", command: "copilotLens.openSession", icon: "history" },
+        { kind: "action", label: "Show Agent Graph", command: "agentLens.showGraph", icon: "type-hierarchy" },
+        { kind: "action", label: "Show Metrics Dashboard", command: "agentLens.openMetrics", icon: "graph" },
+        { kind: "action", label: "Session Explorer", command: "agentLens.openSession", icon: "history" },
       ];
     }
 

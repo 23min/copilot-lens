@@ -148,7 +148,7 @@ export class CopilotSessionProvider implements SessionProvider {
 
     // 1. Check user-configured sessionDir first (for devcontainers with mounts)
     const configDir = vscode.workspace
-      .getConfiguration("copilotLens")
+      .getConfiguration("agentLens")
       .get<string>("sessionDir");
 
     if (configDir) {
