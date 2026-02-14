@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.9] - 2026-02-14
+
+### Changed
+- Rewrote README for VS Code marketplace: clear value proposition, feature descriptions, getting started guide, removed dev docs
+
 ## [0.0.8] - 2026-02-14
 
 ### Changed
