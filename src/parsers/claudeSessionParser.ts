@@ -259,7 +259,7 @@ function parseSubagentContent(sub: SubagentInput): SessionRequest[] {
   const lines = sub.content.split("\n").filter((l) => l.trim());
   const agentName =
     sub.subagentType ??
-    (sub.agentId.startsWith("acompact-") ? "compact" : sub.agentId);
+    (sub.agentId.startsWith("acompact-") ? "compact" : "subagent");
   const requests: SessionRequest[] = [];
 
   for (const line of lines) {

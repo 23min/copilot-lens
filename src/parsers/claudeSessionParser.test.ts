@@ -682,7 +682,7 @@ describe("subagent parsing", () => {
     ]);
 
     const subReq = session.requests.find((r) => r.isSubagent);
-    expect(subReq!.customAgentName).toBe("abc123");
+    expect(subReq!.customAgentName).toBe("subagent");
   });
 
   it("labels acompact-* agents as 'compact' when subagentType is null", () => {
