@@ -199,6 +199,61 @@ describe("collectMetrics", () => {
     expect(gpt?.completionTokens).toBe(100);
   });
 
+  it("aggregates cache tokens", () => {
+    const sessions = [
+      makeSession({
+        requests: [
+          {
+            requestId: "r1",
+            timestamp: Date.now(),
+            agentId: "claude-code",
+            customAgentName: null,
+            modelId: "claude-opus-4-6",
+            messageText: "hello",
+            timings: { firstProgress: null, totalElapsed: null },
+            usage: {
+              promptTokens: 3,
+              completionTokens: 10,
+              cacheReadTokens: 18019,
+              cacheCreationTokens: 2620,
+            },
+            toolCalls: [],
+            availableSkills: [],
+            loadedSkills: [],
+          },
+          {
+            requestId: "r2",
+            timestamp: Date.now(),
+            agentId: "claude-code",
+            customAgentName: null,
+            modelId: "claude-opus-4-6",
+            messageText: "world",
+            timings: { firstProgress: null, totalElapsed: null },
+            usage: {
+              promptTokens: 5,
+              completionTokens: 20,
+              cacheReadTokens: 20000,
+              cacheCreationTokens: 1000,
+            },
+            toolCalls: [],
+            availableSkills: [],
+            loadedSkills: [],
+          },
+        ],
+      }),
+    ];
+
+    const metrics = collectMetrics(sessions, [], []);
+    expect(metrics.cacheTokens.read).toBe(38019);
+    expect(metrics.cacheTokens.creation).toBe(3620);
+  });
+
+  it("defaults cache tokens to zero when not present", () => {
+    const metrics = collectMetrics(SESSIONS, [], []);
+    expect(metrics.cacheTokens.read).toBe(0);
+    expect(metrics.cacheTokens.creation).toBe(0);
+  });
+
   it("sorts tokensByAgent by total tokens descending", () => {
     const metrics = collectMetrics(SESSIONS, [], []);
     for (let i = 1; i < metrics.tokensByAgent.length; i++) {

@@ -18,6 +18,7 @@ export interface AggregatedMetrics {
   totalSessions: number;
   totalRequests: number;
   totalTokens: { prompt: number; completion: number };
+  cacheTokens: { read: number; creation: number };
   agentUsage: CountEntry[];
   modelUsage: CountEntry[];
   toolUsage: CountEntry[];

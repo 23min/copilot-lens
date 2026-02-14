@@ -29,7 +29,12 @@ interface SessionRequest {
   modelId: string;
   messageText: string;
   timings: { firstProgress: number | null; totalElapsed: number | null };
-  usage: { promptTokens: number; completionTokens: number };
+  usage: {
+    promptTokens: number;
+    completionTokens: number;
+    cacheReadTokens?: number;
+    cacheCreationTokens?: number;
+  };
   toolCalls: ToolCallInfo[];
   availableSkills: SkillRef[];
   loadedSkills: string[];
@@ -475,7 +480,7 @@ class SessionExplorer extends LitElement {
               <div class="entry-stats">
                 <span>${this.formatDuration(req.timings.totalElapsed)}</span>
                 <span
-                  >${(req.usage.promptTokens + req.usage.completionTokens).toLocaleString()}
+                  >${(req.usage.promptTokens + req.usage.completionTokens + (req.usage.cacheReadTokens ?? 0) + (req.usage.cacheCreationTokens ?? 0)).toLocaleString()}
                   tokens</span
                 >
               </div>
@@ -528,6 +533,9 @@ class SessionExplorer extends LitElement {
           <div class="detail-text">
             Prompt: ${req.usage.promptTokens.toLocaleString()} | Completion:
             ${req.usage.completionTokens.toLocaleString()}
+            ${(req.usage.cacheReadTokens ?? 0) > 0 || (req.usage.cacheCreationTokens ?? 0) > 0
+              ? html`<br>Cache Read: ${(req.usage.cacheReadTokens ?? 0).toLocaleString()} | Cache Creation: ${(req.usage.cacheCreationTokens ?? 0).toLocaleString()}`
+              : null}
           </div>
         </div>
       </div>
