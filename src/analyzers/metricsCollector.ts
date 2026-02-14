@@ -43,6 +43,8 @@ export function collectMetrics(
   let totalRequests = 0;
   let promptTokens = 0;
   let completionTokens = 0;
+  let cacheReadTokens = 0;
+  let cacheCreationTokens = 0;
   const usedAgents = new Set<string>();
   const usedSkills = new Set<string>();
 
@@ -61,6 +63,8 @@ export function collectMetrics(
       // Token usage
       promptTokens += req.usage.promptTokens;
       completionTokens += req.usage.completionTokens;
+      cacheReadTokens += req.usage.cacheReadTokens ?? 0;
+      cacheCreationTokens += req.usage.cacheCreationTokens ?? 0;
 
       // Tokens by agent
       const agentTok = agentTokens.get(agentName) ?? { prompt: 0, completion: 0 };
@@ -104,6 +108,7 @@ export function collectMetrics(
     totalSessions: sessions.length,
     totalRequests,
     totalTokens: { prompt: promptTokens, completion: completionTokens },
+    cacheTokens: { read: cacheReadTokens, creation: cacheCreationTokens },
     agentUsage: countMap(agentCounts),
     modelUsage: countMap(modelCounts),
     toolUsage: countMap(toolCounts),

@@ -247,6 +247,47 @@ describe("parseClaudeSessionJsonl", () => {
     expect(req.timings.totalElapsed).toBeNull();
   });
 
+  it("extracts cache token usage", () => {
+    const lines = [
+      userLine("hello", "u1"),
+      assistantLine({
+        uuid: "a1",
+        parentUuid: "u1",
+        usage: {
+          input_tokens: 3,
+          output_tokens: 10,
+          cache_read_input_tokens: 18019,
+          cache_creation_input_tokens: 2620,
+        },
+      }),
+    ].join("\n");
+
+    const session = parseClaudeSessionJsonl(lines, null);
+    const req = session.requests[0];
+
+    expect(req.usage.promptTokens).toBe(3);
+    expect(req.usage.completionTokens).toBe(10);
+    expect(req.usage.cacheReadTokens).toBe(18019);
+    expect(req.usage.cacheCreationTokens).toBe(2620);
+  });
+
+  it("defaults cache tokens to 0 when not present", () => {
+    const lines = [
+      userLine("hello", "u1"),
+      assistantLine({
+        uuid: "a1",
+        parentUuid: "u1",
+        usage: { input_tokens: 100, output_tokens: 50 },
+      }),
+    ].join("\n");
+
+    const session = parseClaudeSessionJsonl(lines, null);
+    const req = session.requests[0];
+
+    expect(req.usage.cacheReadTokens).toBe(0);
+    expect(req.usage.cacheCreationTokens).toBe(0);
+  });
+
   it("handles string content gracefully", () => {
     const lines = [
       JSON.stringify({

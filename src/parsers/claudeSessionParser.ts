@@ -125,6 +125,8 @@ export function parseClaudeSessionJsonl(
         usage: {
           promptTokens: msg.usage?.input_tokens ?? 0,
           completionTokens: msg.usage?.output_tokens ?? 0,
+          cacheReadTokens: msg.usage?.cache_read_input_tokens ?? 0,
+          cacheCreationTokens: msg.usage?.cache_creation_input_tokens ?? 0,
         },
         toolCalls,
         availableSkills: [],

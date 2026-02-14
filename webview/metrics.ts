@@ -27,6 +27,7 @@ interface AggregatedMetrics {
   totalSessions: number;
   totalRequests: number;
   totalTokens: { prompt: number; completion: number };
+  cacheTokens: { read: number; creation: number };
   agentUsage: CountEntry[];
   modelUsage: CountEntry[];
   toolUsage: CountEntry[];
@@ -455,6 +456,29 @@ class MetricsDashboard extends LitElement {
       },
     ];
 
+    const hasCacheTokens =
+      m.cacheTokens.read > 0 || m.cacheTokens.creation > 0;
+    const cacheInputSlices: DonutSlice[] = hasCacheTokens
+      ? [
+          { name: "Cache Read", value: m.cacheTokens.read, color: "#4ec9b0" },
+          {
+            name: "Cache Creation",
+            value: m.cacheTokens.creation,
+            color: "#dcdcaa",
+          },
+          {
+            name: "Non-cached",
+            value: m.totalTokens.prompt,
+            color: "#4fc1ff",
+          },
+        ]
+      : [];
+    const cacheHitRatio =
+      hasCacheTokens
+        ? m.cacheTokens.read /
+          (m.cacheTokens.read + m.cacheTokens.creation + m.totalTokens.prompt)
+        : 0;
+
     const filterOptions: { value: SourceFilter; label: string }[] = [
       { value: "all", label: "All" },
       { value: "copilot", label: "Copilot" },
@@ -497,6 +521,28 @@ class MetricsDashboard extends LitElement {
           </div>
           <div class="stat-label">Prompt Tokens</div>
         </div>
+        ${hasCacheTokens
+          ? html`
+              <div class="stat-card">
+                <div class="stat-value">
+                  ${this.formatNumber(m.cacheTokens.read)}
+                </div>
+                <div class="stat-label">Cache Read Tokens</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">
+                  ${this.formatNumber(m.cacheTokens.creation)}
+                </div>
+                <div class="stat-label">Cache Creation Tokens</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">
+                  ${Math.round(cacheHitRatio * 100)}%
+                </div>
+                <div class="stat-label">Cache Hit Ratio</div>
+              </div>
+            `
+          : null}
       </div>
 
       <h2>Token Distribution</h2>
@@ -513,6 +559,14 @@ class MetricsDashboard extends LitElement {
           <div class="donut-title">Prompt vs Completion</div>
           ${this.renderDonutChart(promptCompSlices)}
         </div>
+        ${hasCacheTokens
+          ? html`
+              <div class="donut-card">
+                <div class="donut-title">Input Token Breakdown</div>
+                ${this.renderDonutChart(cacheInputSlices)}
+              </div>
+            `
+          : null}
       </div>
 
       <h2>Agent Usage</h2>

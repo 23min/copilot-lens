@@ -12,6 +12,8 @@ export interface SessionRequest {
   usage: {
     promptTokens: number;
     completionTokens: number;
+    cacheReadTokens?: number;
+    cacheCreationTokens?: number;
   };
   toolCalls: ToolCallInfo[];
   availableSkills: SkillRef[];
