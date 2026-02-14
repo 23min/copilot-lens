@@ -41,8 +41,8 @@ export class SessionPanel {
     }
 
     const panel = vscode.window.createWebviewPanel(
-      "copilotLens.session",
-      "Copilot Lens: Session Explorer",
+      "agentLens.session",
+      "Agent Lens: Session Explorer",
       vscode.ViewColumn.One,
       {
         enableScripts: true,
@@ -102,7 +102,7 @@ export class SessionPanel {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy"
     content="default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline';">
-  <title>Copilot Lens: Session Explorer</title>
+  <title>Agent Lens: Session Explorer</title>
   <style>
     body {
       margin: 0;

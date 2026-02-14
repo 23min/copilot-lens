@@ -654,7 +654,7 @@ class MetricsDashboard extends LitElement {
         </div>
       </div>
       ${this.guideOpen ? this.renderTokenGuide() : null}
-      <h1>Copilot Lens Metrics</h1>
+      <h1>Agent Lens Metrics</h1>
 
       <div class="stats-grid">
         <div class="stat-card" title="Total number of chat sessions discovered">

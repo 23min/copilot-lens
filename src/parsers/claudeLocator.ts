@@ -23,6 +23,21 @@ export function encodeProjectPath(workspacePath: string): string {
 }
 
 /**
+ * Return encoded-path variants to try. In containers, VS Code may report
+ * workspace paths with underscores where the actual filesystem has dashes
+ * (or vice versa), so we try both forms.
+ */
+export function encodedPathVariants(workspacePath: string): string[] {
+  const primary = encodeProjectPath(workspacePath);
+  const alt = primary.includes("_")
+    ? primary.replace(/_/g, "-")
+    : primary.includes("-")
+      ? null // don't try replacing all dashes — too many false positives
+      : null;
+  return alt && alt !== primary ? [primary, alt] : [primary];
+}
+
+/**
  * Parse a Claude Code sessions-index.json file.
  * Returns an empty array on any error.
  */
@@ -56,15 +71,25 @@ export async function discoverClaudeSessions(
 ): Promise<ClaudeSessionEntry[]> {
   const log = getLogger();
   const claudeRoot = path.join(os.homedir(), ".claude", "projects");
-  const encoded = encodeProjectPath(workspacePath);
-  const projectDir = path.join(claudeRoot, encoded);
+  const variants = encodedPathVariants(workspacePath);
 
-  log.info(`Claude session discovery: looking for "${encoded}" in ${claudeRoot}`);
+  log.info(`Claude session discovery: trying ${variants.length} variant(s) in ${claudeRoot}`);
 
-  // Check if the project directory exists
-  try {
-    await fs.access(projectDir);
-  } catch {
+  // Try each encoded-path variant
+  let projectDir: string | null = null;
+  for (const encoded of variants) {
+    const candidate = path.join(claudeRoot, encoded);
+    try {
+      await fs.access(candidate);
+      log.info(`  Matched project dir: "${encoded}"`);
+      projectDir = candidate;
+      break;
+    } catch {
+      log.info(`  No match for "${encoded}"`);
+    }
+  }
+
+  if (!projectDir) {
     log.info("  No Claude project directory found");
     return [];
   }
@@ -130,6 +155,10 @@ export async function discoverClaudeSessions(
  * The dir can be either:
  * - A `projects/` root (contains encoded-path subdirs) — we look for the workspace's subdir
  * - A specific project directory (contains JSONL files directly) — we scan it
+ *
+ * In container/SSH environments the workspace path differs from the host
+ * (e.g. /workspaces/foo vs /Users/.../foo), so exact encoded-path matching
+ * may fail. When it does, we scan all subdirectories as a fallback.
  */
 export async function discoverClaudeSessionsInDir(
   configDir: string,
@@ -144,22 +173,81 @@ export async function discoverClaudeSessionsInDir(
     return [];
   }
 
-  // Strategy A: if workspacePath is set, try as a projects/ root
+  // Strategy A: if workspacePath is set, try encoded-path match (with variants)
   if (workspacePath) {
-    const encoded = encodeProjectPath(workspacePath);
-    const projectSubDir = path.join(configDir, encoded);
-    try {
-      await fs.access(projectSubDir);
-      log.info(`  Found project subdir: "${encoded}"`);
-      // Reuse the same logic as the main discovery but with this dir
-      return await scanProjectDir(projectSubDir);
-    } catch {
-      // Not a projects/ root, or no matching subdir
+    const variants = encodedPathVariants(workspacePath);
+    for (const encoded of variants) {
+      const projectSubDir = path.join(configDir, encoded);
+      try {
+        await fs.access(projectSubDir);
+        log.info(`  Found project subdir: "${encoded}"`);
+        return await scanProjectDir(projectSubDir);
+      } catch {
+        log.info(`  No match for "${encoded}"`);
+      }
     }
   }
 
-  // Strategy B: treat as a direct project directory
-  return await scanProjectDir(configDir);
+  // Strategy B: treat configDir as a direct project directory (has JSONL files)
+  const direct = await scanProjectDir(configDir);
+  if (direct.length > 0) return direct;
+
+  // Strategy C: match by workspace folder name (handles container path mismatch)
+  if (workspacePath) {
+    const folderName = path.basename(workspacePath);
+    return await scanSubdirsByFolderName(configDir, folderName);
+  }
+
+  return [];
+}
+
+/**
+ * Scan subdirectories in a projects/ root, filtering to those whose encoded
+ * path ends with the workspace folder name. Handles container/SSH environments
+ * where the full path differs from the host but the folder name matches.
+ * E.g. container path `/workspaces/my-app` matches host dir `-Users-foo-my-app`.
+ */
+async function scanSubdirsByFolderName(
+  projectsRoot: string,
+  folderName: string,
+): Promise<ClaudeSessionEntry[]> {
+  const log = getLogger();
+  let entries: string[];
+  try {
+    entries = await fs.readdir(projectsRoot);
+  } catch {
+    return [];
+  }
+
+  const suffixes = [`-${folderName}`];
+  if (folderName.includes("_")) {
+    suffixes.push(`-${folderName.replace(/_/g, "-")}`);
+  }
+  const matching = entries.filter(
+    (e) => e.startsWith("-") && suffixes.some((s) => e.endsWith(s)),
+  );
+
+  if (matching.length === 0) {
+    log.info(`  No project subdirs ending with ${suffixes.map((s) => `"${s}"`).join(" or ")}`);
+    return [];
+  }
+
+  log.info(`  Found ${matching.length} subdir(s) matching folder name "${folderName}"`);
+  const allSessions: ClaudeSessionEntry[] = [];
+  for (const entry of matching) {
+    const subDir = path.join(projectsRoot, entry);
+    try {
+      const stat = await fs.stat(subDir);
+      if (!stat.isDirectory()) continue;
+    } catch {
+      continue;
+    }
+    const sessions = await scanProjectDir(subDir);
+    allSessions.push(...sessions);
+  }
+
+  log.info(`  Found ${allSessions.length} session(s) via folder name match`);
+  return allSessions;
 }
 
 async function scanProjectDir(

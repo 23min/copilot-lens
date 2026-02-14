@@ -80,7 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - DAG layout for agent graph: layered left-to-right topological ordering with auto-fit to viewport
 - Bezier curve edges between graph nodes
 - Structured startup and refresh logging via Output Channel: timing, discovery counts, session strategy tracing, and error diagnostics (closes #4)
-- Logger singleton (`src/logger.ts`) with `[INFO]`/`[WARN]`/`[ERROR]` prefixes for the "Copilot Lens" output channel
+- Logger singleton (`src/logger.ts`) with `[INFO]`/`[WARN]`/`[ERROR]` prefixes for the "Agent Lens" output channel
 - CI workflow with CodeQL static analysis, npm audit, and dependency review on PRs
 - Auto-refresh: file system watchers on agent, skill, and session files trigger debounced refresh automatically (closes #3)
 - Panels (Graph, Metrics, Session Explorer) now re-scan before displaying to ensure fresh data
@@ -90,7 +90,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Graph fills full viewport height (was clipped mid-screen)
 - VS Code build task failing with exit code 127: tasks.json uses shell type with fnm init
 - Session discovery in devcontainers/WSL2: scans sibling workspace hash directories to find sessions when the storage hash differs from the original
-- `copilotLens.sessionDir` setting: manually specify a session directory or mounted `workspaceStorage` root for devcontainer environments where sessions live on the host
+- `agentLens.sessionDir` setting: manually specify a session directory or mounted `workspaceStorage` root for devcontainer environments where sessions live on the host
 - Click-to-open agent/skill files broken on Windows: was using relative path with `Uri.file()`, now preserves the original URI from discovery
 - Malformed YAML frontmatter in agent/skill files no longer crashes the Refresh command; bad files are skipped with a console warning (fixes #1)
 - Tree view sort order no longer shuffles on refresh; agents and skills are sorted alphabetically by name

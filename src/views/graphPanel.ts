@@ -26,8 +26,8 @@ export class GraphPanel {
     }
 
     const panel = vscode.window.createWebviewPanel(
-      "copilotLens.graph",
-      "Copilot Lens: Agent Graph",
+      "agentLens.graph",
+      "Agent Lens: Agent Graph",
       vscode.ViewColumn.One,
       {
         enableScripts: true,
@@ -70,7 +70,7 @@ export class GraphPanel {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy"
     content="default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline';">
-  <title>Copilot Lens: Agent Graph</title>
+  <title>Agent Lens: Agent Graph</title>
   <style>
     html, body {
       margin: 0;

@@ -208,6 +208,49 @@ class GraphView extends LitElement {
       text-anchor: middle;
       pointer-events: none;
     }
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 16px;
+      color: var(--vscode-descriptionForeground, #999);
+      font-family: var(--vscode-font-family, sans-serif);
+      text-align: center;
+      padding: 40px;
+    }
+    .empty-state h2 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 500;
+      color: var(--vscode-editor-foreground, #ccc);
+    }
+    .empty-state p {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.6;
+      max-width: 480px;
+    }
+    .empty-state a {
+      color: var(--vscode-textLink-foreground, #3794ff);
+      text-decoration: none;
+    }
+    .empty-state a:hover {
+      text-decoration: underline;
+    }
+    .empty-state .doc-links {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .empty-state .doc-link {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
   `;
 
   @state() private nodes: GraphNode[] = [];
@@ -322,6 +365,30 @@ class GraphView extends LitElement {
   }
 
   protected render() {
+    if (this.nodes.length === 0) {
+      return html`
+        <div class="empty-state">
+          <h2>No agents or skills found</h2>
+          <p>
+            Agent Lens visualizes the agents and skills defined in your project.
+            Add agent or skill configuration files to see them here.
+          </p>
+          <div class="doc-links">
+            <div class="doc-link">
+              <span>GitHub Copilot:</span>
+              <a href="https://code.visualstudio.com/docs/copilot/customization/custom-agents#_what-are-custom-agents"
+                >Custom agents &amp; skills</a>
+            </div>
+            <div class="doc-link">
+              <span>Claude Code:</span>
+              <a href="https://code.claude.com/docs/en/sub-agents"
+                >Sub-agents</a>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
     return html`
       <svg>
         <defs>

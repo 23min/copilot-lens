@@ -29,7 +29,7 @@ export class ClaudeSessionProvider implements SessionProvider {
 
     // 1. Check user-configured claudeDir first (for devcontainers with mounts)
     const configDir = vscode.workspace
-      .getConfiguration("copilotLens")
+      .getConfiguration("agentLens")
       .get<string>("claudeDir");
 
     let entries;
@@ -105,7 +105,7 @@ export class ClaudeSessionProvider implements SessionProvider {
 
     // Watch user-configured dir if set
     const configDir = vscode.workspace
-      .getConfiguration("copilotLens")
+      .getConfiguration("agentLens")
       .get<string>("claudeDir");
     if (configDir) {
       targets.push(

@@ -1,4 +1,4 @@
-# Copilot Lens — Roadmap
+# Agent Lens — Roadmap
 
 > Broken into milestones that each deliver something usable. Each milestone is a set of tasks that can be developed on a feature branch and merged independently.
 
@@ -16,7 +16,7 @@
 | 0.4 | Vitest setup | Config, first dummy test to verify the runner works |
 | 0.5 | VS Code launch config | `.vscode/launch.json` for F5 debugging (Extension Development Host) |
 | 0.6 | Extension entry point | Minimal `src/extension.ts` with `activate()` / `deactivate()`, activation events |
-| 0.7 | Verify end-to-end | F5 → extension activates → "Copilot Lens" appears in output → passes dummy test |
+| 0.7 | Verify end-to-end | F5 → extension activates → "Agent Lens" appears in output → passes dummy test |
 
 **Branch:** `feature/extension-setup`
 **Definition of done:** `npm run build` succeeds, `npm test` passes, F5 launches the extension.
@@ -64,7 +64,7 @@
 |---|---|---|
 | 3.1 | Tree data provider | Implement `vscode.TreeDataProvider` for the sidebar. Show agents with their tools/handoffs/model as children. Show skills. |
 | 3.2 | Activity bar icon | Register view container in `package.json`, add icon to activity bar. |
-| 3.3 | Refresh command | `copilot-lens.refresh` re-scans files and updates the tree. |
+| 3.3 | Refresh command | `agent-lens.refresh` re-scans files and updates the tree. |
 | 3.4 | Click to open file | Clicking an agent/skill opens its `.agent.md` or `SKILL.md` file in the editor. |
 
 **Branch:** `feature/tree-view`
@@ -84,7 +84,7 @@
 | 4.4 | Node styling | Color code: agents vs skills vs built-in. Show name, icon. Handoff edges: solid (send:true) vs dashed (send:false), labeled. |
 | 4.5 | Interactions | Click node → detail panel. Hover → tooltip. Zoom, pan, drag. |
 | 4.6 | Search/filter | Filter nodes by name. Highlight matching nodes. |
-| 4.7 | Open graph command | `copilot-lens.openGraph` command and tree view link. |
+| 4.7 | Open graph command | `agent-lens.openGraph` command and tree view link. |
 
 **Branch:** `feature/graph-webview`
 **Definition of done:** Graph renders correctly with all agents/skills/handoffs. Interactions work. Visually polished.
@@ -105,7 +105,7 @@
 | 5.6 | Custom agent detection | Parse `<modeInstructions>` from `renderedUserMessage` to extract custom agent mode name. |
 | 5.7 | Skill detection | Parse `<skills>` XML from rendered system prompt. Detect actually-loaded skills via `read_file` tool calls to `SKILL.md` paths. |
 | 5.8 | Chatreplay import | Support importing `.chatreplay.json` via command. Parse the prompt/log structure. |
-| 5.9 | Size limits | Respect `copilotLens.sessionMaxSizeMB` setting. Skip files over the limit. |
+| 5.9 | Size limits | Respect `agentLens.sessionMaxSizeMB` setting. Skip files over the limit. |
 
 **Branch:** `feature/session-parser`
 **Definition of done:** Session files from `data/` parse correctly. Custom agent and skill detection work against real data. Unit tests pass with fixture data.
@@ -124,7 +124,7 @@
 | 6.4 | Charts | Agent usage bar chart, model distribution donut, activity timeline (line/heatmap), tool call frequency. Use D3 or Chart.js. |
 | 6.5 | Unused detection | Cross-reference defined agents/skills with session data. Highlight unused ones. |
 | 6.6 | Filters | Date range, filter by agent, filter by model. |
-| 6.7 | Open dashboard command | `copilot-lens.openMetrics` command. |
+| 6.7 | Open dashboard command | `agent-lens.openMetrics` command. |
 
 **Branch:** `feature/metrics-dashboard`
 **Definition of done:** Dashboard shows meaningful charts from real session data. Filters work.
@@ -141,7 +141,7 @@
 | 7.2 | Timeline view | Vertical timeline of requests within a session. Show timestamp, agent, model, prompt (truncated), tool calls. |
 | 7.3 | Agent switch highlighting | Visually mark when the agent or model changes between requests. |
 | 7.4 | Request detail | Click a request → full prompt text, response, tool invocations. |
-| 7.5 | Open explorer command | `copilot-lens.openSession` command. |
+| 7.5 | Open explorer command | `agent-lens.openSession` command. |
 
 **Branch:** `feature/session-explorer`
 **Definition of done:** Can browse sessions, see timeline, click into request details.
@@ -156,7 +156,7 @@
 |---|---|---|
 | 8.1 | File watchers | Watch `.github/agents/`, `.github/skills/`, and `chatSessions/` for changes. Auto-refresh tree and panels. |
 | 8.2 | Metrics caching | Cache parsed session data. Only re-parse when files change (check mtime). |
-| 8.3 | Export metrics | `copilot-lens.exportMetrics` → save aggregated metrics as JSON. |
+| 8.3 | Export metrics | `agent-lens.exportMetrics` → save aggregated metrics as JSON. |
 | 8.4 | Settings | Implement all settings from spec (scanPersonalSkills, maxSessionsToAnalyze, sessionMaxSizeMB, showBuiltInAgents). |
 | 8.5 | Error handling | Graceful degradation when no agents/skills/sessions found. Informative empty states. |
 | 8.6 | Marketplace prep | Extension icon, README with screenshots, CHANGELOG, categories/keywords. |
