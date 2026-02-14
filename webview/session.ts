@@ -1,6 +1,16 @@
 import { LitElement, html, css } from "lit";
 import { customElement, state } from "lit/decorators.js";
 
+declare function acquireVsCodeApi(): {
+  postMessage(msg: unknown): void;
+  getState(): unknown;
+  setState(state: unknown): void;
+};
+
+const vscode = acquireVsCodeApi();
+
+type SourceFilter = "all" | "copilot" | "claude";
+
 interface ToolCallInfo {
   id: string;
   name: string;
@@ -19,10 +29,16 @@ interface SessionRequest {
   modelId: string;
   messageText: string;
   timings: { firstProgress: number | null; totalElapsed: number | null };
-  usage: { promptTokens: number; completionTokens: number };
+  usage: {
+    promptTokens: number;
+    completionTokens: number;
+    cacheReadTokens?: number;
+    cacheCreationTokens?: number;
+  };
   toolCalls: ToolCallInfo[];
   availableSkills: SkillRef[];
   loadedSkills: string[];
+  isSubagent?: boolean;
 }
 
 interface Session {
@@ -30,7 +46,8 @@ interface Session {
   title: string | null;
   creationDate: number;
   requests: SessionRequest[];
-  source: "jsonl" | "json" | "chatreplay";
+  source: string;
+  provider: "copilot" | "claude";
 }
 
 @customElement("session-explorer")
@@ -137,14 +154,14 @@ class SessionExplorer extends LitElement {
       width: 10px;
       height: 10px;
       border-radius: 50%;
-      background: #4fc1ff;
+      background: #c4a882;
       border: 2px solid var(--vscode-editor-background, #1e1e1e);
     }
     .timeline-entry.agent-switch::before {
-      background: #c586c0;
+      background: #b09090;
     }
     .timeline-entry.model-switch::before {
-      background: #dcdcaa;
+      background: #c9b87c;
     }
     .entry-header {
       display: flex;
@@ -155,7 +172,7 @@ class SessionExplorer extends LitElement {
     }
     .entry-agent {
       font-weight: 600;
-      color: #4fc1ff;
+      color: #c4a882;
     }
     .entry-model {
       opacity: 0.6;
@@ -200,12 +217,19 @@ class SessionExplorer extends LitElement {
       font-weight: 600;
     }
     .switch-badge.agent {
-      background: rgba(197, 134, 192, 0.2);
-      color: #c586c0;
+      background: rgba(176, 144, 144, 0.2);
+      color: #b09090;
     }
     .switch-badge.model {
-      background: rgba(220, 220, 170, 0.2);
-      color: #dcdcaa;
+      background: rgba(201, 184, 124, 0.2);
+      color: #c9b87c;
+    }
+    .timeline-entry.subagent::before {
+      background: #8aab7f;
+    }
+    .switch-badge.subagent {
+      background: rgba(138, 171, 127, 0.2);
+      color: #8aab7f;
     }
 
     /* Detail view */
@@ -239,9 +263,56 @@ class SessionExplorer extends LitElement {
       padding: 24px 0;
       text-align: center;
     }
+    .filter-toggle {
+      display: inline-flex;
+      border: 1px solid var(--vscode-editorWidget-border, #454545);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .filter-btn {
+      background: none;
+      border: none;
+      border-right: 1px solid var(--vscode-editorWidget-border, #454545);
+      color: var(--vscode-editor-foreground);
+      padding: 4px 14px;
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+      opacity: 0.7;
+    }
+    .filter-btn:last-child {
+      border-right: none;
+    }
+    .filter-btn:hover {
+      opacity: 1;
+      background: var(--vscode-list-hoverBackground, #2a2d2e);
+    }
+    .filter-btn.active {
+      opacity: 1;
+      background: var(--vscode-button-background, #0e639c);
+      color: var(--vscode-button-foreground, #fff);
+    }
+    .provider-badge {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-weight: 600;
+      margin-right: 8px;
+      flex-shrink: 0;
+    }
+    .provider-badge.copilot {
+      background: rgba(196, 168, 130, 0.15);
+      color: #c4a882;
+    }
+    .provider-badge.claude {
+      background: rgba(176, 144, 144, 0.15);
+      color: #b09090;
+    }
   `;
 
   @state() private sessions: Session[] = [];
+  @state() private activeFilter: SourceFilter = "all";
   @state() private selectedSession: Session | null = null;
   @state() private selectedRequest: SessionRequest | null = null;
 
@@ -258,6 +329,9 @@ class SessionExplorer extends LitElement {
   private handleMessage = (e: MessageEvent): void => {
     if (e.data.type === "update-sessions") {
       this.sessions = e.data.sessions;
+      if (e.data.activeFilter) {
+        this.activeFilter = e.data.activeFilter;
+      }
 
       // Keep the selected session/request in sync with fresh data
       if (this.selectedSession) {
@@ -276,6 +350,11 @@ class SessionExplorer extends LitElement {
       }
     }
   };
+
+  private onFilterChange(filter: SourceFilter): void {
+    this.activeFilter = filter;
+    vscode.postMessage({ type: "filter-change", provider: filter });
+  }
 
   private formatDate(ts: number): string {
     return new Date(ts).toLocaleString();
@@ -299,7 +378,25 @@ class SessionExplorer extends LitElement {
       </div>`;
     }
 
+    const filterOptions: { value: SourceFilter; label: string }[] = [
+      { value: "all", label: "All" },
+      { value: "copilot", label: "Copilot" },
+      { value: "claude", label: "Claude" },
+    ];
+
     return html`
+      <div class="filter-toggle">
+        ${filterOptions.map(
+          (opt) => html`
+            <button
+              class="filter-btn ${this.activeFilter === opt.value ? "active" : ""}"
+              @click="${() => this.onFilterChange(opt.value)}"
+            >
+              ${opt.label}
+            </button>
+          `,
+        )}
+      </div>
       <h1>Session Explorer</h1>
       <div class="session-list">
         ${sorted.map(
@@ -311,6 +408,9 @@ class SessionExplorer extends LitElement {
                 this.selectedRequest = null;
               }}"
             >
+              <span class="provider-badge ${session.provider}">
+                ${session.provider === "copilot" ? "Copilot" : "Claude"}
+              </span>
               <span class="session-title">
                 ${session.title ?? session.sessionId}
               </span>
@@ -347,13 +447,15 @@ class SessionExplorer extends LitElement {
           const prevAgent = prev
             ? prev.customAgentName ?? prev.agentId
             : null;
-          const agentSwitch = prev !== null && agentName !== prevAgent;
+          const isSubagent = req.isSubagent === true;
+          const agentSwitch =
+            prev !== null && agentName !== prevAgent && !isSubagent;
           const modelSwitch =
             prev !== null && req.modelId !== prev.modelId;
 
           return html`
             <div
-              class="timeline-entry ${agentSwitch ? "agent-switch" : ""} ${modelSwitch ? "model-switch" : ""}"
+              class="timeline-entry ${isSubagent ? "subagent" : ""} ${agentSwitch ? "agent-switch" : ""} ${modelSwitch ? "model-switch" : ""}"
               @click="${() => {
                 this.selectedRequest =
                   this.selectedRequest?.requestId === req.requestId
@@ -363,6 +465,9 @@ class SessionExplorer extends LitElement {
             >
               <div class="entry-header">
                 <span class="entry-agent">${agentName}</span>
+                ${isSubagent
+                  ? html`<span class="switch-badge subagent">subagent</span>`
+                  : null}
                 ${agentSwitch
                   ? html`<span class="switch-badge agent">agent switch</span>`
                   : null}
@@ -388,7 +493,7 @@ class SessionExplorer extends LitElement {
               <div class="entry-stats">
                 <span>${this.formatDuration(req.timings.totalElapsed)}</span>
                 <span
-                  >${(req.usage.promptTokens + req.usage.completionTokens).toLocaleString()}
+                  >${(req.usage.promptTokens + req.usage.completionTokens + (req.usage.cacheReadTokens ?? 0) + (req.usage.cacheCreationTokens ?? 0)).toLocaleString()}
                   tokens</span
                 >
               </div>
@@ -441,6 +546,9 @@ class SessionExplorer extends LitElement {
           <div class="detail-text">
             Prompt: ${req.usage.promptTokens.toLocaleString()} | Completion:
             ${req.usage.completionTokens.toLocaleString()}
+            ${(req.usage.cacheReadTokens ?? 0) > 0 || (req.usage.cacheCreationTokens ?? 0) > 0
+              ? html`<br>Cache Read: ${(req.usage.cacheReadTokens ?? 0).toLocaleString()} | Cache Creation: ${(req.usage.cacheCreationTokens ?? 0).toLocaleString()}`
+              : null}
           </div>
         </div>
       </div>

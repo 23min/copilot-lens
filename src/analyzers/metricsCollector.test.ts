@@ -9,6 +9,7 @@ function makeSession(overrides: Partial<Session> = {}): Session {
     creationDate: Date.now(),
     requests: [],
     source: "jsonl",
+    provider: "copilot",
     ...overrides,
   };
 }
@@ -198,6 +199,61 @@ describe("collectMetrics", () => {
     expect(gpt?.completionTokens).toBe(100);
   });
 
+  it("aggregates cache tokens", () => {
+    const sessions = [
+      makeSession({
+        requests: [
+          {
+            requestId: "r1",
+            timestamp: Date.now(),
+            agentId: "claude-code",
+            customAgentName: null,
+            modelId: "claude-opus-4-6",
+            messageText: "hello",
+            timings: { firstProgress: null, totalElapsed: null },
+            usage: {
+              promptTokens: 3,
+              completionTokens: 10,
+              cacheReadTokens: 18019,
+              cacheCreationTokens: 2620,
+            },
+            toolCalls: [],
+            availableSkills: [],
+            loadedSkills: [],
+          },
+          {
+            requestId: "r2",
+            timestamp: Date.now(),
+            agentId: "claude-code",
+            customAgentName: null,
+            modelId: "claude-opus-4-6",
+            messageText: "world",
+            timings: { firstProgress: null, totalElapsed: null },
+            usage: {
+              promptTokens: 5,
+              completionTokens: 20,
+              cacheReadTokens: 20000,
+              cacheCreationTokens: 1000,
+            },
+            toolCalls: [],
+            availableSkills: [],
+            loadedSkills: [],
+          },
+        ],
+      }),
+    ];
+
+    const metrics = collectMetrics(sessions, [], []);
+    expect(metrics.cacheTokens.read).toBe(38019);
+    expect(metrics.cacheTokens.creation).toBe(3620);
+  });
+
+  it("defaults cache tokens to zero when not present", () => {
+    const metrics = collectMetrics(SESSIONS, [], []);
+    expect(metrics.cacheTokens.read).toBe(0);
+    expect(metrics.cacheTokens.creation).toBe(0);
+  });
+
   it("sorts tokensByAgent by total tokens descending", () => {
     const metrics = collectMetrics(SESSIONS, [], []);
     for (let i = 1; i < metrics.tokensByAgent.length; i++) {
@@ -209,5 +265,98 @@ describe("collectMetrics", () => {
         metrics.tokensByAgent[i].completionTokens;
       expect(prev).toBeGreaterThanOrEqual(curr);
     }
+  });
+
+  it("counts subagent requests as separate agents", () => {
+    const sessions = [
+      makeSession({
+        requests: [
+          {
+            requestId: "r1",
+            timestamp: Date.now(),
+            agentId: "claude-code",
+            customAgentName: null,
+            modelId: "claude-opus-4-6",
+            messageText: "hello",
+            timings: { firstProgress: null, totalElapsed: null },
+            usage: { promptTokens: 100, completionTokens: 50 },
+            toolCalls: [],
+            availableSkills: [],
+            loadedSkills: [],
+          },
+          {
+            requestId: "r2",
+            timestamp: Date.now(),
+            agentId: "claude-code:subagent",
+            customAgentName: "Explore",
+            modelId: "claude-opus-4-6",
+            messageText: "",
+            timings: { firstProgress: null, totalElapsed: null },
+            usage: { promptTokens: 200, completionTokens: 80 },
+            toolCalls: [{ id: "t1", name: "Read" }],
+            availableSkills: [],
+            loadedSkills: [],
+            isSubagent: true,
+          },
+        ],
+      }),
+    ];
+
+    const metrics = collectMetrics(sessions, [], []);
+    const explore = metrics.agentUsage.find((a) => a.name === "Explore");
+    const mainAgent = metrics.agentUsage.find(
+      (a) => a.name === "claude-code",
+    );
+
+    expect(explore?.count).toBe(1);
+    expect(mainAgent?.count).toBe(1);
+  });
+
+  it("includes subagent tokens in totals", () => {
+    const sessions = [
+      makeSession({
+        requests: [
+          {
+            requestId: "r1",
+            timestamp: Date.now(),
+            agentId: "claude-code",
+            customAgentName: null,
+            modelId: "claude-opus-4-6",
+            messageText: "hello",
+            timings: { firstProgress: null, totalElapsed: null },
+            usage: { promptTokens: 100, completionTokens: 50 },
+            toolCalls: [],
+            availableSkills: [],
+            loadedSkills: [],
+          },
+          {
+            requestId: "r2",
+            timestamp: Date.now(),
+            agentId: "claude-code:subagent",
+            customAgentName: "Bash",
+            modelId: "claude-opus-4-6",
+            messageText: "",
+            timings: { firstProgress: null, totalElapsed: null },
+            usage: {
+              promptTokens: 5,
+              completionTokens: 20,
+              cacheReadTokens: 5000,
+              cacheCreationTokens: 1000,
+            },
+            toolCalls: [{ id: "t1", name: "Bash" }],
+            availableSkills: [],
+            loadedSkills: [],
+            isSubagent: true,
+          },
+        ],
+      }),
+    ];
+
+    const metrics = collectMetrics(sessions, [], []);
+    expect(metrics.totalTokens.prompt).toBe(105);
+    expect(metrics.totalTokens.completion).toBe(70);
+    expect(metrics.cacheTokens.read).toBe(5000);
+    expect(metrics.cacheTokens.creation).toBe(1000);
+    expect(metrics.toolUsage.find((t) => t.name === "Bash")?.count).toBe(1);
   });
 });

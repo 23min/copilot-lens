@@ -72,6 +72,7 @@ describe("parseSessionJsonl", () => {
     expect(session.title).toBe("Test Session Title");
     expect(session.creationDate).toBe(1770929049693);
     expect(session.source).toBe("jsonl");
+    expect(session.provider).toBe("copilot");
     expect(session.requests).toHaveLength(1);
   });
 
@@ -298,6 +299,7 @@ describe("parseChatReplay", () => {
     const session = parseChatReplay(CHATREPLAY_FIXTURE);
 
     expect(session.source).toBe("chatreplay");
+    expect(session.provider).toBe("copilot");
     expect(session.requests).toHaveLength(1);
   });
 

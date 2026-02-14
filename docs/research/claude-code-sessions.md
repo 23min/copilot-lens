@@ -207,6 +207,44 @@ The subagent's conversation is recorded in a separate JSONL file under `subagent
 
 Observed: 27 subagent files in a single session, each representing an independent exploration or task thread.
 
+### Subagent file structure
+
+```
+~/.claude/projects/{encoded-path}/{sessionId}/subagents/agent-{agentId}.jsonl
+```
+
+Each subagent file contains the same JSONL format with these distinguishing fields:
+- `isSidechain: true` on all lines (both user and assistant)
+- `agentId: "{shortId}"` — unique identifier (e.g., `"ad2d877"`)
+- Same `sessionId` as the parent session
+
+Common `subagent_type` values: `"Explore"`, `"Bash"`, `"Plan"`, `"general-purpose"`.
+
+### AgentId correlation
+
+The `tool_result` for a Task call contains the agentId in a text block:
+
+```
+agentId: ad2d877 (for resuming to continue this agent's work if needed)
+```
+
+This enables correlating `subagent_type` from the `Task` tool_use input with the agentId in the subagent filename. The correlation chain:
+
+1. Main session: `Task` tool_use with `id: "toolu_XXX"` and `input.subagent_type: "Explore"`
+2. Main session: `tool_result` with `tool_use_id: "toolu_XXX"` containing `"agentId: ad2d877"`
+3. Subagent file: `agent-ad2d877.jsonl`
+
+### How we parse subagents
+
+1. **Discovery**: `claudeLocator.ts` scans `{sessionId}/subagents/` for `agent-*.jsonl` files
+2. **Type mapping**: `buildSubagentTypeMap()` scans the main session to build `Map<agentId, subagentType>`
+3. **Parsing**: Each subagent's assistant messages become `SessionRequest` entries with:
+   - `agentId: "claude-code:subagent"` (fixed prefix)
+   - `customAgentName: subagentType ?? agentId` (e.g., `"Explore"` or `"ad2d877"`)
+   - `isSubagent: true`
+4. **Interleaving**: Subagent requests merge into the main timeline sorted by timestamp
+5. **Display**: Session Explorer shows sage-green timeline dots and "subagent" badges
+
 ---
 
 ## 7. Mapping to Our Data Model
@@ -227,22 +265,28 @@ Observed: 27 subagent files in a single session, each representing an independen
 |-------------|-----------|
 | `uuid` | `requestId` |
 | `timestamp` | `timestamp` |
-| `"claude-code"` (fixed) | `agentId` |
-| Subagent `agentId` or null | `customAgentName` |
+| `"claude-code"` (main) or `"claude-code:subagent"` | `agentId` |
+| Subagent type (e.g., `"Explore"`) or `agentId` fallback | `customAgentName` |
 | `message.model` | `modelId` |
 | User message `text` before this response | `messageText` |
-| `message.usage` | `usage` → `{ promptTokens, completionTokens }` |
+| `message.usage` | `usage` → `{ promptTokens, completionTokens, cacheReadTokens?, cacheCreationTokens? }` |
 | `tool_use` blocks in content | `toolCalls[]` |
 | N/A (Claude Code doesn't have skills) | `loadedSkills` → `[]` |
+| `isSidechain` / subagent file origin | `isSubagent` → `true` for subagent requests |
 
-### New fields to consider
+### Implemented fields
+
+| Field | Source | Status |
+|-------|--------|--------|
+| `cacheReadTokens` | `message.usage.cache_read_input_tokens` | Implemented in `usage` |
+| `cacheCreationTokens` | `message.usage.cache_creation_input_tokens` | Implemented in `usage` |
+| `isSubagent` | Subagent file origin | Implemented on `SessionRequest` |
+
+### Fields to consider
 
 | Field | Source | Why |
 |-------|--------|-----|
-| `cacheReadTokens` | `message.usage.cache_read_input_tokens` | Unique to Claude; dominant cost factor |
-| `cacheCreationTokens` | `message.usage.cache_creation_input_tokens` | Shows cache warming behavior |
 | `thinkingTokens` | Count of `thinking` blocks | Shows reasoning overhead |
-| `subagentId` | `agentId` field in subagent files | Links subagent work to parent |
 
 ---
 
@@ -270,6 +314,6 @@ Observed: 27 subagent files in a single session, each representing an independen
 
 3. **Token mapping**: Map `input_tokens` → `promptTokens` and `output_tokens` → `completionTokens`. Add cache tokens as a separate dimension.
 
-4. **Subagent handling**: Subagent sessions could be inlined as additional requests within the parent session, or shown as separate nested sessions. The `parentUuid` field enables threading.
+4. **Subagent handling**: Subagent requests are inlined into the parent session timeline sorted by timestamp. Each subagent request gets `isSubagent: true`, `agentId: "claude-code:subagent"`, and `customAgentName` set to the subagent type (e.g., "Explore", "Bash", "Plan") via `buildSubagentTypeMap()` correlation.
 
 5. **No workspace hash**: Unlike Copilot, Claude Code uses the literal project path, making discovery straightforward.

@@ -6,6 +6,17 @@ Feature branches off `main`. Branch naming: `feature/<short-description>`, `fix/
 
 No direct commits to `main` — always branch and merge.
 
+### Integration branches
+
+For large multi-issue projects, use an integration branch:
+
+1. Create an integration branch off `main` (e.g., `integrate/claude-support`)
+2. Branch off the integration branch for each issue (e.g., `feature/claude-session-parser`)
+3. Merge issue branches back into the integration branch with `--no-ff`
+4. Only merge the integration branch to `main` when the full project is complete and tested
+
+**Current integration branch:** `integrate/claude-support` (tracks [Claude Code Support](https://github.com/users/23min/projects/2) project, issues #5–#9)
+
 ## Commit messages
 
 Follow [Conventional Commits](https://www.conventionalcommits.org/):

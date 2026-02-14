@@ -3,21 +3,28 @@ import type { Agent } from "./models/agent.js";
 import type { Skill } from "./models/skill.js";
 import type { Session } from "./models/session.js";
 import { discoverAgents, discoverSkills } from "./parsers/discovery.js";
-import { discoverSessions, getChatSessionsDir } from "./parsers/sessionLocator.js";
+import {
+  registerSessionProvider,
+  discoverAllSessions,
+  collectWatchTargets,
+} from "./parsers/sessionRegistry.js";
+import type { SessionDiscoveryContext } from "./parsers/sessionProvider.js";
+import { CopilotSessionProvider } from "./parsers/copilotProvider.js";
+import { ClaudeSessionProvider } from "./parsers/claudeProvider.js";
 import { buildGraph } from "./analyzers/graphBuilder.js";
-import { collectMetrics } from "./analyzers/metricsCollector.js";
 import { CopilotLensTreeProvider } from "./views/treeProvider.js";
 import { initLogger, getLogger } from "./logger.js";
 import { GraphPanel } from "./views/graphPanel.js";
 import { MetricsPanel } from "./views/metricsPanel.js";
 import { SessionPanel } from "./views/sessionPanel.js";
+import { SetupPanel } from "./views/setupPanel.js";
 
 let cachedAgents: Agent[] = [];
 let cachedSkills: Skill[] = [];
 let cachedSessions: Session[] = [];
 
 async function refresh(
-  context: vscode.ExtensionContext,
+  sessionCtx: SessionDiscoveryContext,
   treeProvider: CopilotLensTreeProvider,
 ): Promise<void> {
   const log = getLogger();
@@ -28,21 +35,29 @@ async function refresh(
     const [agents, skills, sessions] = await Promise.all([
       discoverAgents(),
       discoverSkills(),
-      discoverSessions(context),
+      discoverAllSessions(sessionCtx),
     ]);
     cachedAgents = agents;
     cachedSkills = skills;
     cachedSessions = sessions;
-    treeProvider.update(agents, skills);
+
+    // Detect remote/container context with no sessions
+    const isRemote = !!vscode.env.remoteName;
+    const remoteNoSessions = isRemote && sessions.length === 0;
+    void vscode.commands.executeCommand(
+      "setContext",
+      "copilotLens.isRemoteNoSessions",
+      remoteNoSessions,
+    );
+
+    treeProvider.update(agents, skills, { remoteNoSessions });
 
     // Push fresh data to any open panels (without stealing focus)
     GraphPanel.updateIfOpen(buildGraph(agents, skills));
     MetricsPanel.updateIfOpen(
-      collectMetrics(
-        sessions,
-        agents.map((a) => a.name),
-        skills.map((s) => s.name),
-      ),
+      sessions,
+      agents.map((a) => a.name),
+      skills.map((s) => s.name),
     );
     SessionPanel.updateIfOpen(sessions);
 
@@ -61,6 +76,16 @@ export function activate(context: vscode.ExtensionContext): void {
   initLogger(outputChannel);
   getLogger().info("Copilot Lens activated");
 
+  // Register session providers
+  registerSessionProvider(new CopilotSessionProvider());
+  registerSessionProvider(new ClaudeSessionProvider());
+
+  const sessionCtx: SessionDiscoveryContext = {
+    extensionContext: context,
+    workspacePath:
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null,
+  };
+
   const treeProvider = new CopilotLensTreeProvider();
   const treeView = vscode.window.createTreeView("copilotLens.treeView", {
     treeDataProvider: treeProvider,
@@ -69,13 +94,13 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const refreshCmd = vscode.commands.registerCommand(
     "copilotLens.refresh",
-    () => refresh(context, treeProvider),
+    () => refresh(sessionCtx, treeProvider),
   );
 
   const showGraph = vscode.commands.registerCommand(
     "copilotLens.showGraph",
     async () => {
-      await refresh(context, treeProvider);
+      await refresh(sessionCtx, treeProvider);
       const graph = buildGraph(cachedAgents, cachedSkills);
       GraphPanel.show(context.extensionUri, graph);
     },
@@ -84,21 +109,28 @@ export function activate(context: vscode.ExtensionContext): void {
   const openMetrics = vscode.commands.registerCommand(
     "copilotLens.openMetrics",
     async () => {
-      await refresh(context, treeProvider);
-      const metrics = collectMetrics(
+      await refresh(sessionCtx, treeProvider);
+      MetricsPanel.show(
+        context.extensionUri,
         cachedSessions,
         cachedAgents.map((a) => a.name),
         cachedSkills.map((s) => s.name),
       );
-      MetricsPanel.show(context.extensionUri, metrics);
     },
   );
 
   const openSession = vscode.commands.registerCommand(
     "copilotLens.openSession",
     async () => {
-      await refresh(context, treeProvider);
+      await refresh(sessionCtx, treeProvider);
       SessionPanel.show(context.extensionUri, cachedSessions);
+    },
+  );
+
+  const openContainerSetup = vscode.commands.registerCommand(
+    "copilotLens.openContainerSetup",
+    () => {
+      SetupPanel.show(context.extensionUri);
     },
   );
 
@@ -106,7 +138,7 @@ export function activate(context: vscode.ExtensionContext): void {
   let refreshTimer: ReturnType<typeof setTimeout> | undefined;
   function scheduleRefresh() {
     if (refreshTimer) clearTimeout(refreshTimer);
-    refreshTimer = setTimeout(() => refresh(context, treeProvider), 500);
+    refreshTimer = setTimeout(() => refresh(sessionCtx, treeProvider), 500);
   }
 
   const agentWatcher = vscode.workspace.createFileSystemWatcher(
@@ -136,24 +168,23 @@ export function activate(context: vscode.ExtensionContext): void {
     showGraph,
     openMetrics,
     openSession,
+    openContainerSetup,
     agentWatcher,
     skillWatcher,
     skillFlatWatcher,
   );
 
-  // Watch session files (outside workspace, in workspaceStorage)
-  const sessionDir = getChatSessionsDir(context);
-  if (sessionDir) {
-    const sessionWatcher = vscode.workspace.createFileSystemWatcher(
-      new vscode.RelativePattern(vscode.Uri.file(sessionDir), "*.jsonl"),
-    );
-    sessionWatcher.onDidCreate(scheduleRefresh);
-    sessionWatcher.onDidChange(scheduleRefresh);
-    context.subscriptions.push(sessionWatcher);
+  // Watch session files from all providers
+  for (const target of collectWatchTargets(sessionCtx)) {
+    const watcher = vscode.workspace.createFileSystemWatcher(target.pattern);
+    if (target.events.includes("create")) watcher.onDidCreate(scheduleRefresh);
+    if (target.events.includes("change")) watcher.onDidChange(scheduleRefresh);
+    if (target.events.includes("delete")) watcher.onDidDelete(scheduleRefresh);
+    context.subscriptions.push(watcher);
   }
 
   // Initial scan
-  void refresh(context, treeProvider);
+  void refresh(sessionCtx, treeProvider);
 }
 
 export function deactivate(): void {

@@ -12,10 +12,13 @@ export interface SessionRequest {
   usage: {
     promptTokens: number;
     completionTokens: number;
+    cacheReadTokens?: number;
+    cacheCreationTokens?: number;
   };
   toolCalls: ToolCallInfo[];
   availableSkills: SkillRef[];
   loadedSkills: string[];
+  isSubagent?: boolean;
 }
 
 export interface ToolCallInfo {
@@ -28,10 +31,13 @@ export interface SkillRef {
   file: string;
 }
 
+export type SessionProviderType = "copilot" | "claude";
+
 export interface Session {
   sessionId: string;
   title: string | null;
   creationDate: number;
   requests: SessionRequest[];
-  source: "jsonl" | "json" | "chatreplay";
+  source: string;
+  provider: SessionProviderType;
 }
