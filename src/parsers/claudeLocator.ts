@@ -11,6 +11,7 @@ export interface ClaudeSessionEntry {
   created: string;
   modified: string;
   gitBranch: string;
+  subagentPaths: string[];
 }
 
 /**
@@ -38,6 +39,7 @@ export function parseSessionIndex(raw: string): ClaudeSessionEntry[] {
         created: String(e.created ?? ""),
         modified: String(e.modified ?? ""),
         gitBranch: String(e.gitBranch ?? ""),
+        subagentPaths: [],
       }),
     );
   } catch {
@@ -74,11 +76,15 @@ export async function discoverClaudeSessions(
     const entries = parseSessionIndex(raw);
     log.info(`  Found ${entries.length} session(s) in index`);
 
-    // Verify each session file exists
+    // Verify each session file exists and discover subagent files
     const verified: ClaudeSessionEntry[] = [];
     for (const entry of entries) {
       try {
         await fs.access(entry.fullPath);
+        entry.subagentPaths = await discoverSubagentFiles(
+          projectDir,
+          entry.sessionId,
+        );
         verified.push(entry);
       } catch {
         log.warn(`  Session file missing: ${entry.fullPath}`);
@@ -97,18 +103,39 @@ export async function discoverClaudeSessions(
     const jsonlFiles = files.filter((f) => f.endsWith(".jsonl"));
     log.info(`  Found ${jsonlFiles.length} JSONL file(s) by scan`);
 
-    return jsonlFiles.map((f) => ({
-      sessionId: f.replace(/\.jsonl$/, ""),
-      fullPath: path.join(projectDir, f),
-      summary: null,
-      messageCount: 0,
-      created: "",
-      modified: "",
-      gitBranch: "",
-    }));
+    const fallbackEntries: ClaudeSessionEntry[] = [];
+    for (const f of jsonlFiles) {
+      const sessionId = f.replace(/\.jsonl$/, "");
+      fallbackEntries.push({
+        sessionId,
+        fullPath: path.join(projectDir, f),
+        summary: null,
+        messageCount: 0,
+        created: "",
+        modified: "",
+        gitBranch: "",
+        subagentPaths: await discoverSubagentFiles(projectDir, sessionId),
+      });
+    }
+    return fallbackEntries;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     log.warn(`  Cannot read Claude project dir: ${msg}`);
+    return [];
+  }
+}
+
+async function discoverSubagentFiles(
+  projectDir: string,
+  sessionId: string,
+): Promise<string[]> {
+  const subagentDir = path.join(projectDir, sessionId, "subagents");
+  try {
+    const files = await fs.readdir(subagentDir);
+    return files
+      .filter((f) => f.startsWith("agent-") && f.endsWith(".jsonl"))
+      .map((f) => path.join(subagentDir, f));
+  } catch {
     return [];
   }
 }

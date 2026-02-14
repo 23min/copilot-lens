@@ -3,7 +3,11 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as fs from "node:fs/promises";
 import { discoverClaudeSessions, encodeProjectPath } from "./claudeLocator.js";
-import { parseClaudeSessionJsonl } from "./claudeSessionParser.js";
+import {
+  parseClaudeSessionJsonl,
+  buildSubagentTypeMap,
+} from "./claudeSessionParser.js";
+import type { SubagentInput } from "./claudeSessionParser.js";
 import type { Session } from "../models/session.js";
 import type {
   SessionProvider,
@@ -33,9 +37,33 @@ export class ClaudeSessionProvider implements SessionProvider {
     for (const entry of entries) {
       try {
         const content = await fs.readFile(entry.fullPath, "utf-8");
+
+        // Build agentId -> subagentType mapping from main session
+        const typeMap = buildSubagentTypeMap(content);
+
+        // Read subagent files
+        const subagents: SubagentInput[] = [];
+        for (const subPath of entry.subagentPaths) {
+          try {
+            const subContent = await fs.readFile(subPath, "utf-8");
+            const agentId = path
+              .basename(subPath, ".jsonl")
+              .replace(/^agent-/, "");
+            subagents.push({
+              content: subContent,
+              agentId,
+              subagentType: typeMap.get(agentId) ?? null,
+            });
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            log.warn(`  Skipping subagent file "${subPath}": ${msg}`);
+          }
+        }
+
         const session = parseClaudeSessionJsonl(
           content,
           entry.summary,
+          subagents.length > 0 ? subagents : undefined,
         );
         sessions.push(session);
       } catch (err) {
@@ -65,6 +93,13 @@ export class ClaudeSessionProvider implements SessionProvider {
         pattern: new vscode.RelativePattern(
           vscode.Uri.file(claudeProjectDir),
           "*.jsonl",
+        ),
+        events: ["create", "change"],
+      },
+      {
+        pattern: new vscode.RelativePattern(
+          vscode.Uri.file(claudeProjectDir),
+          "*/subagents/agent-*.jsonl",
         ),
         events: ["create", "change"],
       },

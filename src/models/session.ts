@@ -18,6 +18,7 @@ export interface SessionRequest {
   toolCalls: ToolCallInfo[];
   availableSkills: SkillRef[];
   loadedSkills: string[];
+  isSubagent?: boolean;
 }
 
 export interface ToolCallInfo {

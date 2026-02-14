@@ -73,4 +73,24 @@ describe("parseSessionIndex", () => {
   it("returns empty array for missing entries field", () => {
     expect(parseSessionIndex(JSON.stringify({ version: 1 }))).toEqual([]);
   });
+
+  it("initializes subagentPaths as empty array", () => {
+    const raw = JSON.stringify({
+      version: 1,
+      entries: [
+        {
+          sessionId: "abc-123",
+          fullPath: "/home/.claude/projects/-foo/abc-123.jsonl",
+          summary: "Test",
+          messageCount: 2,
+          created: "2026-02-10T10:00:00Z",
+          modified: "2026-02-10T11:00:00Z",
+          gitBranch: "main",
+        },
+      ],
+    });
+
+    const entries = parseSessionIndex(raw);
+    expect(entries[0].subagentPaths).toEqual([]);
+  });
 });
