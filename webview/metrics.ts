@@ -2,6 +2,16 @@ import { LitElement, html, css, svg } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { arc as d3Arc, pie as d3Pie } from "d3";
 
+declare function acquireVsCodeApi(): {
+  postMessage(msg: unknown): void;
+  getState(): unknown;
+  setState(state: unknown): void;
+};
+
+const vscode = acquireVsCodeApi();
+
+type SourceFilter = "all" | "copilot" | "claude";
+
 interface CountEntry {
   name: string;
   count: number;
@@ -193,6 +203,36 @@ class MetricsDashboard extends LitElement {
       opacity: 0.7;
       flex-shrink: 0;
     }
+    .filter-toggle {
+      display: inline-flex;
+      border: 1px solid var(--vscode-editorWidget-border, #454545);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .filter-btn {
+      background: none;
+      border: none;
+      border-right: 1px solid var(--vscode-editorWidget-border, #454545);
+      color: var(--vscode-editor-foreground);
+      padding: 4px 14px;
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+      opacity: 0.7;
+    }
+    .filter-btn:last-child {
+      border-right: none;
+    }
+    .filter-btn:hover {
+      opacity: 1;
+      background: var(--vscode-list-hoverBackground, #2a2d2e);
+    }
+    .filter-btn.active {
+      opacity: 1;
+      background: var(--vscode-button-background, #0e639c);
+      color: var(--vscode-button-foreground, #fff);
+    }
     .tooltip {
       position: fixed;
       background: var(--vscode-editorHoverWidget-background, #252526);
@@ -209,6 +249,7 @@ class MetricsDashboard extends LitElement {
   `;
 
   @state() private metrics: AggregatedMetrics | null = null;
+  @state() private activeFilter: SourceFilter = "all";
   @state() private tooltip: {
     x: number;
     y: number;
@@ -229,8 +270,16 @@ class MetricsDashboard extends LitElement {
   private handleMessage = (e: MessageEvent): void => {
     if (e.data.type === "update-metrics") {
       this.metrics = e.data.metrics;
+      if (e.data.activeFilter) {
+        this.activeFilter = e.data.activeFilter;
+      }
     }
   };
+
+  private onFilterChange(filter: SourceFilter): void {
+    this.activeFilter = filter;
+    vscode.postMessage({ type: "filter-change", provider: filter });
+  }
 
   private renderBarChart(
     entries: CountEntry[],
@@ -406,7 +455,25 @@ class MetricsDashboard extends LitElement {
       },
     ];
 
+    const filterOptions: { value: SourceFilter; label: string }[] = [
+      { value: "all", label: "All" },
+      { value: "copilot", label: "Copilot" },
+      { value: "claude", label: "Claude" },
+    ];
+
     return html`
+      <div class="filter-toggle">
+        ${filterOptions.map(
+          (opt) => html`
+            <button
+              class="filter-btn ${this.activeFilter === opt.value ? "active" : ""}"
+              @click="${() => this.onFilterChange(opt.value)}"
+            >
+              ${opt.label}
+            </button>
+          `,
+        )}
+      </div>
       <h1>Copilot Lens Metrics</h1>
 
       <div class="stats-grid">

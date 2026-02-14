@@ -14,6 +14,7 @@ Work in progress. See [ROADMAP.md](ROADMAP.md) for planned milestones.
 1. **Static analysis** — Parses your `.github/agents/` and `.github/skills/` directories to build a visual graph of agents, their handoff chains, and skills.
 2. **Runtime analysis** — Reads Copilot chat session JSONL files from VS Code workspace storage and Claude Code session JSONL files from `~/.claude/projects/` to extract usage metrics: which agents ran, how often, what tools they called, and session durations. Detects custom agents and skills from system prompts. Automatically finds sessions across workspace storage hash directories, so it works in devcontainers, WSL2, and after workspace reconnections.
 3. **Token distribution** — Donut charts show where tokens are going: by agent, by model, and prompt vs completion ratio. Hover tooltips on agent usage bars reveal average prompt/completion sizes to spot context bloat.
+4. **Source filtering** — Toggle between All, Copilot, and Claude sessions in both the Metrics Dashboard and Session Explorer. Provider badges distinguish session origins at a glance.
 
 ## Development
 

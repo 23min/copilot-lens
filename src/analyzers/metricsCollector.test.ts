@@ -9,6 +9,7 @@ function makeSession(overrides: Partial<Session> = {}): Session {
     creationDate: Date.now(),
     requests: [],
     source: "jsonl",
+    provider: "copilot",
     ...overrides,
   };
 }

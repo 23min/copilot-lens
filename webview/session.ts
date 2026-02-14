@@ -1,6 +1,16 @@
 import { LitElement, html, css } from "lit";
 import { customElement, state } from "lit/decorators.js";
 
+declare function acquireVsCodeApi(): {
+  postMessage(msg: unknown): void;
+  getState(): unknown;
+  setState(state: unknown): void;
+};
+
+const vscode = acquireVsCodeApi();
+
+type SourceFilter = "all" | "copilot" | "claude";
+
 interface ToolCallInfo {
   id: string;
   name: string;
@@ -30,7 +40,8 @@ interface Session {
   title: string | null;
   creationDate: number;
   requests: SessionRequest[];
-  source: "jsonl" | "json" | "chatreplay";
+  source: string;
+  provider: "copilot" | "claude";
 }
 
 @customElement("session-explorer")
@@ -239,9 +250,56 @@ class SessionExplorer extends LitElement {
       padding: 24px 0;
       text-align: center;
     }
+    .filter-toggle {
+      display: inline-flex;
+      border: 1px solid var(--vscode-editorWidget-border, #454545);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .filter-btn {
+      background: none;
+      border: none;
+      border-right: 1px solid var(--vscode-editorWidget-border, #454545);
+      color: var(--vscode-editor-foreground);
+      padding: 4px 14px;
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+      opacity: 0.7;
+    }
+    .filter-btn:last-child {
+      border-right: none;
+    }
+    .filter-btn:hover {
+      opacity: 1;
+      background: var(--vscode-list-hoverBackground, #2a2d2e);
+    }
+    .filter-btn.active {
+      opacity: 1;
+      background: var(--vscode-button-background, #0e639c);
+      color: var(--vscode-button-foreground, #fff);
+    }
+    .provider-badge {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-weight: 600;
+      margin-right: 8px;
+      flex-shrink: 0;
+    }
+    .provider-badge.copilot {
+      background: rgba(79, 193, 255, 0.15);
+      color: #4fc1ff;
+    }
+    .provider-badge.claude {
+      background: rgba(197, 134, 192, 0.15);
+      color: #c586c0;
+    }
   `;
 
   @state() private sessions: Session[] = [];
+  @state() private activeFilter: SourceFilter = "all";
   @state() private selectedSession: Session | null = null;
   @state() private selectedRequest: SessionRequest | null = null;
 
@@ -258,6 +316,9 @@ class SessionExplorer extends LitElement {
   private handleMessage = (e: MessageEvent): void => {
     if (e.data.type === "update-sessions") {
       this.sessions = e.data.sessions;
+      if (e.data.activeFilter) {
+        this.activeFilter = e.data.activeFilter;
+      }
 
       // Keep the selected session/request in sync with fresh data
       if (this.selectedSession) {
@@ -276,6 +337,11 @@ class SessionExplorer extends LitElement {
       }
     }
   };
+
+  private onFilterChange(filter: SourceFilter): void {
+    this.activeFilter = filter;
+    vscode.postMessage({ type: "filter-change", provider: filter });
+  }
 
   private formatDate(ts: number): string {
     return new Date(ts).toLocaleString();
@@ -299,7 +365,25 @@ class SessionExplorer extends LitElement {
       </div>`;
     }
 
+    const filterOptions: { value: SourceFilter; label: string }[] = [
+      { value: "all", label: "All" },
+      { value: "copilot", label: "Copilot" },
+      { value: "claude", label: "Claude" },
+    ];
+
     return html`
+      <div class="filter-toggle">
+        ${filterOptions.map(
+          (opt) => html`
+            <button
+              class="filter-btn ${this.activeFilter === opt.value ? "active" : ""}"
+              @click="${() => this.onFilterChange(opt.value)}"
+            >
+              ${opt.label}
+            </button>
+          `,
+        )}
+      </div>
       <h1>Session Explorer</h1>
       <div class="session-list">
         ${sorted.map(
@@ -311,6 +395,9 @@ class SessionExplorer extends LitElement {
                 this.selectedRequest = null;
               }}"
             >
+              <span class="provider-badge ${session.provider}">
+                ${session.provider === "copilot" ? "Copilot" : "Claude"}
+              </span>
               <span class="session-title">
                 ${session.title ?? session.sessionId}
               </span>

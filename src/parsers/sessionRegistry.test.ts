@@ -15,6 +15,7 @@ function makeSession(id: string, source: string): Session {
     creationDate: 0,
     requests: [],
     source,
+    provider: "copilot",
   };
 }
 

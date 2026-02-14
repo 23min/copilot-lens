@@ -10,7 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Claude Code session parser: parses JSONL session files into `Session`/`SessionRequest` model (closes #5)
 - `ClaudeSessionProvider` now calls the parser and returns parsed sessions
-- 15 unit tests for Claude session parsing (106 total)
+- Source filtering in Metrics Dashboard and Session Explorer: segmented toggle (All | Copilot | Claude) filters sessions by provider (closes #7)
+- `SessionProviderType` union type (`"copilot" | "claude"`) and `provider` field on `Session` model
+- Provider badges in Session Explorer (blue for Copilot, purple for Claude)
+- Reverse messaging: webview filter changes flow to extension host for re-aggregation
+- 16 unit tests for Claude session parsing, 107 total
 
 ## [0.0.7] - 2026-02-13
 

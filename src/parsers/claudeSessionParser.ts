@@ -14,7 +14,7 @@ interface ClaudeLine {
   message?: {
     role?: string;
     model?: string;
-    content?: ContentBlock[];
+    content?: ContentBlock[] | string;
     usage?: {
       input_tokens?: number;
       output_tokens?: number;
@@ -49,6 +49,7 @@ export function parseClaudeSessionJsonl(
       creationDate: 0,
       requests: [],
       source: "claude",
+      provider: "claude",
     };
   }
 
@@ -79,11 +80,16 @@ export function parseClaudeSessionJsonl(
 
     // Track latest user message text
     if (parsed.type === "user" && parsed.message?.content) {
-      const textBlocks = parsed.message.content.filter(
-        (b) => b.type === "text" && b.text,
-      );
-      if (textBlocks.length > 0) {
-        lastUserText = textBlocks.map((b) => b.text).join("\n");
+      const content = parsed.message.content;
+      if (typeof content === "string") {
+        lastUserText = content;
+      } else if (Array.isArray(content)) {
+        const textBlocks = content.filter(
+          (b) => b.type === "text" && b.text,
+        );
+        if (textBlocks.length > 0) {
+          lastUserText = textBlocks.map((b) => b.text).join("\n");
+        }
       }
     }
 
@@ -93,11 +99,15 @@ export function parseClaudeSessionJsonl(
       if (!msg) continue;
 
       const toolCalls: ToolCallInfo[] = [];
-      for (const block of msg.content ?? []) {
+      const blocks = Array.isArray(msg.content) ? msg.content : [];
+      for (const block of blocks) {
         if (block.type === "tool_use" && block.id && block.name) {
           toolCalls.push({ id: block.id, name: block.name });
         }
       }
+
+      const messageText = lastUserText;
+      lastUserText = "";
 
       requests.push({
         requestId: String(parsed.uuid ?? ""),
@@ -107,7 +117,7 @@ export function parseClaudeSessionJsonl(
         agentId: "claude-code",
         customAgentName: null,
         modelId: String(msg.model ?? ""),
-        messageText: lastUserText,
+        messageText,
         timings: {
           firstProgress: null,
           totalElapsed: null,
@@ -129,5 +139,6 @@ export function parseClaudeSessionJsonl(
     creationDate: firstTimestamp,
     requests,
     source: "claude",
+    provider: "claude",
   };
 }
