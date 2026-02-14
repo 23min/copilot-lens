@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { encodeProjectPath, parseSessionIndex } from "./claudeLocator.js";
+import { encodeProjectPath, encodedPathVariants, parseSessionIndex } from "./claudeLocator.js";
 
 describe("encodeProjectPath", () => {
   it("replaces slashes with dashes", () => {
@@ -16,6 +16,28 @@ describe("encodeProjectPath", () => {
     expect(encodeProjectPath("/Users/peterbru/project/")).toBe(
       "-Users-peterbru-project",
     );
+  });
+});
+
+describe("encodedPathVariants", () => {
+  it("returns single variant when no underscores", () => {
+    expect(encodedPathVariants("/workspaces/my-app")).toEqual([
+      "-workspaces-my-app",
+    ]);
+  });
+
+  it("returns two variants when path contains underscores", () => {
+    expect(encodedPathVariants("/workspaces/ex_a2ui")).toEqual([
+      "-workspaces-ex_a2ui",
+      "-workspaces-ex-a2ui",
+    ]);
+  });
+
+  it("returns single variant when underscore replacement produces same result", () => {
+    // No underscores → no alt variant
+    expect(encodedPathVariants("/home/user/project")).toEqual([
+      "-home-user-project",
+    ]);
   });
 });
 
