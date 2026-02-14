@@ -125,6 +125,101 @@ export async function discoverClaudeSessions(
   }
 }
 
+/**
+ * Discover Claude sessions in a user-configured directory.
+ * The dir can be either:
+ * - A `projects/` root (contains encoded-path subdirs) — we look for the workspace's subdir
+ * - A specific project directory (contains JSONL files directly) — we scan it
+ */
+export async function discoverClaudeSessionsInDir(
+  configDir: string,
+  workspacePath: string | null,
+): Promise<ClaudeSessionEntry[]> {
+  const log = getLogger();
+
+  try {
+    await fs.access(configDir);
+  } catch {
+    log.info(`  Configured claudeDir not accessible: "${configDir}"`);
+    return [];
+  }
+
+  // Strategy A: if workspacePath is set, try as a projects/ root
+  if (workspacePath) {
+    const encoded = encodeProjectPath(workspacePath);
+    const projectSubDir = path.join(configDir, encoded);
+    try {
+      await fs.access(projectSubDir);
+      log.info(`  Found project subdir: "${encoded}"`);
+      // Reuse the same logic as the main discovery but with this dir
+      return await scanProjectDir(projectSubDir);
+    } catch {
+      // Not a projects/ root, or no matching subdir
+    }
+  }
+
+  // Strategy B: treat as a direct project directory
+  return await scanProjectDir(configDir);
+}
+
+async function scanProjectDir(
+  projectDir: string,
+): Promise<ClaudeSessionEntry[]> {
+  const log = getLogger();
+
+  // Try sessions-index.json first
+  const indexPath = path.join(projectDir, "sessions-index.json");
+  try {
+    const raw = await fs.readFile(indexPath, "utf-8");
+    const entries = parseSessionIndex(raw);
+    if (entries.length > 0) {
+      log.info(`  Found ${entries.length} session(s) in index at ${projectDir}`);
+      const verified: ClaudeSessionEntry[] = [];
+      for (const entry of entries) {
+        try {
+          await fs.access(entry.fullPath);
+          entry.subagentPaths = await discoverSubagentFiles(
+            projectDir,
+            entry.sessionId,
+          );
+          verified.push(entry);
+        } catch {
+          log.warn(`  Session file missing: ${entry.fullPath}`);
+        }
+      }
+      return verified;
+    }
+  } catch {
+    // No index, fall through to scan
+  }
+
+  // Fallback: scan for JSONL files
+  try {
+    const files = await fs.readdir(projectDir);
+    const jsonlFiles = files.filter((f) => f.endsWith(".jsonl"));
+    if (jsonlFiles.length === 0) return [];
+
+    log.info(`  Found ${jsonlFiles.length} JSONL file(s) by scan in ${projectDir}`);
+    const entries: ClaudeSessionEntry[] = [];
+    for (const f of jsonlFiles) {
+      const sessionId = f.replace(/\.jsonl$/, "");
+      entries.push({
+        sessionId,
+        fullPath: path.join(projectDir, f),
+        summary: null,
+        messageCount: 0,
+        created: "",
+        modified: "",
+        gitBranch: "",
+        subagentPaths: await discoverSubagentFiles(projectDir, sessionId),
+      });
+    }
+    return entries;
+  } catch {
+    return [];
+  }
+}
+
 async function discoverSubagentFiles(
   projectDir: string,
   sessionId: string,

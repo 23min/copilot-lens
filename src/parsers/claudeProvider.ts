@@ -2,7 +2,11 @@ import * as vscode from "vscode";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as fs from "node:fs/promises";
-import { discoverClaudeSessions, encodeProjectPath } from "./claudeLocator.js";
+import {
+  discoverClaudeSessions,
+  discoverClaudeSessionsInDir,
+  encodeProjectPath,
+} from "./claudeLocator.js";
 import {
   parseClaudeSessionJsonl,
   buildSubagentTypeMap,
@@ -23,12 +27,31 @@ export class ClaudeSessionProvider implements SessionProvider {
     const log = getLogger();
     const { workspacePath } = ctx;
 
-    if (!workspacePath) {
-      log.info("Claude: no workspace path, skipping");
-      return [];
+    // 1. Check user-configured claudeDir first (for devcontainers with mounts)
+    const configDir = vscode.workspace
+      .getConfiguration("copilotLens")
+      .get<string>("claudeDir");
+
+    let entries;
+    if (configDir) {
+      log.info(`Claude strategy 1: user-configured claudeDir = "${configDir}"`);
+      entries = await discoverClaudeSessionsInDir(configDir, workspacePath);
+      if (entries.length > 0) {
+        log.info(`  Found ${entries.length} session(s) via configured dir`);
+      } else {
+        log.info("  No sessions found via configured dir, falling back");
+        entries = null;
+      }
     }
 
-    const entries = await discoverClaudeSessions(workspacePath);
+    // 2. Default: use ~/.claude/projects/{encoded-path}
+    if (!entries) {
+      if (!workspacePath) {
+        log.info("Claude: no workspace path, skipping");
+        return [];
+      }
+      entries = await discoverClaudeSessions(workspacePath);
+    }
     if (entries.length === 0) return [];
 
     log.info(`Claude: parsing ${entries.length} session(s)`);
@@ -78,31 +101,52 @@ export class ClaudeSessionProvider implements SessionProvider {
 
   getWatchTargets(ctx: SessionDiscoveryContext): WatchTarget[] {
     const { workspacePath } = ctx;
-    if (!workspacePath) return [];
+    const targets: WatchTarget[] = [];
 
-    const encoded = encodeProjectPath(workspacePath);
-    const claudeProjectDir = path.join(
-      os.homedir(),
-      ".claude",
-      "projects",
-      encoded,
-    );
+    // Watch user-configured dir if set
+    const configDir = vscode.workspace
+      .getConfiguration("copilotLens")
+      .get<string>("claudeDir");
+    if (configDir) {
+      targets.push(
+        {
+          pattern: new vscode.RelativePattern(
+            vscode.Uri.file(configDir),
+            "**/*.jsonl",
+          ),
+          events: ["create", "change"],
+        },
+      );
+    }
 
-    return [
-      {
-        pattern: new vscode.RelativePattern(
-          vscode.Uri.file(claudeProjectDir),
-          "*.jsonl",
-        ),
-        events: ["create", "change"],
-      },
-      {
-        pattern: new vscode.RelativePattern(
-          vscode.Uri.file(claudeProjectDir),
-          "*/subagents/agent-*.jsonl",
-        ),
-        events: ["create", "change"],
-      },
-    ];
+    // Watch default location
+    if (workspacePath) {
+      const encoded = encodeProjectPath(workspacePath);
+      const claudeProjectDir = path.join(
+        os.homedir(),
+        ".claude",
+        "projects",
+        encoded,
+      );
+
+      targets.push(
+        {
+          pattern: new vscode.RelativePattern(
+            vscode.Uri.file(claudeProjectDir),
+            "*.jsonl",
+          ),
+          events: ["create", "change"],
+        },
+        {
+          pattern: new vscode.RelativePattern(
+            vscode.Uri.file(claudeProjectDir),
+            "*/subagents/agent-*.jsonl",
+          ),
+          events: ["create", "change"],
+        },
+      );
+    }
+
+    return targets;
   }
 }

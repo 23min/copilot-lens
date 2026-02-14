@@ -17,6 +17,7 @@ import { initLogger, getLogger } from "./logger.js";
 import { GraphPanel } from "./views/graphPanel.js";
 import { MetricsPanel } from "./views/metricsPanel.js";
 import { SessionPanel } from "./views/sessionPanel.js";
+import { SetupPanel } from "./views/setupPanel.js";
 
 let cachedAgents: Agent[] = [];
 let cachedSkills: Skill[] = [];
@@ -39,7 +40,17 @@ async function refresh(
     cachedAgents = agents;
     cachedSkills = skills;
     cachedSessions = sessions;
-    treeProvider.update(agents, skills);
+
+    // Detect remote/container context with no sessions
+    const isRemote = !!vscode.env.remoteName;
+    const remoteNoSessions = isRemote && sessions.length === 0;
+    void vscode.commands.executeCommand(
+      "setContext",
+      "copilotLens.isRemoteNoSessions",
+      remoteNoSessions,
+    );
+
+    treeProvider.update(agents, skills, { remoteNoSessions });
 
     // Push fresh data to any open panels (without stealing focus)
     GraphPanel.updateIfOpen(buildGraph(agents, skills));
@@ -116,6 +127,13 @@ export function activate(context: vscode.ExtensionContext): void {
     },
   );
 
+  const openContainerSetup = vscode.commands.registerCommand(
+    "copilotLens.openContainerSetup",
+    () => {
+      SetupPanel.show(context.extensionUri);
+    },
+  );
+
   // File watchers — auto-refresh on agent/skill/session changes
   let refreshTimer: ReturnType<typeof setTimeout> | undefined;
   function scheduleRefresh() {
@@ -150,6 +168,7 @@ export function activate(context: vscode.ExtensionContext): void {
     showGraph,
     openMetrics,
     openSession,
+    openContainerSetup,
     agentWatcher,
     skillWatcher,
     skillFlatWatcher,

@@ -42,6 +42,10 @@
       {
         "command": "copilotLens.openSession",
         "title": "Copilot Lens: Session Explorer"
+      },
+      {
+        "command": "copilotLens.openContainerSetup",
+        "title": "Copilot Lens: Container Setup Guide"
       }
     ],
     "viewsContainers": {
@@ -68,9 +72,21 @@
           "type": "string",
           "default": "",
           "markdownDescription": "Path to a directory containing Copilot chat session files (`.jsonl`). Can be a `chatSessions/` directory or a `workspaceStorage/` root (scanned automatically). Useful in devcontainers where sessions live on the host — mount the host's `workspaceStorage` and point this setting to the mount path."
+        },
+        "copilotLens.claudeDir": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Path to a directory containing Claude Code session files. Should point to the `projects/` directory (or a specific project directory). Useful in devcontainers where `~/.claude` lives on the host — mount it and point this setting to the mount path."
         }
       }
     },
+    "viewsWelcome": [
+      {
+        "view": "copilotLens.treeView",
+        "contents": "You're in a remote environment and no sessions were found.\n\nSession data lives on your host machine and needs to be mounted into this container.\n\n[Open Container Setup Guide](command:copilotLens.openContainerSetup)",
+        "when": "copilotLens.isRemoteNoSessions"
+      }
+    ],
     "menus": {
       "view/title": [
         {
@@ -84,7 +100,7 @@
   "scripts": {
     "build": "npm run build:ext && npm run build:webview",
     "build:ext": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node",
-    "build:webview": "esbuild webview/graph.ts webview/metrics.ts webview/session.ts --bundle --outdir=out/webview --format=esm --platform=browser",
+    "build:webview": "esbuild webview/graph.ts webview/metrics.ts webview/session.ts webview/setup.ts --bundle --outdir=out/webview --format=esm --platform=browser",
     "watch": "npm run build:ext -- --watch --sourcemap & npm run build:webview -- --watch --sourcemap",
     "test": "vitest run",
     "test:watch": "vitest",
