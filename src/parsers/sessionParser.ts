@@ -53,6 +53,7 @@ export function parseSessionJsonl(content: string): Session {
       creationDate: 0,
       requests: [],
       source: "jsonl",
+      provider: "copilot",
     };
   }
 
@@ -184,6 +185,7 @@ export function parseChatReplay(content: string): Session {
     creationDate: data.exportedAt ? new Date(data.exportedAt).getTime() : 0,
     requests,
     source: "chatreplay",
+    provider: "copilot",
   };
 }
 
@@ -275,5 +277,6 @@ function extractSession(
     creationDate: (state.creationDate as number) ?? 0,
     requests,
     source,
+    provider: "copilot",
   };
 }

@@ -68,6 +68,7 @@ describe("parseClaudeSessionJsonl", () => {
 
     expect(session.sessionId).toBe("sess-1");
     expect(session.source).toBe("claude");
+    expect(session.provider).toBe("claude");
     expect(session.requests).toHaveLength(1);
   });
 
@@ -158,7 +159,9 @@ describe("parseClaudeSessionJsonl", () => {
     const session = parseClaudeSessionJsonl(lines, null);
     expect(session.requests).toHaveLength(2);
     expect(session.requests[0].usage.promptTokens).toBe(100);
+    expect(session.requests[0].messageText).toBe("do something");
     expect(session.requests[1].toolCalls).toHaveLength(1);
+    expect(session.requests[1].messageText).toBe("");
   });
 
   it("skips sidechain (subagent) messages", () => {
@@ -242,5 +245,22 @@ describe("parseClaudeSessionJsonl", () => {
 
     expect(req.timings.firstProgress).toBeNull();
     expect(req.timings.totalElapsed).toBeNull();
+  });
+
+  it("handles string content gracefully", () => {
+    const lines = [
+      JSON.stringify({
+        type: "user",
+        sessionId: "sess-1",
+        uuid: "u1",
+        timestamp: "2026-02-14T10:00:00.000Z",
+        message: { role: "user", content: "plain string content" },
+      }),
+      assistantLine({ uuid: "a1", parentUuid: "u1" }),
+    ].join("\n");
+
+    const session = parseClaudeSessionJsonl(lines, null);
+    expect(session.requests).toHaveLength(1);
+    expect(session.requests[0].messageText).toBe("plain string content");
   });
 });

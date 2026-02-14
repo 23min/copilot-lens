@@ -1,10 +1,18 @@
 import * as vscode from "vscode";
-import type { AggregatedMetrics } from "../models/metrics.js";
+import type { Session, SessionProviderType } from "../models/session.js";
+import { collectMetrics } from "../analyzers/metricsCollector.js";
+
+type SourceFilter = SessionProviderType | "all";
 
 export class MetricsPanel {
   private static instance: MetricsPanel | undefined;
   private readonly panel: vscode.WebviewPanel;
   private disposed = false;
+
+  private currentFilter: SourceFilter = "all";
+  private cachedSessions: Session[] = [];
+  private cachedAgentNames: string[] = [];
+  private cachedSkillNames: string[] = [];
 
   private constructor(
     panel: vscode.WebviewPanel,
@@ -16,15 +24,24 @@ export class MetricsPanel {
       this.disposed = true;
       MetricsPanel.instance = undefined;
     });
+
+    this.panel.webview.onDidReceiveMessage((msg) => {
+      if (msg.type === "filter-change") {
+        this.currentFilter = msg.provider;
+        this.pushFilteredMetrics();
+      }
+    });
   }
 
   static show(
     extensionUri: vscode.Uri,
-    metrics: AggregatedMetrics,
+    sessions: Session[],
+    agentNames: string[],
+    skillNames: string[],
   ): MetricsPanel {
     if (MetricsPanel.instance && !MetricsPanel.instance.disposed) {
       MetricsPanel.instance.panel.reveal();
-      MetricsPanel.instance.updateMetrics(metrics);
+      MetricsPanel.instance.updateData(sessions, agentNames, skillNames);
       return MetricsPanel.instance;
     }
 
@@ -45,19 +62,49 @@ export class MetricsPanel {
     MetricsPanel.instance = instance;
 
     panel.webview.html = instance.getHtml(panel.webview);
-    instance.updateMetrics(metrics);
+    instance.updateData(sessions, agentNames, skillNames);
 
     return instance;
   }
 
-  updateMetrics(metrics: AggregatedMetrics): void {
+  updateData(
+    sessions: Session[],
+    agentNames: string[],
+    skillNames: string[],
+  ): void {
     if (this.disposed) return;
-    this.panel.webview.postMessage({ type: "update-metrics", metrics });
+    this.cachedSessions = sessions;
+    this.cachedAgentNames = agentNames;
+    this.cachedSkillNames = skillNames;
+    this.pushFilteredMetrics();
   }
 
-  static updateIfOpen(metrics: AggregatedMetrics): void {
+  private pushFilteredMetrics(): void {
+    const filtered =
+      this.currentFilter === "all"
+        ? this.cachedSessions
+        : this.cachedSessions.filter(
+            (s) => s.provider === this.currentFilter,
+          );
+    const metrics = collectMetrics(
+      filtered,
+      this.cachedAgentNames,
+      this.cachedSkillNames,
+    );
+    this.panel.webview.postMessage({
+      type: "update-metrics",
+      metrics,
+      activeFilter: this.currentFilter,
+    });
+  }
+
+  static updateIfOpen(
+    sessions: Session[],
+    agentNames: string[],
+    skillNames: string[],
+  ): void {
     if (MetricsPanel.instance && !MetricsPanel.instance.disposed) {
-      MetricsPanel.instance.updateMetrics(metrics);
+      MetricsPanel.instance.updateData(sessions, agentNames, skillNames);
     }
   }
 

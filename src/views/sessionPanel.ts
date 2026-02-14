@@ -1,10 +1,15 @@
 import * as vscode from "vscode";
-import type { Session } from "../models/session.js";
+import type { Session, SessionProviderType } from "../models/session.js";
+
+type SourceFilter = SessionProviderType | "all";
 
 export class SessionPanel {
   private static instance: SessionPanel | undefined;
   private readonly panel: vscode.WebviewPanel;
   private disposed = false;
+
+  private currentFilter: SourceFilter = "all";
+  private cachedSessions: Session[] = [];
 
   private constructor(
     panel: vscode.WebviewPanel,
@@ -15,6 +20,13 @@ export class SessionPanel {
     this.panel.onDidDispose(() => {
       this.disposed = true;
       SessionPanel.instance = undefined;
+    });
+
+    this.panel.webview.onDidReceiveMessage((msg) => {
+      if (msg.type === "filter-change") {
+        this.currentFilter = msg.provider;
+        this.pushFilteredSessions();
+      }
     });
   }
 
@@ -52,7 +64,22 @@ export class SessionPanel {
 
   updateSessions(sessions: Session[]): void {
     if (this.disposed) return;
-    this.panel.webview.postMessage({ type: "update-sessions", sessions });
+    this.cachedSessions = sessions;
+    this.pushFilteredSessions();
+  }
+
+  private pushFilteredSessions(): void {
+    const filtered =
+      this.currentFilter === "all"
+        ? this.cachedSessions
+        : this.cachedSessions.filter(
+            (s) => s.provider === this.currentFilter,
+          );
+    this.panel.webview.postMessage({
+      type: "update-sessions",
+      sessions: filtered,
+      activeFilter: this.currentFilter,
+    });
   }
 
   static updateIfOpen(sessions: Session[]): void {

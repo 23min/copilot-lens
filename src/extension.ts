@@ -12,7 +12,6 @@ import type { SessionDiscoveryContext } from "./parsers/sessionProvider.js";
 import { CopilotSessionProvider } from "./parsers/copilotProvider.js";
 import { ClaudeSessionProvider } from "./parsers/claudeProvider.js";
 import { buildGraph } from "./analyzers/graphBuilder.js";
-import { collectMetrics } from "./analyzers/metricsCollector.js";
 import { CopilotLensTreeProvider } from "./views/treeProvider.js";
 import { initLogger, getLogger } from "./logger.js";
 import { GraphPanel } from "./views/graphPanel.js";
@@ -45,11 +44,9 @@ async function refresh(
     // Push fresh data to any open panels (without stealing focus)
     GraphPanel.updateIfOpen(buildGraph(agents, skills));
     MetricsPanel.updateIfOpen(
-      collectMetrics(
-        sessions,
-        agents.map((a) => a.name),
-        skills.map((s) => s.name),
-      ),
+      sessions,
+      agents.map((a) => a.name),
+      skills.map((s) => s.name),
     );
     SessionPanel.updateIfOpen(sessions);
 
@@ -102,12 +99,12 @@ export function activate(context: vscode.ExtensionContext): void {
     "copilotLens.openMetrics",
     async () => {
       await refresh(sessionCtx, treeProvider);
-      const metrics = collectMetrics(
+      MetricsPanel.show(
+        context.extensionUri,
         cachedSessions,
         cachedAgents.map((a) => a.name),
         cachedSkills.map((s) => s.name),
       );
-      MetricsPanel.show(context.extensionUri, metrics);
     },
   );
 

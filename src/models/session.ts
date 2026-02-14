@@ -28,10 +28,13 @@ export interface SkillRef {
   file: string;
 }
 
+export type SessionProviderType = "copilot" | "claude";
+
 export interface Session {
   sessionId: string;
   title: string | null;
   creationDate: number;
   requests: SessionRequest[];
   source: string;
+  provider: SessionProviderType;
 }
