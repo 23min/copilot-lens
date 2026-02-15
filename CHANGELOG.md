@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.10] - 2026-02-15
+
+### Changed
+- Added metrics dashboard screenshot to README
+- Added .DS_Store to .gitignore
+
 ## [0.0.9] - 2026-02-14
 
 ### Changed
