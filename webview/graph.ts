@@ -2,7 +2,7 @@ import { LitElement, html, css, svg } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import * as d3 from "d3";
 
-type ProviderFilter = "all" | "copilot" | "claude";
+type ProviderFilter = "copilot" | "claude";
 
 interface GraphNode {
   id: string;
@@ -286,7 +286,7 @@ class GraphView extends LitElement {
   @state() private tooltip: { x: number; y: number; text: string } | null =
     null;
   @state() private transform = d3.zoomIdentity;
-  @state() private activeFilter: ProviderFilter = "all";
+  @state() private activeFilter: ProviderFilter = "copilot";
 
   private allNodes: GraphNode[] = [];
   private allEdges: GraphEdge[] = [];
@@ -322,12 +322,9 @@ class GraphView extends LitElement {
   }
 
   private applyFilter(): void {
-    let filteredNodes = this.allNodes;
-    if (this.activeFilter !== "all") {
-      filteredNodes = this.allNodes.filter(
-        (n) => n.provider === this.activeFilter || n.kind === "builtin-agent",
-      );
-    }
+    const filteredNodes = this.allNodes.filter(
+      (n) => n.provider === this.activeFilter || n.kind === "builtin-agent",
+    );
     const nodeIds = new Set(filteredNodes.map((n) => n.id));
     const filteredEdges = this.allEdges.filter(
       (e) => nodeIds.has(e.source) && nodeIds.has(e.target),
@@ -418,7 +415,6 @@ class GraphView extends LitElement {
 
   private renderFilterToolbar() {
     const options: { value: ProviderFilter; label: string }[] = [
-      { value: "all", label: "All" },
       { value: "copilot", label: "Copilot" },
       { value: "claude", label: "Claude" },
     ];

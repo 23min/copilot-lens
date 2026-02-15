@@ -375,13 +375,6 @@ class SessionExplorer extends LitElement {
       (a, b) => b.creationDate - a.creationDate,
     );
 
-    if (sorted.length === 0) {
-      return html`<div class="empty-state">
-        No sessions found. Sessions are auto-discovered from VS Code workspace
-        storage.
-      </div>`;
-    }
-
     const filterOptions: { value: SourceFilter; label: string }[] = [
       { value: "all", label: "All" },
       { value: "copilot", label: "Copilot" },
@@ -403,32 +396,39 @@ class SessionExplorer extends LitElement {
         )}
       </div>
       <h1>Session Explorer</h1>
-      <div class="session-list">
-        ${sorted.map(
-          (session) => html`
-            <div
-              class="session-item"
-              @click="${() => {
-                this.selectedSession = session;
-                this.selectedRequest = null;
-              }}"
-            >
-              <span class="provider-badge ${session.provider}">
-                ${session.provider === "copilot" ? "Copilot" : session.provider === "claude" ? "Claude" : "Codex"}
-              </span>
-              <span class="session-title">
-                ${session.title ?? session.sessionId}
-              </span>
-              <span class="session-meta">
-                ${session.requests.length} requests
-              </span>
-              <span class="session-meta">
-                ${this.formatDate(session.creationDate)}
-              </span>
+      ${sorted.length === 0
+        ? html`<div class="empty-state">
+            No sessions found. Sessions are auto-discovered from VS Code
+            workspace storage.
+          </div>`
+        : html`
+            <div class="session-list">
+              ${sorted.map(
+                (session) => html`
+                  <div
+                    class="session-item"
+                    @click="${() => {
+                      this.selectedSession = session;
+                      this.selectedRequest = null;
+                    }}"
+                  >
+                    <span class="provider-badge ${session.provider}">
+                      ${session.provider === "copilot" ? "Copilot" : session.provider === "claude" ? "Claude" : "Codex"}
+                    </span>
+                    <span class="session-title">
+                      ${session.title ?? session.sessionId}
+                    </span>
+                    <span class="session-meta">
+                      ${session.requests.length} requests
+                    </span>
+                    <span class="session-meta">
+                      ${this.formatDate(session.creationDate)}
+                    </span>
+                  </div>
+                `,
+              )}
             </div>
-          `,
-        )}
-      </div>
+          `}
     `;
   }
 

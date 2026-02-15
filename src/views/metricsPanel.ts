@@ -87,10 +87,22 @@ export class MetricsPanel {
         : this.cachedSessions.filter(
             (s) => s.provider === this.currentFilter,
           );
+    const filteredAgents =
+      this.currentFilter === "all"
+        ? this.cachedAgents
+        : this.cachedAgents.filter(
+            (a) => (a.provider ?? "copilot") === this.currentFilter,
+          );
+    const filteredSkills =
+      this.currentFilter === "all"
+        ? this.cachedSkills
+        : this.cachedSkills.filter(
+            (s) => (s.provider ?? "copilot") === this.currentFilter,
+          );
     const metrics = collectMetrics(
       filtered,
-      this.cachedAgents,
-      this.cachedSkills,
+      filteredAgents,
+      filteredSkills,
     );
     this.panel.webview.postMessage({
       type: "update-metrics",
