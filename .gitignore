@@ -5,3 +5,4 @@ dist/
 .vscode-test/
 data/
 assets/unused/
+.DS_Store
