@@ -15,7 +15,7 @@ For large multi-issue projects, use an integration branch:
 3. Merge issue branches back into the integration branch with `--no-ff`
 4. Only merge the integration branch to `main` when the full project is complete and tested
 
-**Current integration branch:** `integrate/claude-support` (tracks Claude Code Support project, issues #5–#9)
+Use integration branches when needed for multi-issue projects (e.g., `integrate/claude-support` was used for issues #5–#9).
 
 ## Commit messages
 
@@ -38,6 +38,8 @@ Examples:
 - `chore: initial project scaffolding`
 
 Keep the subject line under 72 characters. Use imperative mood ("add", not "added").
+
+Link commits to GitHub issues: use `Closes #N` or `Fixes #N` in the commit body (not subject line) so GitHub auto-closes the issue on merge.
 
 ## Working style
 
