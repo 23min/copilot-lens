@@ -20,9 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated research doc with verified Codex JSONL envelope format
 - Claude Code skill discovery: scans `.claude/skills/*/SKILL.md` following the Agent Skills standard
 - Provider disambiguation across all views (closes #17)
-  - Sidebar: consistent `(Copilot)` / `(Claude)` prefix on both agents and skills
-  - Agent Graph: filter toggle (All / Copilot / Claude) with provider badges on nodes
-  - Metrics Dashboard: unused agents/skills tags show provider origin
+  - Sidebar: agents and skills grouped into collapsible sections per provider (e.g. "Agents (Copilot)", "Skills (Claude)")
+  - Agent Graph: Copilot / Claude toggle (no "All" — one provider preselected for readability)
+  - Metrics Dashboard: unused agents/skills grouped by provider; sections respond to active filter
+  - Session Explorer: filter buttons stay visible when no sessions match selected filter
 - `provider` field on `Skill` model, propagated through parser, discovery, graph builder, and metrics
 - 28 new tests (167 total)
 
