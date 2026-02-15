@@ -10,7 +10,7 @@ declare function acquireVsCodeApi(): {
 
 const vscode = acquireVsCodeApi();
 
-type SourceFilter = "all" | "copilot" | "claude";
+type SourceFilter = "all" | "copilot" | "claude" | "codex";
 
 interface CountEntry {
   name: string;
@@ -628,6 +628,7 @@ class MetricsDashboard extends LitElement {
       { value: "all", label: "All" },
       { value: "copilot", label: "Copilot" },
       { value: "claude", label: "Claude" },
+      { value: "codex", label: "Codex" },
     ];
 
     return html`

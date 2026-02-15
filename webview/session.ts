@@ -9,7 +9,7 @@ declare function acquireVsCodeApi(): {
 
 const vscode = acquireVsCodeApi();
 
-type SourceFilter = "all" | "copilot" | "claude";
+type SourceFilter = "all" | "copilot" | "claude" | "codex";
 
 interface ToolCallInfo {
   id: string;
@@ -47,7 +47,7 @@ interface Session {
   creationDate: number;
   requests: SessionRequest[];
   source: string;
-  provider: "copilot" | "claude";
+  provider: "copilot" | "claude" | "codex";
 }
 
 @customElement("session-explorer")
@@ -309,6 +309,10 @@ class SessionExplorer extends LitElement {
       background: rgba(176, 144, 144, 0.15);
       color: #b09090;
     }
+    .provider-badge.codex {
+      background: rgba(138, 171, 127, 0.15);
+      color: #8aab7f;
+    }
   `;
 
   @state() private sessions: Session[] = [];
@@ -382,6 +386,7 @@ class SessionExplorer extends LitElement {
       { value: "all", label: "All" },
       { value: "copilot", label: "Copilot" },
       { value: "claude", label: "Claude" },
+      { value: "codex", label: "Codex" },
     ];
 
     return html`
@@ -409,7 +414,7 @@ class SessionExplorer extends LitElement {
               }}"
             >
               <span class="provider-badge ${session.provider}">
-                ${session.provider === "copilot" ? "Copilot" : "Claude"}
+                ${session.provider === "copilot" ? "Copilot" : session.provider === "claude" ? "Claude" : "Codex"}
               </span>
               <span class="session-title">
                 ${session.title ?? session.sessionId}
