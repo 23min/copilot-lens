@@ -57,8 +57,8 @@ async function refresh(
     GraphPanel.updateIfOpen(buildGraph(agents, skills));
     MetricsPanel.updateIfOpen(
       sessions,
-      agents.map((a) => a.name),
-      skills.map((s) => s.name),
+      agents.map((a) => ({ name: a.name, provider: a.provider })),
+      skills.map((s) => ({ name: s.name, provider: s.provider })),
     );
     SessionPanel.updateIfOpen(sessions);
 
@@ -115,8 +115,8 @@ export function activate(context: vscode.ExtensionContext): void {
       MetricsPanel.show(
         context.extensionUri,
         cachedSessions,
-        cachedAgents.map((a) => a.name),
-        cachedSkills.map((s) => s.name),
+        cachedAgents.map((a) => ({ name: a.name, provider: a.provider })),
+        cachedSkills.map((s) => ({ name: s.name, provider: s.provider })),
       );
     },
   );

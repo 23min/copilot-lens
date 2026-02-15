@@ -2,11 +2,14 @@ import { LitElement, html, css, svg } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import * as d3 from "d3";
 
+type ProviderFilter = "copilot" | "claude";
+
 interface GraphNode {
   id: string;
   label: string;
   kind: "agent" | "skill" | "builtin-agent" | "claude-agent";
   description: string;
+  provider?: string;
   x?: number;
   y?: number;
 }
@@ -253,6 +256,29 @@ class GraphView extends LitElement {
       gap: 8px;
       font-size: 13px;
     }
+    .toolbar {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      z-index: 10;
+      display: flex;
+      gap: 2px;
+    }
+    .filter-btn {
+      background: var(--vscode-button-secondaryBackground, #3a3d41);
+      color: var(--vscode-button-secondaryForeground, #ccc);
+      border: 1px solid var(--vscode-editorWidget-border, #454545);
+      padding: 4px 10px;
+      font-size: 11px;
+      cursor: pointer;
+      font-family: var(--vscode-font-family, sans-serif);
+    }
+    .filter-btn:first-child { border-radius: 4px 0 0 4px; }
+    .filter-btn:last-child { border-radius: 0 4px 4px 0; }
+    .filter-btn.active {
+      background: var(--vscode-button-background, #0e639c);
+      color: var(--vscode-button-foreground, #fff);
+    }
   `;
 
   @state() private nodes: GraphNode[] = [];
@@ -260,6 +286,10 @@ class GraphView extends LitElement {
   @state() private tooltip: { x: number; y: number; text: string } | null =
     null;
   @state() private transform = d3.zoomIdentity;
+  @state() private activeFilter: ProviderFilter = "copilot";
+
+  private allNodes: GraphNode[] = [];
+  private allEdges: GraphEdge[] = [];
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -281,9 +311,26 @@ class GraphView extends LitElement {
   private zoom: d3.ZoomBehavior<SVGSVGElement, unknown> | null = null;
 
   private setGraph(graph: Graph): void {
-    this.nodes = layoutGraph(graph.nodes, graph.edges);
-    this.edges = graph.edges.map((e) => ({ ...e }));
-    // Fit to viewport after next render
+    this.allNodes = graph.nodes;
+    this.allEdges = graph.edges.map((e) => ({ ...e }));
+    this.applyFilter();
+  }
+
+  private onFilterChange(filter: ProviderFilter): void {
+    this.activeFilter = filter;
+    this.applyFilter();
+  }
+
+  private applyFilter(): void {
+    const filteredNodes = this.allNodes.filter(
+      (n) => n.provider === this.activeFilter || n.kind === "builtin-agent",
+    );
+    const nodeIds = new Set(filteredNodes.map((n) => n.id));
+    const filteredEdges = this.allEdges.filter(
+      (e) => nodeIds.has(e.source) && nodeIds.has(e.target),
+    );
+    this.nodes = layoutGraph(filteredNodes, filteredEdges);
+    this.edges = filteredEdges;
     this.updateComplete.then(() => this.fitToView());
   }
 
@@ -366,8 +413,29 @@ class GraphView extends LitElement {
     this.tooltip = null;
   }
 
+  private renderFilterToolbar() {
+    const options: { value: ProviderFilter; label: string }[] = [
+      { value: "copilot", label: "Copilot" },
+      { value: "claude", label: "Claude" },
+    ];
+    return html`
+      <div class="toolbar">
+        ${options.map(
+          (opt) => html`
+            <button
+              class="filter-btn ${this.activeFilter === opt.value ? "active" : ""}"
+              @click="${() => this.onFilterChange(opt.value)}"
+            >
+              ${opt.label}
+            </button>
+          `,
+        )}
+      </div>
+    `;
+  }
+
   protected render() {
-    if (this.nodes.length === 0) {
+    if (this.allNodes.length === 0) {
       return html`
         <div class="empty-state">
           <h2>No agents or skills found</h2>
@@ -392,6 +460,7 @@ class GraphView extends LitElement {
     }
 
     return html`
+      ${this.renderFilterToolbar()}
       <svg>
         <defs>
           <marker
@@ -470,7 +539,7 @@ class GraphView extends LitElement {
             fill-opacity="0.15"
           />
           <text class="node-label" dy="2">${node.label}</text>
-          <text class="kind-badge" dy="${NODE_RADIUS + 14}">${node.kind}</text>
+          <text class="kind-badge" dy="${NODE_RADIUS + 14}">${node.kind === "builtin-agent" ? "builtin" : `${node.kind === "skill" ? "skill" : "agent"} (${node.provider ?? "copilot"})`}</text>
         </g>
       `,
     );

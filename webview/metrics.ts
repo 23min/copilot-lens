@@ -23,6 +23,11 @@ interface TokenEntry {
   completionTokens: number;
 }
 
+interface UnusedEntry {
+  name: string;
+  provider?: string;
+}
+
 interface AggregatedMetrics {
   totalSessions: number;
   totalRequests: number;
@@ -35,8 +40,8 @@ interface AggregatedMetrics {
   tokensByAgent: TokenEntry[];
   tokensByModel: TokenEntry[];
   activity: { date: string; count: number }[];
-  unusedAgents: string[];
-  unusedSkills: string[];
+  unusedAgents: UnusedEntry[];
+  unusedSkills: UnusedEntry[];
 }
 
 interface DonutSlice {
@@ -174,6 +179,11 @@ class MetricsDashboard extends LitElement {
       border-radius: 4px;
       padding: 2px 8px;
       font-size: 12px;
+    }
+    .unused-provider {
+      font-size: 10px;
+      opacity: 0.6;
+      margin-left: 2px;
     }
     .empty-state {
       opacity: 0.5;
@@ -551,6 +561,55 @@ class MetricsDashboard extends LitElement {
     `;
   }
 
+  private renderUnusedSection(label: string, entries: UnusedEntry[]) {
+    if (entries.length === 0) return null;
+
+    if (this.activeFilter !== "all") {
+      // Single provider selected — flat list, no sub-headers needed
+      return html`
+        <div style="font-size: 12px; opacity: 0.6; margin-bottom: 4px; margin-top: 8px;">
+          ${label} defined but never used:
+        </div>
+        <div class="unused-list">
+          ${entries.map(
+            (entry) => html`<span class="unused-tag">${entry.name}</span>`,
+          )}
+        </div>
+      `;
+    }
+
+    // "All" filter — group by provider
+    const copilot = entries.filter((e) => (e.provider ?? "copilot") === "copilot");
+    const claude = entries.filter((e) => e.provider === "claude");
+
+    return html`
+      ${copilot.length > 0
+        ? html`
+            <div style="font-size: 12px; opacity: 0.6; margin-bottom: 4px; margin-top: 8px;">
+              ${label} (Copilot) defined but never used:
+            </div>
+            <div class="unused-list">
+              ${copilot.map(
+                (entry) => html`<span class="unused-tag">${entry.name}</span>`,
+              )}
+            </div>
+          `
+        : null}
+      ${claude.length > 0
+        ? html`
+            <div style="font-size: 12px; opacity: 0.6; margin-bottom: 4px; margin-top: 8px;">
+              ${label} (Claude) defined but never used:
+            </div>
+            <div class="unused-list">
+              ${claude.map(
+                (entry) => html`<span class="unused-tag">${entry.name}</span>`,
+              )}
+            </div>
+          `
+        : null}
+    `;
+  }
+
   private formatNumber(n: number): string {
     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
     if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
@@ -755,32 +814,8 @@ class MetricsDashboard extends LitElement {
       ${m.unusedAgents.length > 0 || m.unusedSkills.length > 0
         ? html`
             <h2>Unused</h2>
-            ${m.unusedAgents.length > 0
-              ? html`
-                  <div style="font-size: 12px; opacity: 0.6; margin-bottom: 4px;">
-                    Agents defined but never used:
-                  </div>
-                  <div class="unused-list">
-                    ${m.unusedAgents.map(
-                      (name) => html`<span class="unused-tag">${name}</span>`,
-                    )}
-                  </div>
-                `
-              : null}
-            ${m.unusedSkills.length > 0
-              ? html`
-                  <div
-                    style="font-size: 12px; opacity: 0.6; margin-bottom: 4px; margin-top: 8px;"
-                  >
-                    Skills defined but never loaded:
-                  </div>
-                  <div class="unused-list">
-                    ${m.unusedSkills.map(
-                      (name) => html`<span class="unused-tag">${name}</span>`,
-                    )}
-                  </div>
-                `
-              : null}
+            ${this.renderUnusedSection("Agents", m.unusedAgents)}
+            ${this.renderUnusedSection("Skills", m.unusedSkills)}
           `
         : null}
       ${this.tooltip

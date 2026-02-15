@@ -1,3 +1,4 @@
+import type { AgentProvider } from "../models/agent.js";
 import type { Skill } from "../models/skill.js";
 import { parseFrontmatter } from "./frontmatterParser.js";
 
@@ -17,7 +18,7 @@ function inferNameFromPath(filePath: string): string {
   return "unknown";
 }
 
-export function parseSkill(content: string, filePath: string): Skill {
+export function parseSkill(content: string, filePath: string, provider?: AgentProvider): Skill {
   const { data, body } = parseFrontmatter(content);
 
   return {
@@ -25,5 +26,6 @@ export function parseSkill(content: string, filePath: string): Skill {
     description: typeof data.description === "string" ? data.description : "",
     body,
     filePath,
+    provider,
   };
 }

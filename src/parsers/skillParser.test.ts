@@ -112,4 +112,22 @@ Content.`;
     const skill = parseSkill(content, ".claude/skills/vscode-extensions/SKILL.md");
     expect(skill.name).toBe("vscode-ext-guide");
   });
+
+  it("passes provider through to skill model", () => {
+    const content = `---
+name: testing
+---
+
+Content.`;
+    const copilotSkill = parseSkill(content, ".github/skills/testing/SKILL.md", "copilot");
+    expect(copilotSkill.provider).toBe("copilot");
+
+    const claudeSkill = parseSkill(content, ".claude/skills/testing/SKILL.md", "claude");
+    expect(claudeSkill.provider).toBe("claude");
+  });
+
+  it("provider is undefined when not specified", () => {
+    const skill = parseSkill("Content.", "some/path/SKILL.md");
+    expect(skill.provider).toBeUndefined();
+  });
 });

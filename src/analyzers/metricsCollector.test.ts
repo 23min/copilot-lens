@@ -140,15 +140,22 @@ describe("collectMetrics", () => {
   });
 
   it("detects unused agents", () => {
-    const definedAgents = ["Planner", "Implementer", "Reviewer"];
+    const definedAgents = [
+      { name: "Planner", provider: "copilot" },
+      { name: "Implementer", provider: "copilot" },
+      { name: "Reviewer", provider: "claude" },
+    ];
     const metrics = collectMetrics(SESSIONS, definedAgents, []);
-    expect(metrics.unusedAgents).toEqual(["Reviewer"]);
+    expect(metrics.unusedAgents).toEqual([{ name: "Reviewer", provider: "claude" }]);
   });
 
   it("detects unused skills", () => {
-    const definedSkills = ["testing", "vscode-extensions"];
+    const definedSkills = [
+      { name: "testing", provider: "copilot" },
+      { name: "vscode-extensions", provider: "claude" },
+    ];
     const metrics = collectMetrics(SESSIONS, [], definedSkills);
-    expect(metrics.unusedSkills).toEqual(["vscode-extensions"]);
+    expect(metrics.unusedSkills).toEqual([{ name: "vscode-extensions", provider: "claude" }]);
   });
 
   it("sorts usage entries by count descending", () => {

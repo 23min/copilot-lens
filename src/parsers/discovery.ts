@@ -4,7 +4,7 @@ import * as path from "node:path";
 import * as os from "node:os";
 import { parseAgent } from "./agentParser.js";
 import { parseSkill } from "./skillParser.js";
-import type { Agent } from "../models/agent.js";
+import type { Agent, AgentProvider } from "../models/agent.js";
 import type { Skill } from "../models/skill.js";
 import { getLogger } from "../logger.js";
 
@@ -127,10 +127,13 @@ export async function discoverSkills(): Promise<Skill[]> {
     try {
       const content = await fs.readFile(uri.fsPath, "utf-8");
       const relativePath = vscode.workspace.asRelativePath(uri);
-      const skill = parseSkill(content, relativePath);
+      const provider: AgentProvider = relativePath.includes(".claude/skills/")
+        ? "claude"
+        : "copilot";
+      const skill = parseSkill(content, relativePath, provider);
       skill.fileUri = uri.toString();
       skills.push(skill);
-      log.info(`  Parsed skill: ${skill.name} (${relativePath})`);
+      log.info(`  Parsed skill: ${skill.name} [${provider}] (${relativePath})`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       log.warn(`  Skipping skill ${uri.fsPath}: ${msg}`);

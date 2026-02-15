@@ -45,9 +45,7 @@ export class AgentLensTreeProvider
           element.agent.name,
           vscode.TreeItemCollapsibleState.Collapsed,
         );
-        item.description = element.agent.provider === "claude"
-          ? `(Claude) ${element.agent.description}`
-          : element.agent.description;
+        item.description = element.agent.description;
         item.contextValue = "agent";
         item.tooltip = element.agent.description;
         item.command = {
@@ -102,11 +100,23 @@ export class AgentLensTreeProvider
 
       const children: TreeItemData[] = [];
       children.push({ kind: "category", label: "Actions" });
-      if (this.agents.length > 0) {
-        children.push({ kind: "category", label: "Agents" });
+
+      const copilotAgents = this.agents.filter((a) => a.provider !== "claude");
+      const claudeAgents = this.agents.filter((a) => a.provider === "claude");
+      if (copilotAgents.length > 0) {
+        children.push({ kind: "category", label: "Agents (Copilot)" });
       }
-      if (this.skills.length > 0) {
-        children.push({ kind: "category", label: "Skills" });
+      if (claudeAgents.length > 0) {
+        children.push({ kind: "category", label: "Agents (Claude)" });
+      }
+
+      const copilotSkills = this.skills.filter((s) => s.provider !== "claude");
+      const claudeSkills = this.skills.filter((s) => s.provider === "claude");
+      if (copilotSkills.length > 0) {
+        children.push({ kind: "category", label: "Skills (Copilot)" });
+      }
+      if (claudeSkills.length > 0) {
+        children.push({ kind: "category", label: "Skills (Claude)" });
       }
       return children;
     }
@@ -119,12 +129,18 @@ export class AgentLensTreeProvider
       ];
     }
 
-    if (element.kind === "category" && element.label === "Agents") {
-      return this.agents.map((agent) => ({ kind: "agent", agent }));
+    if (element.kind === "category" && element.label === "Agents (Copilot)") {
+      return this.agents.filter((a) => a.provider !== "claude").map((agent) => ({ kind: "agent" as const, agent }));
+    }
+    if (element.kind === "category" && element.label === "Agents (Claude)") {
+      return this.agents.filter((a) => a.provider === "claude").map((agent) => ({ kind: "agent" as const, agent }));
     }
 
-    if (element.kind === "category" && element.label === "Skills") {
-      return this.skills.map((skill) => ({ kind: "skill", skill }));
+    if (element.kind === "category" && element.label === "Skills (Copilot)") {
+      return this.skills.filter((s) => s.provider !== "claude").map((skill) => ({ kind: "skill" as const, skill }));
+    }
+    if (element.kind === "category" && element.label === "Skills (Claude)") {
+      return this.skills.filter((s) => s.provider === "claude").map((skill) => ({ kind: "skill" as const, skill }));
     }
 
     if (element.kind === "agent") {
