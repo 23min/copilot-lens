@@ -13,6 +13,7 @@ const CLAUDE_AGENT_GLOB = "**/.claude/agents/*.md";
 const SKILL_GLOBS = [
   "**/.github/skills/*/SKILL.md",
   "**/.github/skills/*.skill.md",
+  "**/.claude/skills/*/SKILL.md",
 ];
 
 async function discoverCopilotAgents(): Promise<Agent[]> {

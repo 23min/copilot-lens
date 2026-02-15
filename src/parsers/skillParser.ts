@@ -2,7 +2,7 @@ import type { Skill } from "../models/skill.js";
 import { parseFrontmatter } from "./frontmatterParser.js";
 
 function inferNameFromPath(filePath: string): string {
-  // Convention 1: .github/skills/<name>/SKILL.md
+  // Convention 1: <parent>/skills/<name>/SKILL.md (Copilot + Claude)
   const parts = filePath.split("/");
   const skillMdIndex = parts.lastIndexOf("SKILL.md");
   if (skillMdIndex > 0) {
