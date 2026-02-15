@@ -167,6 +167,65 @@
 
 ---
 
+## Milestone 9: Claude Code Agent & Skill Discovery
+
+> Extend static discovery to find Claude Code agents from `.claude/agents/` (project and global).
+
+| # | Task | Details |
+|---|---|---|
+| 9.1 | Scan `.claude/agents/` in workspace root | Project-level Claude agents (priority 2 in Claude's resolution order) |
+| 9.2 | Scan `~/.claude/agents/` | Global user-level Claude agents (priority 3) |
+| 9.3 | Parse Claude agent markdown files | Same frontmatter + body format as Copilot agents, reuse existing parser |
+| 9.4 | Distinguish Claude vs Copilot agents | Badge or color in sidebar tree and Agent Graph |
+| 9.5 | Unit tests | Fixture-based tests for discovery and parsing of `.claude/agents/` files |
+
+**Issue:** [#10](https://github.com/23min/agent-lens/issues/10)
+**Branch:** `feature/claude-agent-discovery`
+**Definition of done:** Claude agents from `.claude/agents/` appear in sidebar tree and Agent Graph alongside Copilot agents.
+
+---
+
+## Milestone 10: OpenAI Codex CLI Support
+
+> Add Codex CLI as a third session provider. Parse rollout JSONL files from `~/.codex/sessions/`.
+
+| # | Task | Details |
+|---|---|---|
+| 9.1 | Research & format analysis | Document rollout JSONL structure, event types, token usage format (see `docs/research/codex-sessions.md`) |
+| 9.2 | Codex session locator | Discover `~/.codex/sessions/` (or `CODEX_HOME`). Walk `YYYY/MM/DD/rollout-*.jsonl` tree. |
+| 9.3 | Codex session parser | Parse rollout JSONL → `Session`/`SessionRequest` model. Extract token deltas from cumulative `token_count` events. |
+| 9.4 | Codex session provider | `CodexSessionProvider` wired into extension activation and refresh. |
+| 9.5 | `agentLens.codexDir` setting | Custom path override for non-default Codex home directories. |
+| 9.6 | Source filter: Codex | Add "Codex" to the All/Copilot/Claude toggle in Metrics Dashboard and Session Explorer. |
+| 9.7 | Provider badge | Codex badge in Session Explorer (green). |
+| 9.8 | Unit tests | Fixture-based tests for parser and locator. |
+
+**Issue:** [#13](https://github.com/23min/agent-lens/issues/13)
+**Branch:** `feature/codex-support`
+**Definition of done:** Codex sessions appear in Metrics Dashboard and Session Explorer alongside Copilot and Claude sessions.
+
+---
+
+## Milestone 11: Session Tracing & Execution Graphs
+
+> Visualize session execution as a waterfall/flamechart — where time is spent, what tools are called, where bottlenecks occur.
+
+| # | Task | Details |
+|---|---|---|
+| 11.1 | Research & data audit | Audit timing data available per provider (see `docs/research/session-tracing.md`) |
+| 11.2 | `TraceSpan` / `SessionTrace` data model | Common trace model with spans (request, tool, subagent, gap, error types) |
+| 11.3 | Trace builder: Copilot | Convert Copilot sessions to traces using native `totalElapsed` and `firstProgress` |
+| 11.4 | Trace builder: Claude | Derive request durations from message timestamps. Parse subagent sidechains. |
+| 11.5 | Trace waterfall webview | D3.js horizontal waterfall chart — requests as bars on a time axis, annotated with agent/model/tokens/tools |
+| 11.6 | Session health indicators | Rate limiting markers, long gaps, context growth overlay, timeout detection |
+| 11.7 | Tool call breakdown (Phase 2) | Nested tool-call spans within requests (Claude OTel data when available) |
+| 11.8 | Execution DAG for subagents (Phase 3) | Render subagent/sidechain execution as a DAG using `parentUuid` and `isSidechain` |
+
+**Branch:** `feature/session-tracing`
+**Definition of done:** Session trace waterfall renders for Copilot and Claude sessions. Bottlenecks and anomalies are visually highlighted.
+
+---
+
 ## Dependency Graph
 
 ```
@@ -178,12 +237,17 @@ M0 (Setup)
       └─→ M5 (Session Parser)
            └─→ M6 (Metrics Dashboard)
            └─→ M7 (Session Explorer)
+           └─→ M10 (Codex Support)
+           └─→ M11 (Session Tracing)
+      └─→ M9 (Claude Agent Discovery)
 
 M8 (Polish) depends on all above
 ```
 
 Milestones 3+4 (UI) and 5 (session parser) can run in parallel after M2 is done.
 Milestones 6+7 can run in parallel after M5 is done.
+Milestone 9 (Claude Agent Discovery) depends on M1 (parsers) and can run independently.
+Milestones 10+11 can run in parallel, both depend on the session parser infrastructure (M5).
 
 ---
 
