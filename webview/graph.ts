@@ -5,7 +5,7 @@ import * as d3 from "d3";
 interface GraphNode {
   id: string;
   label: string;
-  kind: "agent" | "skill" | "builtin-agent";
+  kind: "agent" | "skill" | "builtin-agent" | "claude-agent";
   description: string;
   x?: number;
   y?: number;
@@ -34,6 +34,7 @@ const NODE_COLORS: Record<string, string> = {
   agent: "#4fc1ff",
   skill: "#4ec9b0",
   "builtin-agent": "#9cdcfe",
+  "claude-agent": "#b392f0",
 };
 
 const NODE_RADIUS = 28;
@@ -123,8 +124,9 @@ function layoutGraph(nodes: GraphNode[], edges: GraphEdge[]): GraphNode[] {
     // Sort within layer: agents first, then builtin, then skills
     const kindOrder: Record<string, number> = {
       agent: 0,
-      "builtin-agent": 1,
-      skill: 2,
+      "claude-agent": 1,
+      "builtin-agent": 2,
+      skill: 3,
     };
     group.sort((a, b) => (kindOrder[a.kind] ?? 9) - (kindOrder[b.kind] ?? 9));
 

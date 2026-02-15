@@ -2,7 +2,7 @@
   "name": "agent-lens",
   "displayName": "Agent Lens",
   "description": "Visualize your AI coding agents, skills, and handoffs as an interactive graph. Parses chat sessions to surface usage metrics.",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "publisher": "Proliminal",
   "license": "MIT",
   "icon": "assets/icon_128.png",
@@ -22,7 +22,8 @@
   ],
   "activationEvents": [
     "workspaceContains:**/.github/agents/*.agent.md",
-    "workspaceContains:**/.github/skills/*/SKILL.md"
+    "workspaceContains:**/.github/skills/*/SKILL.md",
+    "workspaceContains:**/.claude/agents/*.md"
   ],
   "main": "./out/extension.js",
   "contributes": {

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.11] - 2026-02-15
+
+### Added
+- Claude Code agent discovery: scans `.claude/agents/*.md` (project-level) and `~/.claude/agents/*.md` (global) for sub-agent definitions (closes #10)
+- `AgentProvider` type (`"copilot" | "claude"`) and `provider` field on `Agent` model
+- Purple graph nodes (`#b392f0`) for Claude agents in Agent Graph
+- "(Claude)" badge in sidebar tree view for Claude agents
+- Activation event and file watcher for `.claude/agents/*.md`
+- Issue-linking convention in CLAUDE.md
+- 6 new tests (139 total)
+
+### Fixed
+- `claudeDir` config now scans both the configured directory and the default `~/.claude/projects/` path, merging and deduplicating results — previously the configured dir replaced the default lookup (fixes #14)
+
 ## [0.0.10] - 2026-02-15
 
 ### Changed

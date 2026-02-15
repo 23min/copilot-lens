@@ -117,4 +117,31 @@ Body.`;
     expect(agent.name).toBe("empty");
     expect(agent.body).toBe("");
   });
+
+  it("defaults provider to copilot", () => {
+    const agent = parseAgent(PLANNER_FIXTURE, "planner.agent.md");
+    expect(agent.provider).toBe("copilot");
+  });
+
+  it("accepts claude provider", () => {
+    const content = `---
+name: researcher
+description: Researches topics
+---
+
+Research body.`;
+    const agent = parseAgent(content, ".claude/agents/researcher.md", "claude");
+    expect(agent.provider).toBe("claude");
+    expect(agent.name).toBe("researcher");
+  });
+
+  it("infers name from .md path for Claude agents", () => {
+    const content = `---
+description: No name field
+---
+
+Body.`;
+    const agent = parseAgent(content, ".claude/agents/my-agent.md", "claude");
+    expect(agent.name).toBe("my-agent");
+  });
 });

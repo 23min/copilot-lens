@@ -27,32 +27,40 @@ export class ClaudeSessionProvider implements SessionProvider {
     const log = getLogger();
     const { workspacePath } = ctx;
 
-    // 1. Check user-configured claudeDir first (for devcontainers with mounts)
+    // Scan both user-configured dir and default location, merge results
     const configDir = vscode.workspace
       .getConfiguration("agentLens")
       .get<string>("claudeDir");
 
-    let entries;
+    let entries = [];
+
+    // 1. User-configured claudeDir (for devcontainers with mounts)
     if (configDir) {
-      log.info(`Claude strategy 1: user-configured claudeDir = "${configDir}"`);
-      entries = await discoverClaudeSessionsInDir(configDir, workspacePath);
-      if (entries.length > 0) {
-        log.info(`  Found ${entries.length} session(s) via configured dir`);
-      } else {
-        log.info("  No sessions found via configured dir, falling back");
-        entries = null;
+      log.info(`Claude: scanning configured claudeDir = "${configDir}"`);
+      const configEntries = await discoverClaudeSessionsInDir(configDir, workspacePath);
+      log.info(`  Found ${configEntries.length} session(s) via configured dir`);
+      entries.push(...configEntries);
+    }
+
+    // 2. Default: ~/.claude/projects/{encoded-path}
+    if (workspacePath) {
+      const defaultEntries = await discoverClaudeSessions(workspacePath);
+      log.info(`  Found ${defaultEntries.length} session(s) via default path`);
+      // Deduplicate by file path
+      const seen = new Set(entries.map((e) => e.fullPath));
+      for (const entry of defaultEntries) {
+        if (!seen.has(entry.fullPath)) {
+          entries.push(entry);
+        }
       }
     }
 
-    // 2. Default: use ~/.claude/projects/{encoded-path}
-    if (!entries) {
-      if (!workspacePath) {
-        log.info("Claude: no workspace path, skipping");
-        return [];
+    if (entries.length === 0) {
+      if (!workspacePath && !configDir) {
+        log.info("Claude: no workspace path and no claudeDir configured, skipping");
       }
-      entries = await discoverClaudeSessions(workspacePath);
+      return [];
     }
-    if (entries.length === 0) return [];
 
     log.info(`Claude: parsing ${entries.length} session(s)`);
     const sessions: Session[] = [];

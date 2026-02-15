@@ -1,9 +1,9 @@
-import type { Agent, Handoff } from "../models/agent.js";
+import type { Agent, AgentProvider, Handoff } from "../models/agent.js";
 import { parseFrontmatter } from "./frontmatterParser.js";
 
 function inferNameFromPath(filePath: string): string {
   const filename = filePath.split("/").pop() ?? "";
-  return filename.replace(/\.agent\.md$/, "");
+  return filename.replace(/\.agent\.md$/, "").replace(/\.md$/, "");
 }
 
 function parseHandoffs(raw: unknown): Handoff[] {
@@ -23,7 +23,11 @@ function toStringArray(raw: unknown): string[] {
   return [];
 }
 
-export function parseAgent(content: string, filePath: string): Agent {
+export function parseAgent(
+  content: string,
+  filePath: string,
+  provider: AgentProvider = "copilot",
+): Agent {
   const { data, body } = parseFrontmatter(content);
 
   return {
@@ -34,5 +38,6 @@ export function parseAgent(content: string, filePath: string): Agent {
     handoffs: parseHandoffs(data.handoffs),
     body,
     filePath,
+    provider,
   };
 }

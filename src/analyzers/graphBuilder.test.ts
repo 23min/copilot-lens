@@ -161,4 +161,33 @@ describe("buildGraph", () => {
     const builtinNodes = graph.nodes.filter((n) => n.kind === "builtin-agent");
     expect(builtinNodes).toHaveLength(0);
   });
+
+  it("uses claude-agent kind for Claude provider agents", () => {
+    const agents = [makeAgent({ name: "Researcher", provider: "claude" })];
+    const graph = buildGraph(agents, []);
+
+    expect(graph.nodes).toHaveLength(1);
+    expect(graph.nodes[0].kind).toBe("claude-agent");
+    expect(graph.nodes[0].id).toBe("agent:Researcher");
+  });
+
+  it("uses agent kind for Copilot provider agents", () => {
+    const agents = [makeAgent({ name: "Planner", provider: "copilot" })];
+    const graph = buildGraph(agents, []);
+
+    expect(graph.nodes).toHaveLength(1);
+    expect(graph.nodes[0].kind).toBe("agent");
+  });
+
+  it("mixes Copilot and Claude agents in the same graph", () => {
+    const agents = [
+      makeAgent({ name: "Planner", provider: "copilot" }),
+      makeAgent({ name: "Researcher", provider: "claude" }),
+    ];
+    const graph = buildGraph(agents, []);
+
+    expect(graph.nodes).toHaveLength(2);
+    const kinds = graph.nodes.map((n) => n.kind).sort();
+    expect(kinds).toEqual(["agent", "claude-agent"]);
+  });
 });
