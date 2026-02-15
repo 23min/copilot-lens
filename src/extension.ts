@@ -144,6 +144,9 @@ export function activate(context: vscode.ExtensionContext): void {
   const agentWatcher = vscode.workspace.createFileSystemWatcher(
     "**/.github/agents/*.agent.md",
   );
+  const claudeAgentWatcher = vscode.workspace.createFileSystemWatcher(
+    "**/.claude/agents/*.md",
+  );
   const skillWatcher = vscode.workspace.createFileSystemWatcher(
     "**/.github/skills/*/SKILL.md",
   );
@@ -154,6 +157,9 @@ export function activate(context: vscode.ExtensionContext): void {
   agentWatcher.onDidCreate(scheduleRefresh);
   agentWatcher.onDidChange(scheduleRefresh);
   agentWatcher.onDidDelete(scheduleRefresh);
+  claudeAgentWatcher.onDidCreate(scheduleRefresh);
+  claudeAgentWatcher.onDidChange(scheduleRefresh);
+  claudeAgentWatcher.onDidDelete(scheduleRefresh);
   skillWatcher.onDidCreate(scheduleRefresh);
   skillWatcher.onDidChange(scheduleRefresh);
   skillWatcher.onDidDelete(scheduleRefresh);
@@ -170,6 +176,7 @@ export function activate(context: vscode.ExtensionContext): void {
     openSession,
     openContainerSetup,
     agentWatcher,
+    claudeAgentWatcher,
     skillWatcher,
     skillFlatWatcher,
   );

@@ -1,4 +1,4 @@
-export type NodeKind = "agent" | "skill" | "builtin-agent";
+export type NodeKind = "agent" | "skill" | "builtin-agent" | "claude-agent";
 
 export interface GraphNode {
   id: string;

@@ -32,7 +32,7 @@ export function buildGraph(
     nodes.push({
       id: `agent:${agent.name}`,
       label: agent.name,
-      kind: "agent",
+      kind: agent.provider === "claude" ? "claude-agent" : "agent",
       description: agent.description,
       filePath: agent.filePath,
     });

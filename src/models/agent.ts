@@ -5,6 +5,8 @@ export interface Handoff {
   send: boolean;
 }
 
+export type AgentProvider = "copilot" | "claude";
+
 export interface Agent {
   name: string;
   description: string;
@@ -14,4 +16,5 @@ export interface Agent {
   body: string;
   filePath: string;
   fileUri?: string;
+  provider?: AgentProvider;
 }

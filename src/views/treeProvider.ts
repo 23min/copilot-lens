@@ -45,7 +45,9 @@ export class AgentLensTreeProvider
           element.agent.name,
           vscode.TreeItemCollapsibleState.Collapsed,
         );
-        item.description = element.agent.description;
+        item.description = element.agent.provider === "claude"
+          ? `(Claude) ${element.agent.description}`
+          : element.agent.description;
         item.contextValue = "agent";
         item.tooltip = element.agent.description;
         item.command = {
