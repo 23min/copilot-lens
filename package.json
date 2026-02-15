@@ -79,6 +79,11 @@
           "type": "string",
           "default": "",
           "markdownDescription": "Path to a directory containing Claude Code session files. Should point to the `projects/` directory (or a specific project directory). Useful in devcontainers where `~/.claude` lives on the host — mount it and point this setting to the mount path."
+        },
+        "agentLens.codexDir": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Path to OpenAI Codex CLI sessions directory. Useful in devcontainers — mount the host's `~/.codex/sessions` and point this setting to the mount path. Respects `CODEX_HOME` environment variable as fallback."
         }
       }
     },

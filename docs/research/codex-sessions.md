@@ -37,59 +37,140 @@ The Codex VS Code extension (`openai.chatgpt`) writes to the **same** `~/.codex/
 
 ## 2. Rollout JSONL Format
 
-Each session is a single JSONL file. The format is **not officially documented** — the details below are reverse-engineered from community tools and GitHub issues.
+Each session is a single JSONL file. The format is **not officially documented** — the details below are reverse-engineered from real session files (verified February 2026).
 
-### Line 1: SessionMeta header
+### Typed envelope structure
+
+Every line is a typed envelope with a consistent shape:
 
 ```json
 {
-  "session_id": "uuid",
-  "timestamp": "2026-02-15T10:00:00Z",
-  "model": "gpt-5-codex",
-  "cli_version": "1.2.3"
+  "timestamp": "2026-02-15T13:00:00.000Z",
+  "type": "<line_type>",
+  "payload": { ... }
 }
 ```
 
-### Lines 2+: RolloutLine entries
+Line types: `session_meta`, `response_item`, `event_msg`, `turn_context`.
 
-Each subsequent line is a `RolloutLine` wrapping either a `ResponseItem` or an `EventMsg`.
+### Line 1: `session_meta`
 
-### Event types (`EventMsg` with `payload.type`)
+The first line is always a `session_meta` envelope containing session-level metadata:
+
+```json
+{
+  "timestamp": "2026-02-15T13:00:00.000Z",
+  "type": "session_meta",
+  "payload": {
+    "id": "uuid",
+    "timestamp": "2026-02-15T13:00:00.000Z",
+    "cli_version": "0.100.0",
+    "model_provider": "openai",
+    "source": "cli"
+  }
+}
+```
+
+Note: the `model` field is **not** in session_meta — it comes from `turn_context` lines (see below).
+
+### `event_msg` lines
+
+Events that mark turn lifecycle and token usage. `payload.type` values:
 
 | Event Type | Description |
 |---|---|
-| `token_count` | Cumulative token usage for the session |
-| `turn_started` | Marks the beginning of a new turn/generation |
-| `context_compacted` | Records when context compression occurred |
+| `task_started` | Marks the beginning of a new turn (may include `turn_id`) |
+| `task_complete` | Marks the end of a successful turn |
+| `turn_aborted` | Turn was interrupted (includes `reason`) |
+| `token_count` | Cumulative token usage snapshot (see below) |
+| `user_message` | User input text (`payload.message`) |
+| `agent_reasoning` | Agent's internal reasoning |
+| `agent_message` | Agent message to user |
 
 ### Token usage (from `token_count` events)
 
-| Field | Description |
-|---|---|
-| `total_token_usage` | Cumulative tokens consumed |
-| `last_token_usage` | Most recent usage snapshot |
-| `model_context_window` | Maximum context window size |
-| `cached_input_tokens` | Reused cached tokens |
+```json
+{
+  "type": "event_msg",
+  "payload": {
+    "type": "token_count",
+    "info": {
+      "total_token_usage": {
+        "input_tokens": 2500,
+        "cached_input_tokens": 1800,
+        "output_tokens": 500,
+        "reasoning_output_tokens": 0,
+        "total_tokens": 3000
+      },
+      "last_token_usage": { ... }
+    }
+  }
+}
+```
 
-Per-turn deltas can be computed by subtracting previous `token_count` totals (input, cached input, output, reasoning, total).
+- `total_token_usage` is **cumulative** across the entire session
+- Per-turn deltas are computed by subtracting previous `total_token_usage` values
+- `info` can be `null` (e.g., when no API call was made)
+- Multiple `token_count` events per turn are possible — use the last one
 
-### Response items
+### `response_item` lines
+
+Conversation content. `payload.type` values:
 
 | Type | Description |
 |---|---|
-| `user_message` | User input (`{"type": "user_message", "message": "...", "images": []}`) |
-| `function_call` | Tool invocation (tool name, parameters) |
-| `function_call_output` | Tool execution result (success/failure, duration) |
-| Assistant messages | Role and content of assistant responses |
+| `message` | User, assistant, or developer message (see `role` and `content[]`) |
+| `function_call` | Tool invocation (`name`, `call_id`, `arguments`) |
+| `function_call_output` | Tool result (`call_id`, `output`) |
+| `reasoning` | Model reasoning content |
+| `custom_tool_call` | Custom/MCP tool calls |
+| `ghost_snapshot` | Intermediate state snapshots |
 
-### Session metadata (`turn_context`)
+#### Message content structure
 
-| Field | Description |
-|---|---|
-| Model name | e.g., `gpt-5-codex` |
-| CLI version | Version of Codex CLI |
-| Sandbox/approval settings | Execution environment config |
-| Conversation ID | Links to conversation thread |
+Messages have a `role` (`user`, `assistant`, `developer`) and a `content` array:
+
+```json
+{
+  "type": "response_item",
+  "payload": {
+    "type": "message",
+    "role": "user",
+    "content": [{ "type": "input_text", "text": "Hello" }]
+  }
+}
+```
+
+Content part types: `input_text`, `output_text`, `summary_text`, `input_image`.
+
+Assistant messages may include a `phase` field: `"commentary"` or `"final_answer"`.
+
+### `turn_context` lines
+
+Provides model information for the current turn:
+
+```json
+{
+  "type": "turn_context",
+  "payload": {
+    "model": "gpt-5.3-codex"
+  }
+}
+```
+
+### Turn lifecycle
+
+A typical turn follows this sequence:
+
+1. `event_msg` type `task_started` — opens the turn
+2. `turn_context` — sets the model for this turn
+3. `response_item` type `message` (role: user) — user input
+4. `response_item` type `function_call` / `function_call_output` — tool usage (0+)
+5. `response_item` type `message` (role: assistant, phase: final_answer) — response
+6. `event_msg` type `token_count` — cumulative usage snapshot
+7. `event_msg` type `task_complete` — closes the turn
+
+Older sessions may omit `task_started`/`task_complete` — the parser handles this by creating implicit turns on the first `response_item`.
 
 ---
 
@@ -99,10 +180,12 @@ Per-turn deltas can be computed by subtracting previous `token_count` totals (in
 
 | Data | Available | Notes |
 |---|---|---|
-| Session start time | Yes | `SessionMeta.timestamp` (RFC 3339) |
-| Per-event timestamps | **No** | Events in rollout JSONL have no individual timestamps |
-| Request duration | **No** | Cannot be computed from persisted data |
-| Tool call duration | **No** | `function_call`/`function_call_output` have no timing fields |
+| Session start time | Yes | `session_meta.payload.timestamp` (ISO 8601) |
+| Per-line timestamps | Yes | Every envelope has a `timestamp` field |
+| Per-turn timing | **Partial** | Can compute from `task_started` → `task_complete` timestamps |
+| Tool call duration | **No** | `function_call`/`function_call_output` share the same envelope timestamp |
+
+Note: While every line has a timestamp, the granularity is limited. Multiple lines within a turn often share the same timestamp. Per-tool-call duration cannot be reliably computed from persisted data.
 
 ### `--json` streaming output
 
@@ -119,7 +202,7 @@ The `codex exec --json` flag emits structured events in real-time:
 
 Item types: `command_execution`, `agent_message`, `reasoning`, `file_change`, `mcp_tool_call`, `web_search`, `plan_update`.
 
-**These events are streamed but not persisted.** Timing would require capturing them at ingestion time.
+**These events are streamed but not persisted.** Finer-grained timing would require capturing them at ingestion time.
 
 ### Community requests for timestamps
 
@@ -138,26 +221,37 @@ Item types: `command_execution`, `agent_message`, `reasoning`, `file_change`, `m
 
 ---
 
-## 5. Implementation Plan
+## 5. Implementation (Completed)
 
-### Parser
+### Parser — `src/parsers/codexSessionParser.ts`
 
-1. Discover rollout files in `~/.codex/sessions/` (or `CODEX_HOME`)
-2. Parse line 1 as `SessionMeta` for session-level metadata
-3. Iterate subsequent lines, classifying as `EventMsg` or `ResponseItem`
-4. Extract token usage from `token_count` events (compute deltas between consecutive events)
-5. Extract tool calls from `function_call` / `function_call_output` items
-6. Map to existing `Session` / `SessionRequest` model with `provider: "codex"`
+1. Parse line 1 as `session_meta` envelope for session-level metadata
+2. Iterate subsequent lines by envelope type:
+   - `event_msg`: track turn lifecycle (`task_started`/`task_complete`/`turn_aborted`), extract `user_message` text, accumulate `token_count` snapshots
+   - `response_item`: extract user messages from `message` items, tool calls from `function_call` items
+   - `turn_context`: update model for current turn
+3. Compute per-turn token deltas from cumulative `total_token_usage`
+4. Handle older sessions without explicit `task_started` (implicit turn on first `response_item`)
+5. Map to `Session` / `SessionRequest` model with `provider: "codex"`, `agentId: "codex-cli"`
+
+### Locator — `src/parsers/codexLocator.ts`
+
+Discovery priority: `agentLens.codexDir` setting → `CODEX_HOME` env → `~/.codex/sessions/`
+
+### Provider — `src/parsers/codexProvider.ts`
+
+Implements `SessionProvider` interface. Scans both configured and default directories, deduplicates by path.
 
 ### Settings
 
 - `agentLens.codexDir` — custom path to Codex sessions directory
-- Respect `CODEX_HOME` environment variable as fallback
+- Respects `CODEX_HOME` environment variable as fallback
 
 ### UI changes
 
-- Add "Codex" option to source filter toggle
-- Codex provider badge in Session Explorer (suggest green)
+- "Codex" filter toggle in Session Explorer and Metrics Dashboard
+- Green provider badge (`.provider-badge.codex`, color `#8aab7f`)
+- Container setup guide with mount instructions
 
 ---
 

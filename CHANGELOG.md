@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- OpenAI Codex CLI session support: parses rollout JSONL files from `~/.codex/sessions/` into `Session`/`SessionRequest` model (closes #13)
+- `CodexSessionProvider` with file discovery, JSONL parsing, and file watching
+- Codex session locator: scans `agentLens.codexDir` setting, `CODEX_HOME` env, or default `~/.codex/sessions/`
+- "Codex" filter toggle in Session Explorer and Metrics Dashboard
+- Green provider badge for Codex sessions in Session Explorer
+- `agentLens.codexDir` configuration setting for devcontainer/remote environments
+- Codex section in Container Setup Guide with mount instructions
+- Updated research doc with verified Codex JSONL envelope format
+- 24 new tests for Codex parser and locator (163 total)
+
 ## [0.0.11] - 2026-02-15
 
 ### Added

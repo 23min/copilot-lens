@@ -5,7 +5,7 @@
 
 **Understand what your AI coding agents are actually doing.**
 
-Agent Lens gives you visibility into your GitHub Copilot and Claude Code sessions — which agents ran, what models they used, how many tokens they consumed, and how your agent workflows connect.
+Agent Lens gives you visibility into your GitHub Copilot, Claude Code, and OpenAI Codex CLI sessions — which agents ran, what models they used, how many tokens they consumed, and how your agent workflows connect.
 
 ![Metrics Dashboard](https://raw.githubusercontent.com/23min/agent-lens/main/assets/screenshots/donuts.png)
 
@@ -24,7 +24,7 @@ Agent Lens answers these questions by parsing your local session data and presen
 
 ### Metrics Dashboard
 
-See token usage, model distribution, agent activity, tool calls, and skill usage at a glance. Filter by provider (Copilot, Claude, or both). Spot unused agents and skills that might need attention.
+See token usage, model distribution, agent activity, tool calls, and skill usage at a glance. Filter by provider (Copilot, Claude, Codex, or all). Spot unused agents and skills that might need attention.
 
 ### Agent & Skill Explorer
 
@@ -48,6 +48,7 @@ For Claude Code sessions: see cache read tokens, cache creation tokens, cache hi
 |------|----------------------|
 | **GitHub Copilot** | Chat session JSONL files from VS Code workspace storage. Detects custom agents (from `.github/agents/`) and skills (from `.github/skills/`). |
 | **Claude Code** | Session JSONL files from `~/.claude/projects/`. Detects custom agents and skills, parses sub-agent sessions and prompt caching metrics. |
+| **OpenAI Codex CLI** | Rollout JSONL files from `~/.codex/sessions/`. Parses turn-level token usage with cumulative delta computation, tool calls, and model tracking. |
 
 Session data stays local — Agent Lens only reads files already on your machine.
 
@@ -68,6 +69,7 @@ If your sessions live on a mounted host path, configure the directory manually:
 |---------|-------------|
 | `agentLens.sessionDir` | Path to Copilot chat session files (or a `workspaceStorage` root) |
 | `agentLens.claudeDir` | Path to Claude Code project files (e.g., a mounted `~/.claude/projects`) |
+| `agentLens.codexDir` | Path to Codex CLI sessions directory (e.g., a mounted `~/.codex/sessions`) |
 
 Use the **Agent Lens: Container Setup Guide** command for step-by-step instructions.
 

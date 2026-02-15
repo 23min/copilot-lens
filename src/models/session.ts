@@ -31,7 +31,7 @@ export interface SkillRef {
   file: string;
 }
 
-export type SessionProviderType = "copilot" | "claude";
+export type SessionProviderType = "copilot" | "claude" | "codex";
 
 export interface Session {
   sessionId: string;

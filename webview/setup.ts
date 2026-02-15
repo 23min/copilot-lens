@@ -134,6 +134,25 @@ class ContainerSetup extends LitElement {
         <li>Rebuild the container.</li>
       </ol>
 
+      <h2>OpenAI Codex CLI Sessions</h2>
+      <ol>
+        <li>
+          Add a bind mount to your <code>devcontainer.json</code>:
+          <pre>"mounts": [
+  "source=\${localEnv:HOME}/.codex/sessions,target=/mnt/codex-sessions,type=bind,readonly"
+]</pre>
+        </li>
+        <li>
+          Set the <code>agentLens.codexDir</code> setting to the mount path:
+          <pre>"agentLens.codexDir": "/mnt/codex-sessions"</pre>
+        </li>
+        <li>Rebuild the container.</li>
+      </ol>
+      <p class="note">
+        If you use a custom <code>CODEX_HOME</code>, mount
+        <code>$CODEX_HOME/sessions</code> instead.
+      </p>
+
       <h2>Already have a mount?</h2>
       <p>
         If your host data is already mounted somewhere in the container, you
@@ -148,6 +167,10 @@ class ContainerSetup extends LitElement {
         <li>
           <code>agentLens.claudeDir</code> — point to the
           <code>projects/</code> directory inside <code>.claude</code>
+        </li>
+        <li>
+          <code>agentLens.codexDir</code> — point to the
+          <code>sessions/</code> directory inside <code>.codex</code>
         </li>
       </ul>
 

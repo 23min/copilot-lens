@@ -11,6 +11,7 @@ import {
 import type { SessionDiscoveryContext } from "./parsers/sessionProvider.js";
 import { CopilotSessionProvider } from "./parsers/copilotProvider.js";
 import { ClaudeSessionProvider } from "./parsers/claudeProvider.js";
+import { CodexSessionProvider } from "./parsers/codexProvider.js";
 import { buildGraph } from "./analyzers/graphBuilder.js";
 import { AgentLensTreeProvider } from "./views/treeProvider.js";
 import { initLogger, getLogger } from "./logger.js";
@@ -79,6 +80,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // Register session providers
   registerSessionProvider(new CopilotSessionProvider());
   registerSessionProvider(new ClaudeSessionProvider());
+  registerSessionProvider(new CodexSessionProvider());
 
   const sessionCtx: SessionDiscoveryContext = {
     extensionContext: context,
