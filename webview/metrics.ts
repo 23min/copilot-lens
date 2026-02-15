@@ -23,6 +23,11 @@ interface TokenEntry {
   completionTokens: number;
 }
 
+interface UnusedEntry {
+  name: string;
+  provider?: string;
+}
+
 interface AggregatedMetrics {
   totalSessions: number;
   totalRequests: number;
@@ -35,8 +40,8 @@ interface AggregatedMetrics {
   tokensByAgent: TokenEntry[];
   tokensByModel: TokenEntry[];
   activity: { date: string; count: number }[];
-  unusedAgents: string[];
-  unusedSkills: string[];
+  unusedAgents: UnusedEntry[];
+  unusedSkills: UnusedEntry[];
 }
 
 interface DonutSlice {
@@ -174,6 +179,11 @@ class MetricsDashboard extends LitElement {
       border-radius: 4px;
       padding: 2px 8px;
       font-size: 12px;
+    }
+    .unused-provider {
+      font-size: 10px;
+      opacity: 0.6;
+      margin-left: 2px;
     }
     .empty-state {
       opacity: 0.5;
@@ -762,7 +772,7 @@ class MetricsDashboard extends LitElement {
                   </div>
                   <div class="unused-list">
                     ${m.unusedAgents.map(
-                      (name) => html`<span class="unused-tag">${name}</span>`,
+                      (entry) => html`<span class="unused-tag">${entry.name} <span class="unused-provider">${entry.provider ?? "copilot"}</span></span>`,
                     )}
                   </div>
                 `
@@ -776,7 +786,7 @@ class MetricsDashboard extends LitElement {
                   </div>
                   <div class="unused-list">
                     ${m.unusedSkills.map(
-                      (name) => html`<span class="unused-tag">${name}</span>`,
+                      (entry) => html`<span class="unused-tag">${entry.name} <span class="unused-provider">${entry.provider ?? "copilot"}</span></span>`,
                     )}
                   </div>
                 `

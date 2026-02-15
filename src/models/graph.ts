@@ -6,6 +6,7 @@ export interface GraphNode {
   kind: NodeKind;
   description: string;
   filePath?: string;
+  provider?: string;
 }
 
 export type EdgeKind = "handoff" | "skill-link";

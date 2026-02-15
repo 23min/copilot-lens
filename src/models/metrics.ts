@@ -14,6 +14,11 @@ export interface TokenEntry {
   completionTokens: number;
 }
 
+export interface UnusedEntry {
+  name: string;
+  provider?: string;
+}
+
 export interface AggregatedMetrics {
   totalSessions: number;
   totalRequests: number;
@@ -26,6 +31,6 @@ export interface AggregatedMetrics {
   tokensByAgent: TokenEntry[];
   tokensByModel: TokenEntry[];
   activity: ActivityEntry[];
-  unusedAgents: string[];
-  unusedSkills: string[];
+  unusedAgents: UnusedEntry[];
+  unusedSkills: UnusedEntry[];
 }

@@ -4,6 +4,7 @@ import type {
   CountEntry,
   ActivityEntry,
   TokenEntry,
+  UnusedEntry,
 } from "../models/metrics.js";
 
 function countMap(map: Map<string, number>): CountEntry[] {
@@ -27,10 +28,15 @@ function tokenMap(
     );
 }
 
+export interface DefinedItem {
+  name: string;
+  provider?: string;
+}
+
 export function collectMetrics(
   sessions: Session[],
-  definedAgentNames: string[],
-  definedSkillNames: string[],
+  definedAgents: DefinedItem[],
+  definedSkills: DefinedItem[],
 ): AggregatedMetrics {
   const agentCounts = new Map<string, number>();
   const modelCounts = new Map<string, number>();
@@ -101,8 +107,12 @@ export function collectMetrics(
     .sort((a, b) => a.date.localeCompare(b.date));
 
   // Unused detection
-  const unusedAgents = definedAgentNames.filter((n) => !usedAgents.has(n));
-  const unusedSkills = definedSkillNames.filter((n) => !usedSkills.has(n));
+  const unusedAgents: UnusedEntry[] = definedAgents
+    .filter((a) => !usedAgents.has(a.name))
+    .map((a) => ({ name: a.name, provider: a.provider }));
+  const unusedSkills: UnusedEntry[] = definedSkills
+    .filter((s) => !usedSkills.has(s.name))
+    .map((s) => ({ name: s.name, provider: s.provider }));
 
   return {
     totalSessions: sessions.length,

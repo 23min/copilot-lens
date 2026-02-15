@@ -45,9 +45,8 @@ export class AgentLensTreeProvider
           element.agent.name,
           vscode.TreeItemCollapsibleState.Collapsed,
         );
-        item.description = element.agent.provider === "claude"
-          ? `(Claude) ${element.agent.description}`
-          : element.agent.description;
+        const agentTag = element.agent.provider === "claude" ? "(Claude)" : "(Copilot)";
+        item.description = `${agentTag} ${element.agent.description}`;
         item.contextValue = "agent";
         item.tooltip = element.agent.description;
         item.command = {
@@ -62,7 +61,8 @@ export class AgentLensTreeProvider
           element.skill.name,
           vscode.TreeItemCollapsibleState.None,
         );
-        item.description = element.skill.description;
+        const skillTag = element.skill.provider === "claude" ? "(Claude)" : "(Copilot)";
+        item.description = `${skillTag} ${element.skill.description}`;
         item.contextValue = "skill";
         item.tooltip = element.skill.description;
         item.command = {

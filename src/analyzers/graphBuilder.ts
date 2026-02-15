@@ -35,6 +35,7 @@ export function buildGraph(
       kind: agent.provider === "claude" ? "claude-agent" : "agent",
       description: agent.description,
       filePath: agent.filePath,
+      provider: agent.provider ?? "copilot",
     });
   }
 
@@ -46,6 +47,7 @@ export function buildGraph(
       kind: "skill",
       description: skill.description,
       filePath: skill.filePath,
+      provider: skill.provider ?? "copilot",
     });
   }
 

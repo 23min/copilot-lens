@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import type { Session, SessionProviderType } from "../models/session.js";
 import { collectMetrics } from "../analyzers/metricsCollector.js";
+import type { DefinedItem } from "../analyzers/metricsCollector.js";
 
 type SourceFilter = SessionProviderType | "all";
 
@@ -11,8 +12,8 @@ export class MetricsPanel {
 
   private currentFilter: SourceFilter = "all";
   private cachedSessions: Session[] = [];
-  private cachedAgentNames: string[] = [];
-  private cachedSkillNames: string[] = [];
+  private cachedAgents: DefinedItem[] = [];
+  private cachedSkills: DefinedItem[] = [];
 
   private constructor(
     panel: vscode.WebviewPanel,
@@ -36,12 +37,12 @@ export class MetricsPanel {
   static show(
     extensionUri: vscode.Uri,
     sessions: Session[],
-    agentNames: string[],
-    skillNames: string[],
+    agents: DefinedItem[],
+    skills: DefinedItem[],
   ): MetricsPanel {
     if (MetricsPanel.instance && !MetricsPanel.instance.disposed) {
       MetricsPanel.instance.panel.reveal();
-      MetricsPanel.instance.updateData(sessions, agentNames, skillNames);
+      MetricsPanel.instance.updateData(sessions, agents, skills);
       return MetricsPanel.instance;
     }
 
@@ -62,20 +63,20 @@ export class MetricsPanel {
     MetricsPanel.instance = instance;
 
     panel.webview.html = instance.getHtml(panel.webview);
-    instance.updateData(sessions, agentNames, skillNames);
+    instance.updateData(sessions, agents, skills);
 
     return instance;
   }
 
   updateData(
     sessions: Session[],
-    agentNames: string[],
-    skillNames: string[],
+    agents: DefinedItem[],
+    skills: DefinedItem[],
   ): void {
     if (this.disposed) return;
     this.cachedSessions = sessions;
-    this.cachedAgentNames = agentNames;
-    this.cachedSkillNames = skillNames;
+    this.cachedAgents = agents;
+    this.cachedSkills = skills;
     this.pushFilteredMetrics();
   }
 
@@ -88,8 +89,8 @@ export class MetricsPanel {
           );
     const metrics = collectMetrics(
       filtered,
-      this.cachedAgentNames,
-      this.cachedSkillNames,
+      this.cachedAgents,
+      this.cachedSkills,
     );
     this.panel.webview.postMessage({
       type: "update-metrics",
@@ -100,11 +101,11 @@ export class MetricsPanel {
 
   static updateIfOpen(
     sessions: Session[],
-    agentNames: string[],
-    skillNames: string[],
+    agents: DefinedItem[],
+    skills: DefinedItem[],
   ): void {
     if (MetricsPanel.instance && !MetricsPanel.instance.disposed) {
-      MetricsPanel.instance.updateData(sessions, agentNames, skillNames);
+      MetricsPanel.instance.updateData(sessions, agents, skills);
     }
   }
 
