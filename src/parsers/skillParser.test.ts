@@ -91,4 +91,25 @@ Content.`;
     const skill = parseSkill(content, ".github/skills/branching.skill.md");
     expect(skill.name).toBe("my-branching-skill");
   });
+
+  it("infers name from .claude/skills/<name>/SKILL.md path", () => {
+    const content = `---
+description: Testing guide for Claude
+---
+
+TDD instructions.`;
+    const skill = parseSkill(content, ".claude/skills/testing/SKILL.md");
+    expect(skill.name).toBe("testing");
+    expect(skill.description).toBe("Testing guide for Claude");
+  });
+
+  it("prefers frontmatter name over claude skill directory name", () => {
+    const content = `---
+name: vscode-ext-guide
+---
+
+Content.`;
+    const skill = parseSkill(content, ".claude/skills/vscode-extensions/SKILL.md");
+    expect(skill.name).toBe("vscode-ext-guide");
+  });
 });
