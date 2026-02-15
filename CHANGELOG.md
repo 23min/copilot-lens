@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.12] - 2026-02-15
+
 ### Added
 - OpenAI Codex CLI session support: parses rollout JSONL files from `~/.codex/sessions/` into `Session`/`SessionRequest` model (closes #13)
 - `CodexSessionProvider` with file discovery, JSONL parsing, and file watching
@@ -16,7 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `agentLens.codexDir` configuration setting for devcontainer/remote environments
 - Codex section in Container Setup Guide with mount instructions
 - Updated research doc with verified Codex JSONL envelope format
-- 24 new tests for Codex parser and locator (163 total)
+- Claude Code skill discovery: scans `.claude/skills/*/SKILL.md` following the Agent Skills standard
+- Provider disambiguation across all views (closes #17)
+  - Sidebar: consistent `(Copilot)` / `(Claude)` prefix on both agents and skills
+  - Agent Graph: filter toggle (All / Copilot / Claude) with provider badges on nodes
+  - Metrics Dashboard: unused agents/skills tags show provider origin
+- `provider` field on `Skill` model, propagated through parser, discovery, graph builder, and metrics
+- 28 new tests (167 total)
 
 ## [0.0.11] - 2026-02-15
 
