@@ -114,6 +114,7 @@ export function parseCodexSessionJsonl(content: string): Session {
   let currentTurn: TurnState | null = null;
   let sessionModel = defaultModel;
   let previousTotalTokens: TokenUsage = {};
+  let usesTaskEvents = false;
 
   function finalizeTurn(): void {
     if (!currentTurn) return;
@@ -156,14 +157,22 @@ export function parseCodexSessionJsonl(content: string): Session {
       const evt = line.payload as unknown as EventMsgPayload;
 
       if (evt.type === "task_started") {
+        usesTaskEvents = true;
         finalizeTurn();
         currentTurn = emptyTurnState(sessionModel, lineTs);
       } else if (evt.type === "task_complete" || evt.type === "turn_aborted") {
         finalizeTurn();
       } else if (evt.type === "user_message") {
-        // Captures user message text for current or upcoming turn
         const msg = evt.message ?? "";
-        if (currentTurn) {
+        if (usesTaskEvents) {
+          // Modern format: task_started manages turn boundaries
+          if (currentTurn) {
+            currentTurn.userMessage = msg;
+          }
+        } else {
+          // Legacy format: each user_message event starts a new turn
+          finalizeTurn();
+          currentTurn = emptyTurnState(sessionModel, lineTs);
           currentTurn.userMessage = msg;
         }
       } else if (evt.type === "token_count") {
@@ -174,18 +183,19 @@ export function parseCodexSessionJsonl(content: string): Session {
     } else if (line.type === "response_item") {
       const item = line.payload as unknown as ResponseItemPayload;
 
-      // Ensure we have a turn (older sessions may lack task_started)
-      if (!currentTurn) {
-        currentTurn = emptyTurnState(sessionModel, lineTs);
-      }
-
       if (item.type === "message" && item.role === "user") {
-        // Extract user message text from content array
         const text = extractTextFromContent(item.content);
-        if (text) {
+        // Skip injected context messages (AGENTS.md, environment_context).
+        // In modern sessions (usesTaskEvents), update the current turn.
+        // In legacy sessions, user_message events are authoritative for
+        // turn boundaries so response_item user messages are redundant.
+        if (text && !isContextMessage(text) && currentTurn && usesTaskEvents) {
           currentTurn.userMessage = text;
         }
       } else if (item.type === "function_call") {
+        if (!currentTurn) {
+          currentTurn = emptyTurnState(sessionModel, lineTs);
+        }
         currentTurn.toolCalls.push({
           id: item.call_id ?? "",
           name: item.name ?? "unknown",
@@ -205,9 +215,18 @@ export function parseCodexSessionJsonl(content: string): Session {
   // Finalize any open turn
   finalizeTurn();
 
+  // Use the first real user request as the session title
+  const firstMsg = requests[0]?.messageText ?? null;
+  const firstPrompt = firstMsg ? extractUserRequest(firstMsg) : null;
+  const title = firstPrompt
+    ? firstPrompt.length > 80
+      ? `${firstPrompt.slice(0, 80)}…`
+      : firstPrompt
+    : null;
+
   return {
     sessionId,
-    title: null,
+    title,
     creationDate,
     requests,
     source: "codex",
@@ -230,6 +249,32 @@ function extractTextFromContent(
     }
   }
   return parts.join("\n");
+}
+
+/**
+ * Detect injected context messages that are not real user prompts.
+ * These are added by the Codex VS Code extension before the actual turn.
+ */
+function isContextMessage(text: string): boolean {
+  return (
+    text.startsWith("# AGENTS.md instructions") ||
+    text.startsWith("<environment_context>")
+  );
+}
+
+/**
+ * Extract the actual user request from an IDE-wrapped message.
+ * Codex VS Code wraps prompts as:
+ *   # Context from my IDE setup:\n...\n## My request for Codex:\n<actual request>
+ * Returns the unwrapped request, or the original text if no wrapper is found.
+ */
+function extractUserRequest(text: string): string {
+  const marker = "## My request for Codex:\n";
+  const idx = text.indexOf(marker);
+  if (idx >= 0) {
+    return text.slice(idx + marker.length).trim();
+  }
+  return text;
 }
 
 function computeUsage(
