@@ -48,7 +48,7 @@ interface Session {
   requests: SessionRequest[];
   source: string;
   provider: "copilot" | "claude" | "codex";
-  scope?: "workspace" | "fallback" | "global";
+  scope?: "workspace" | "fallback";
 }
 
 @customElement("session-explorer")
@@ -333,10 +333,6 @@ class SessionExplorer extends LitElement {
       background: rgba(201, 184, 124, 0.15);
       color: #c9b87c;
     }
-    .scope-badge.global {
-      background: rgba(143, 163, 163, 0.15);
-      color: #8fa3a3;
-    }
   `;
 
   @state() private sessions: Session[] = [];
@@ -443,9 +439,6 @@ class SessionExplorer extends LitElement {
                     </span>
                     ${session.scope === "fallback"
                       ? html`<span class="scope-badge fallback">similar workspace</span>`
-                      : null}
-                    ${session.scope === "global"
-                      ? html`<span class="scope-badge global">global</span>`
                       : null}
                     <span class="session-title">
                       ${session.title ?? session.sessionId}
