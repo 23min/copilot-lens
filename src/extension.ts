@@ -19,6 +19,8 @@ import { GraphPanel } from "./views/graphPanel.js";
 import { MetricsPanel } from "./views/metricsPanel.js";
 import { SessionPanel } from "./views/sessionPanel.js";
 import { SetupPanel } from "./views/setupPanel.js";
+import { collectDiagnostics, formatDiagnosticReport } from "./diagnostics.js";
+import * as os from "node:os";
 
 let cachedAgents: Agent[] = [];
 let cachedSkills: Skill[] = [];
@@ -75,7 +77,8 @@ async function refresh(
 export function activate(context: vscode.ExtensionContext): void {
   const outputChannel = vscode.window.createOutputChannel("Agent Lens", { log: true });
   initLogger(outputChannel);
-  getLogger().info("Agent Lens activated");
+  const version = context.extension.packageJSON.version ?? "unknown";
+  getLogger().info(`Agent Lens v${version} activated`);
 
   // Register session providers
   registerSessionProvider(new CopilotSessionProvider());
@@ -136,6 +139,32 @@ export function activate(context: vscode.ExtensionContext): void {
     },
   );
 
+  const diagnoseCmd = vscode.commands.registerCommand(
+    "agentLens.diagnoseDiscovery",
+    async () => {
+      const config = vscode.workspace.getConfiguration("agentLens");
+      const report = await collectDiagnostics(
+        {
+          remoteName: vscode.env.remoteName ?? null,
+          workspacePath: sessionCtx.workspacePath,
+          storageUri: context.storageUri?.fsPath ?? null,
+          homeDir: os.homedir(),
+          platform: process.platform,
+          codexHome: process.env.CODEX_HOME ?? null,
+        },
+        {
+          sessionDir: config.get<string>("sessionDir") || null,
+          claudeDir: config.get<string>("claudeDir") || null,
+          codexDir: config.get<string>("codexDir") || null,
+        },
+      );
+      for (const line of formatDiagnosticReport(report).split("\n")) {
+        outputChannel.info(line);
+      }
+      outputChannel.show();
+    },
+  );
+
   // File watchers — auto-refresh on agent/skill/session changes
   let refreshTimer: ReturnType<typeof setTimeout> | undefined;
   function scheduleRefresh() {
@@ -183,6 +212,7 @@ export function activate(context: vscode.ExtensionContext): void {
     openMetrics,
     openSession,
     openContainerSetup,
+    diagnoseCmd,
     agentWatcher,
     claudeAgentWatcher,
     skillWatcher,

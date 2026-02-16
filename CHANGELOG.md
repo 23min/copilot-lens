@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `Agent Lens: Diagnose Session Discovery` command: outputs structured environment and discovery status to the Output Channel — paths checked, accessibility, file counts per provider (closes #27)
+- Advanced container setup documentation (`docs/container-setup.md`) covering WSL, SSH, Docker-in-Docker, hash instability, and portable mount configurations
+- WSL-specific guidance: `VSCODE_CHAT_STORAGE` environment variable approach for portable `devcontainer.json`
+
+### Changed
+- Setup panel rewritten to focus on Copilot Chat (the only provider needing a mount); Claude and Codex noted as automatic (closes #23)
+- Setup panel now includes platform-specific mount examples (macOS, Linux, WSL), session persistence guidance, troubleshooting section, and link to advanced docs
+- Settings scope changed to `machine-overridable` for `sessionDir`, `claudeDir`, and `codexDir` — allows `.vscode/settings.json` to override container-specific paths without affecting the host (#23)
+
 ## [0.0.12] - 2026-02-15
 
 ### Added
