@@ -74,6 +74,19 @@ async function refresh(
   }
 }
 
+async function refreshWithProgress(
+  sessionCtx: SessionDiscoveryContext,
+  treeProvider: AgentLensTreeProvider,
+): Promise<void> {
+  await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: "Agent Lens: Scanning sessions\u2026",
+    },
+    () => refresh(sessionCtx, treeProvider),
+  );
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   const outputChannel = vscode.window.createOutputChannel("Agent Lens", { log: true });
   initLogger(outputChannel);
@@ -105,7 +118,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const showGraph = vscode.commands.registerCommand(
     "agentLens.showGraph",
     async () => {
-      await refresh(sessionCtx, treeProvider);
+      await refreshWithProgress(sessionCtx, treeProvider);
       const graph = buildGraph(cachedAgents, cachedSkills);
       GraphPanel.show(context.extensionUri, graph);
     },
@@ -114,7 +127,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const openMetrics = vscode.commands.registerCommand(
     "agentLens.openMetrics",
     async () => {
-      await refresh(sessionCtx, treeProvider);
+      await refreshWithProgress(sessionCtx, treeProvider);
       MetricsPanel.show(
         context.extensionUri,
         cachedSessions,
@@ -127,7 +140,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const openSession = vscode.commands.registerCommand(
     "agentLens.openSession",
     async () => {
-      await refresh(sessionCtx, treeProvider);
+      await refreshWithProgress(sessionCtx, treeProvider);
       SessionPanel.show(context.extensionUri, cachedSessions);
     },
   );

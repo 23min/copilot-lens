@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.14] - 2026-02-16
+
+### Added
+- Progress notification ("Scanning sessions...") when opening Metrics Dashboard, Session Explorer, or Agent Graph (#29)
+- Empty sessions (0 requests) are now filtered from Session Explorer and Metrics Dashboard, with a count of hidden sessions shown (#29)
+- "similar workspace" badge on Copilot sessions found via folder-name fallback (strategy 3) — warns that these may be from a different workspace with the same folder name (#25)
+- `Session.scope` field to track discovery strategy: `"workspace"` or `"fallback"`
+- Codex sessions now show the first user prompt as the session title instead of the raw session ID (#30)
+
+### Changed
+- Metrics Dashboard "Sessions" stat card now only counts sessions with at least 1 request
+
+### Fixed
+- Codex parser no longer creates phantom turns from injected context messages (AGENTS.md, environment_context) (#30)
+- Codex parser now properly segments turns in legacy sessions without task_started events (#30)
+- Codex session titles strip IDE context wrapper to show the actual user request (#30)
+
 ## [0.0.13] - 2026-02-16
 
 ### Added

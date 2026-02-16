@@ -48,6 +48,7 @@ interface Session {
   requests: SessionRequest[];
   source: string;
   provider: "copilot" | "claude" | "codex";
+  scope?: "workspace" | "fallback";
 }
 
 @customElement("session-explorer")
@@ -263,6 +264,13 @@ class SessionExplorer extends LitElement {
       padding: 24px 0;
       text-align: center;
     }
+    .empty-notice {
+      font-size: 12px;
+      opacity: 0.5;
+      text-align: center;
+      padding: 8px 0;
+      font-style: italic;
+    }
     .filter-toggle {
       display: inline-flex;
       border: 1px solid var(--vscode-editorWidget-border, #454545);
@@ -313,9 +321,22 @@ class SessionExplorer extends LitElement {
       background: rgba(138, 171, 127, 0.15);
       color: #8aab7f;
     }
+    .scope-badge {
+      font-size: 9px;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-weight: 500;
+      margin-right: 6px;
+      flex-shrink: 0;
+    }
+    .scope-badge.fallback {
+      background: rgba(201, 184, 124, 0.15);
+      color: #c9b87c;
+    }
   `;
 
   @state() private sessions: Session[] = [];
+  @state() private emptyCount = 0;
   @state() private activeFilter: SourceFilter = "all";
   @state() private selectedSession: Session | null = null;
   @state() private selectedRequest: SessionRequest | null = null;
@@ -333,6 +354,7 @@ class SessionExplorer extends LitElement {
   private handleMessage = (e: MessageEvent): void => {
     if (e.data.type === "update-sessions") {
       this.sessions = e.data.sessions;
+      this.emptyCount = e.data.emptyCount ?? 0;
       if (e.data.activeFilter) {
         this.activeFilter = e.data.activeFilter;
       }
@@ -415,6 +437,9 @@ class SessionExplorer extends LitElement {
                     <span class="provider-badge ${session.provider}">
                       ${session.provider === "copilot" ? "Copilot" : session.provider === "claude" ? "Claude" : "Codex"}
                     </span>
+                    ${session.scope === "fallback"
+                      ? html`<span class="scope-badge fallback">similar workspace</span>`
+                      : null}
                     <span class="session-title">
                       ${session.title ?? session.sessionId}
                     </span>
@@ -428,6 +453,11 @@ class SessionExplorer extends LitElement {
                 `,
               )}
             </div>
+            ${this.emptyCount > 0
+              ? html`<div class="empty-notice">
+                  ${this.emptyCount} empty session${this.emptyCount === 1 ? "" : "s"} hidden (0 requests)
+                </div>`
+              : null}
           `}
     `;
   }
