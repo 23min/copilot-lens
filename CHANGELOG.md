@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.0.14] - 2026-02-16
 
 ### Added
 - Progress notification ("Scanning sessions...") when opening Metrics Dashboard, Session Explorer, or Agent Graph (#29)
@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Metrics Dashboard "Sessions" stat card now only counts sessions with at least 1 request
+
+### Fixed
+- Codex parser no longer creates phantom turns from injected context messages (AGENTS.md, environment_context) (#30)
+- Codex parser now properly segments turns in legacy sessions without task_started events (#30)
+- Codex session titles strip IDE context wrapper to show the actual user request (#30)
 
 ## [0.0.13] - 2026-02-16
 
