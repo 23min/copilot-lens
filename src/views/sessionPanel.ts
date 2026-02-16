@@ -69,16 +69,19 @@ export class SessionPanel {
   }
 
   private pushFilteredSessions(): void {
-    const filtered =
+    const byProvider =
       this.currentFilter === "all"
         ? this.cachedSessions
         : this.cachedSessions.filter(
             (s) => s.provider === this.currentFilter,
           );
+    const nonEmpty = byProvider.filter((s) => s.requests.length > 0);
+    const emptyCount = byProvider.length - nonEmpty.length;
     this.panel.webview.postMessage({
       type: "update-sessions",
-      sessions: filtered,
+      sessions: nonEmpty,
       activeFilter: this.currentFilter,
+      emptyCount,
     });
   }
 
