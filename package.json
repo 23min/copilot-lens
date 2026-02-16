@@ -2,7 +2,7 @@
   "name": "agent-lens",
   "displayName": "Agent Lens",
   "description": "Visualize your AI coding agents, skills, and handoffs as an interactive graph. Parses chat sessions to surface usage metrics.",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "publisher": "Proliminal",
   "license": "MIT",
   "icon": "assets/icon_128.png",
@@ -49,6 +49,10 @@
       {
         "command": "agentLens.openContainerSetup",
         "title": "Agent Lens: Container Setup Guide"
+      },
+      {
+        "command": "agentLens.diagnoseDiscovery",
+        "title": "Agent Lens: Diagnose Session Discovery"
       }
     ],
     "viewsContainers": {
@@ -74,16 +78,19 @@
         "agentLens.sessionDir": {
           "type": "string",
           "default": "",
+          "scope": "machine-overridable",
           "markdownDescription": "Path to a directory containing Copilot chat session files (`.jsonl`). Can be a `chatSessions/` directory or a `workspaceStorage/` root (scanned automatically). Useful in devcontainers where sessions live on the host — mount the host's `workspaceStorage` and point this setting to the mount path."
         },
         "agentLens.claudeDir": {
           "type": "string",
           "default": "",
+          "scope": "machine-overridable",
           "markdownDescription": "Path to a directory containing Claude Code session files. Should point to the `projects/` directory (or a specific project directory). Useful in devcontainers where `~/.claude` lives on the host — mount it and point this setting to the mount path."
         },
         "agentLens.codexDir": {
           "type": "string",
           "default": "",
+          "scope": "machine-overridable",
           "markdownDescription": "Path to OpenAI Codex CLI sessions directory. Useful in devcontainers — mount the host's `~/.codex/sessions` and point this setting to the mount path. Respects `CODEX_HOME` environment variable as fallback."
         }
       }

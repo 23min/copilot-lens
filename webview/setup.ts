@@ -100,86 +100,104 @@ class ContainerSetup extends LitElement {
     return html`
       <h1>Container Setup Guide</h1>
       <p class="subtitle">
-        Agent Lens needs access to session data that lives on your host
-        machine. In a container, this data isn't visible unless you mount it.
+        Claude Code and Codex sessions are discovered automatically in
+        containers. GitHub Copilot Chat sessions live on the host and need a
+        bind mount.
       </p>
 
-      <h2>GitHub Copilot Sessions</h2>
-      <ol>
-        <li>
-          Add a bind mount to your <code>devcontainer.json</code>:
-          <pre>"mounts": [
-  "source=\${localEnv:HOME}/.config/Code/User/workspaceStorage,target=/mnt/copilot-sessions,type=bind,readonly"
-]</pre>
-        </li>
-        <li>
-          Set the <code>agentLens.sessionDir</code> setting to the mount path:
-          <pre>"agentLens.sessionDir": "/mnt/copilot-sessions"</pre>
-        </li>
-        <li>Rebuild the container.</li>
-      </ol>
+      <h2>Copilot Chat Sessions (requires mount)</h2>
+      <p>
+        Copilot Chat is a UI extension — it stores sessions on the
+        <strong>host machine</strong>, not inside the container. To make them
+        visible to Agent Lens, mount the host's
+        <code>workspaceStorage</code> directory.
+      </p>
 
-      <h2>Claude Code Sessions</h2>
-      <ol>
-        <li>
-          Add a bind mount to your <code>devcontainer.json</code>:
-          <pre>"mounts": [
-  "source=\${localEnv:HOME}/.claude,target=/mnt/claude,type=bind,readonly"
+      <h3>macOS</h3>
+      <pre>// devcontainer.json
+"mounts": [
+  "source=\${localEnv:HOME}/Library/Application Support/Code/User/workspaceStorage,target=/mnt/host-workspaceStorage,type=bind,readonly"
 ]</pre>
-        </li>
-        <li>
-          Set the <code>agentLens.claudeDir</code> setting to the mount path:
-          <pre>"agentLens.claudeDir": "/mnt/claude/projects"</pre>
-        </li>
-        <li>Rebuild the container.</li>
-      </ol>
 
-      <h2>OpenAI Codex CLI Sessions</h2>
-      <ol>
-        <li>
-          Add a bind mount to your <code>devcontainer.json</code>:
-          <pre>"mounts": [
-  "source=\${localEnv:HOME}/.codex/sessions,target=/mnt/codex-sessions,type=bind,readonly"
+      <h3>Linux</h3>
+      <pre>// devcontainer.json
+"mounts": [
+  "source=\${localEnv:HOME}/.config/Code/User/workspaceStorage,target=/mnt/host-workspaceStorage,type=bind,readonly"
 ]</pre>
-        </li>
-        <li>
-          Set the <code>agentLens.codexDir</code> setting to the mount path:
-          <pre>"agentLens.codexDir": "/mnt/codex-sessions"</pre>
-        </li>
-        <li>Rebuild the container.</li>
-      </ol>
+
+      <h3>Windows / WSL</h3>
+      <pre>// devcontainer.json
+"mounts": [
+  "source=\${localEnv:APPDATA}/Code/User/workspaceStorage,target=/mnt/host-workspaceStorage,type=bind,readonly"
+]</pre>
+      <p>
+        For portable <code>devcontainer.json</code> on WSL, define a custom
+        environment variable in your shell profile:
+      </p>
+      <pre># ~/.bashrc or ~/.profile
+export VSCODE_CHAT_STORAGE="/mnt/c/Users/$USER/AppData/Roaming/Code/User/workspaceStorage"</pre>
+      <p>Then reference it in <code>devcontainer.json</code>:</p>
+      <pre>"mounts": [
+  "source=\${localEnv:VSCODE_CHAT_STORAGE},target=/mnt/host-workspaceStorage,type=bind,readonly"
+]</pre>
+
+      <h3>Configure the setting</h3>
+      <p>
+        Add to <code>.vscode/settings.json</code>
+        (container-specific):
+      </p>
+      <pre>"agentLens.sessionDir": "/mnt/host-workspaceStorage"</pre>
+      <p>Then rebuild the container.</p>
+
+      <h2>Session Persistence (optional)</h2>
+      <p>
+        Claude Code and Codex sessions are stored inside the container and
+        <strong>lost on rebuild</strong>. Named volumes preserve them:
+      </p>
+      <pre>// devcontainer.json
+"mounts": [
+  "source=claude-data,target=/home/vscode/.claude,type=volume",
+  "source=codex-data,target=/home/vscode/.codex,type=volume"
+]</pre>
       <p class="note">
-        If you use a custom <code>CODEX_HOME</code>, mount
-        <code>$CODEX_HOME/sessions</code> instead.
+        This is only needed for persistence across rebuilds — session
+        discovery works without it.
       </p>
 
       <h2>Already have a mount?</h2>
       <p>
-        If your host data is already mounted somewhere in the container, you
-        just need to configure the settings to point to it:
+        If your host data is already mounted, configure the setting to point
+        to it:
       </p>
       <ul>
         <li>
-          <code>agentLens.sessionDir</code> — point to the directory
-          containing Copilot <code>.jsonl</code> files (or the
-          <code>workspaceStorage</code> root)
+          <code>agentLens.sessionDir</code> — Copilot
+          <code>workspaceStorage</code> mount path
         </li>
         <li>
-          <code>agentLens.claudeDir</code> — point to the
-          <code>projects/</code> directory inside <code>.claude</code>
+          <code>agentLens.claudeDir</code> — Claude
+          <code>projects/</code> directory (only if mounted from host)
         </li>
         <li>
-          <code>agentLens.codexDir</code> — point to the
-          <code>sessions/</code> directory inside <code>.codex</code>
+          <code>agentLens.codexDir</code> — Codex
+          <code>sessions/</code> directory (only if mounted from host)
         </li>
       </ul>
 
+      <h2>Troubleshooting</h2>
       <div class="tip">
         <p>
-          After changing settings, run <strong>Agent Lens: Refresh</strong>
-          from the command palette to pick up the new paths.
+          Run <strong>Agent Lens: Diagnose Session Discovery</strong> from the
+          Command Palette to inspect what Agent Lens sees — paths checked,
+          accessibility, and file counts for each provider.
         </p>
       </div>
+      <p>
+        For WSL, SSH, Docker-in-Docker, and other advanced scenarios, see the
+        <a href="https://github.com/23min/agent-lens/blob/main/docs/container-setup.md"
+          >Advanced Container Setup Guide</a
+        >.
+      </p>
     `;
   }
 }

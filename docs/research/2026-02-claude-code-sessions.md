@@ -2,6 +2,8 @@
 
 > Findings from analyzing real Claude Code CLI session data on disk. Documents the JSONL schema, token tracking, subagent structure, and how it maps to our existing `Session`/`SessionRequest` model.
 
+**Status**: Implemented — Claude session parsing, subagent correlation, and cache token metrics shipped in v0.0.11. See also [2026-02-container-and-session-discovery.md](2026-02-container-and-session-discovery.md) for container/remote environment considerations.
+
 ---
 
 ## 1. Where Claude Code Data Lives
