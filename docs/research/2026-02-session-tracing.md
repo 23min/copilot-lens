@@ -2,6 +2,8 @@
 
 > Research into building trace visualizations from AI coding agent session data. The goal: show session execution as a waterfall/flamechart — where time is spent, what tools are called, where bottlenecks and throttling occur.
 
+**Status**: Research only — none of the four phases have been implemented. Mapped to ROADMAP Milestone 11 (future).
+
 ---
 
 ## 1. The Idea

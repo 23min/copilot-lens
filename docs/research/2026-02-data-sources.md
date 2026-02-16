@@ -2,6 +2,8 @@
 
 > Findings from analyzing real Copilot chat data on disk. This documents what's actually available, how to access it, and how it differs from the assumptions in the original design spec.
 
+**Status**: Implemented — Copilot session parsing shipped in v0.0.8. All discovery strategies, JSONL parsing, and custom agent/skill detection are in production.
+
 ---
 
 ## 1. Where Copilot Chat Data Lives

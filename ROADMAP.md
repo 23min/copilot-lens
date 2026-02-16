@@ -191,7 +191,7 @@
 
 | # | Task | Details |
 |---|---|---|
-| 9.1 | Research & format analysis | Document rollout JSONL structure, event types, token usage format (see `docs/research/codex-sessions.md`) |
+| 9.1 | Research & format analysis | Document rollout JSONL structure, event types, token usage format (see `docs/research/2026-02-codex-sessions.md`) |
 | 9.2 | Codex session locator | Discover `~/.codex/sessions/` (or `CODEX_HOME`). Walk `YYYY/MM/DD/rollout-*.jsonl` tree. |
 | 9.3 | Codex session parser | Parse rollout JSONL → `Session`/`SessionRequest` model. Extract token deltas from cumulative `token_count` events. |
 | 9.4 | Codex session provider | `CodexSessionProvider` wired into extension activation and refresh. |
@@ -212,7 +212,7 @@
 
 | # | Task | Details |
 |---|---|---|
-| 11.1 | Research & data audit | Audit timing data available per provider (see `docs/research/session-tracing.md`) |
+| 11.1 | Research & data audit | Audit timing data available per provider (see `docs/research/2026-02-session-tracing.md`) |
 | 11.2 | `TraceSpan` / `SessionTrace` data model | Common trace model with spans (request, tool, subagent, gap, error types) |
 | 11.3 | Trace builder: Copilot | Convert Copilot sessions to traces using native `totalElapsed` and `firstProgress` |
 | 11.4 | Trace builder: Claude | Derive request durations from message timestamps. Parse subagent sidechains. |
