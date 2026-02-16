@@ -81,12 +81,14 @@ export class MetricsPanel {
   }
 
   private pushFilteredMetrics(): void {
-    const filtered =
+    const byProvider =
       this.currentFilter === "all"
         ? this.cachedSessions
         : this.cachedSessions.filter(
             (s) => s.provider === this.currentFilter,
           );
+    const nonEmpty = byProvider.filter((s) => s.requests.length > 0);
+    const emptyCount = byProvider.length - nonEmpty.length;
     const filteredAgents =
       this.currentFilter === "all"
         ? this.cachedAgents
@@ -100,7 +102,7 @@ export class MetricsPanel {
             (s) => (s.provider ?? "copilot") === this.currentFilter,
           );
     const metrics = collectMetrics(
-      filtered,
+      nonEmpty,
       filteredAgents,
       filteredSkills,
     );
@@ -108,6 +110,7 @@ export class MetricsPanel {
       type: "update-metrics",
       metrics,
       activeFilter: this.currentFilter,
+      emptyCount,
     });
   }
 

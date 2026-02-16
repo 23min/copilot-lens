@@ -191,6 +191,12 @@ class MetricsDashboard extends LitElement {
       font-size: 13px;
       padding: 8px 0;
     }
+    .stat-note {
+      font-size: 10px;
+      opacity: 0.5;
+      margin-top: 4px;
+      font-style: italic;
+    }
     .donut-row {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -352,6 +358,7 @@ class MetricsDashboard extends LitElement {
   `;
 
   @state() private metrics: AggregatedMetrics | null = null;
+  @state() private emptyCount = 0;
   @state() private activeFilter: SourceFilter = "all";
   @state() private guideOpen = false;
   @state() private tooltip: {
@@ -374,6 +381,7 @@ class MetricsDashboard extends LitElement {
   private handleMessage = (e: MessageEvent): void => {
     if (e.data.type === "update-metrics") {
       this.metrics = e.data.metrics;
+      this.emptyCount = e.data.emptyCount ?? 0;
       if (e.data.activeFilter) {
         this.activeFilter = e.data.activeFilter;
       }
@@ -717,9 +725,12 @@ class MetricsDashboard extends LitElement {
       <h1>Agent Lens Metrics</h1>
 
       <div class="stats-grid">
-        <div class="stat-card" title="Total number of chat sessions discovered">
+        <div class="stat-card" title="Total number of chat sessions with at least 1 request">
           <div class="stat-value">${m.totalSessions}</div>
           <div class="stat-label">Sessions</div>
+          ${this.emptyCount > 0
+            ? html`<div class="stat-note">${this.emptyCount} empty hidden</div>`
+            : null}
         </div>
         <div class="stat-card" title="Total API round-trips (each assistant response counts as one request)">
           <div class="stat-value">${m.totalRequests}</div>

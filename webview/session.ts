@@ -263,6 +263,13 @@ class SessionExplorer extends LitElement {
       padding: 24px 0;
       text-align: center;
     }
+    .empty-notice {
+      font-size: 12px;
+      opacity: 0.5;
+      text-align: center;
+      padding: 8px 0;
+      font-style: italic;
+    }
     .filter-toggle {
       display: inline-flex;
       border: 1px solid var(--vscode-editorWidget-border, #454545);
@@ -316,6 +323,7 @@ class SessionExplorer extends LitElement {
   `;
 
   @state() private sessions: Session[] = [];
+  @state() private emptyCount = 0;
   @state() private activeFilter: SourceFilter = "all";
   @state() private selectedSession: Session | null = null;
   @state() private selectedRequest: SessionRequest | null = null;
@@ -333,6 +341,7 @@ class SessionExplorer extends LitElement {
   private handleMessage = (e: MessageEvent): void => {
     if (e.data.type === "update-sessions") {
       this.sessions = e.data.sessions;
+      this.emptyCount = e.data.emptyCount ?? 0;
       if (e.data.activeFilter) {
         this.activeFilter = e.data.activeFilter;
       }
@@ -428,6 +437,11 @@ class SessionExplorer extends LitElement {
                 `,
               )}
             </div>
+            ${this.emptyCount > 0
+              ? html`<div class="empty-notice">
+                  ${this.emptyCount} empty session${this.emptyCount === 1 ? "" : "s"} hidden (0 requests)
+                </div>`
+              : null}
           `}
     `;
   }

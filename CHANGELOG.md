@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Progress notification ("Scanning sessions...") when opening Metrics Dashboard, Session Explorer, or Agent Graph (#29)
+- Empty sessions (0 requests) are now filtered from Session Explorer and Metrics Dashboard, with a count of hidden sessions shown (#29)
+
+### Changed
+- Metrics Dashboard "Sessions" stat card now only counts sessions with at least 1 request
+
 ## [0.0.13] - 2026-02-16
 
 ### Added
