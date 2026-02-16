@@ -130,9 +130,9 @@ describe("parseCodexSessionJsonl", () => {
   it("parses a single turn with task_started and task_complete", () => {
     const content = [
       sessionMeta(),
-      eventMsg("user_message", { message: "Hello Codex" }),
       eventMsg("task_started", { turn_id: "turn-1" }),
       userMessage("Hello Codex"),
+      eventMsg("user_message", { message: "Hello Codex" }),
       assistantMessage("Hi there", "final_answer"),
       tokenCount({ input_tokens: 1000, cached_input_tokens: 500, output_tokens: 200 }),
       eventMsg("task_complete", { turn_id: "turn-1" }),
@@ -253,10 +253,11 @@ describe("parseCodexSessionJsonl", () => {
     expect(session.requests[0].modelId).toBe("openai");
   });
 
-  it("handles session without explicit task_started (older format)", () => {
+  it("handles session without explicit task_started (legacy format)", () => {
     const content = [
       sessionMeta(),
       userMessage("Older format question"),
+      eventMsg("user_message", { message: "Older format question" }),
       assistantMessage("Answer"),
     ].join("\n");
 
@@ -314,10 +315,51 @@ describe("parseCodexSessionJsonl", () => {
     ]);
   });
 
-  it("title is always null", () => {
+  it("title is null when there are no requests", () => {
     const content = [sessionMeta()].join("\n");
     const session = parseCodexSessionJsonl(content);
     expect(session.title).toBeNull();
+  });
+
+  it("title is the first user prompt", () => {
+    const content = [
+      sessionMeta(),
+      eventMsg("task_started"),
+      userMessage("Fix the login bug"),
+      eventMsg("task_complete"),
+      eventMsg("task_started"),
+      userMessage("Now add tests"),
+      eventMsg("task_complete"),
+    ].join("\n");
+
+    const session = parseCodexSessionJsonl(content);
+    expect(session.title).toBe("Fix the login bug");
+  });
+
+  it("title is truncated at 80 characters with ellipsis", () => {
+    const longPrompt = "A".repeat(120);
+    const content = [
+      sessionMeta(),
+      eventMsg("task_started"),
+      userMessage(longPrompt),
+      eventMsg("task_complete"),
+    ].join("\n");
+
+    const session = parseCodexSessionJsonl(content);
+    expect(session.title).toBe("A".repeat(80) + "…");
+  });
+
+  it("title is not truncated when exactly 80 characters", () => {
+    const prompt80 = "B".repeat(80);
+    const content = [
+      sessionMeta(),
+      eventMsg("task_started"),
+      userMessage(prompt80),
+      eventMsg("task_complete"),
+    ].join("\n");
+
+    const session = parseCodexSessionJsonl(content);
+    expect(session.title).toBe(prompt80);
   });
 
   it("timings are null", () => {
@@ -378,5 +420,147 @@ describe("parseCodexSessionJsonl", () => {
 
     const session = parseCodexSessionJsonl(content);
     expect(session.requests[0].messageText).toBe("actual user question");
+  });
+
+  /* ---------------------------------------------------------------- */
+  /*  Context message filtering                                       */
+  /* ---------------------------------------------------------------- */
+
+  it("skips AGENTS.md context messages (no phantom turn)", () => {
+    const content = [
+      sessionMeta(),
+      // Pre-task context injected by VS Code — should be ignored
+      userMessage("# AGENTS.md instructions for /Users/me/project\n\n<INSTRUCTIONS>..."),
+      userMessage("<environment_context>\n  <cwd>/Users/me/project</cwd>\n</environment_context>"),
+      // Real turn
+      eventMsg("task_started"),
+      userMessage("Fix the bug"),
+      eventMsg("user_message", { message: "Fix the bug" }),
+      eventMsg("task_complete"),
+    ].join("\n");
+
+    const session = parseCodexSessionJsonl(content);
+    expect(session.requests).toHaveLength(1);
+    expect(session.requests[0].messageText).toBe("Fix the bug");
+  });
+
+  it("skips environment_context messages", () => {
+    const content = [
+      sessionMeta(),
+      userMessage("<environment_context>\n  <cwd>/foo</cwd>\n  <shell>zsh</shell>\n</environment_context>"),
+      eventMsg("task_started"),
+      userMessage("Hello"),
+      eventMsg("task_complete"),
+    ].join("\n");
+
+    const session = parseCodexSessionJsonl(content);
+    expect(session.requests).toHaveLength(1);
+    expect(session.requests[0].messageText).toBe("Hello");
+  });
+
+  /* ---------------------------------------------------------------- */
+  /*  Legacy turn segmentation                                        */
+  /* ---------------------------------------------------------------- */
+
+  it("segments turns via user_message events in legacy sessions", () => {
+    const content = [
+      sessionMeta(),
+      // Context messages — skipped
+      userMessage("# AGENTS.md instructions for /project\n..."),
+      userMessage("<environment_context>\n  <cwd>/project</cwd>\n</environment_context>"),
+      // Turn 1
+      userMessage("# Context from my IDE setup:\n\n## My request for Codex:\nFirst question"),
+      eventMsg("user_message", { message: "# Context from my IDE setup:\n\n## My request for Codex:\nFirst question" }),
+      // Turn 2
+      userMessage("# Context from my IDE setup:\n\n## My request for Codex:\nSecond question"),
+      eventMsg("user_message", { message: "# Context from my IDE setup:\n\n## My request for Codex:\nSecond question" }),
+    ].join("\n");
+
+    const session = parseCodexSessionJsonl(content);
+    expect(session.requests).toHaveLength(2);
+    expect(session.requests[0].messageText).toContain("First question");
+    expect(session.requests[1].messageText).toContain("Second question");
+  });
+
+  /* ---------------------------------------------------------------- */
+  /*  IDE context stripping for title                                 */
+  /* ---------------------------------------------------------------- */
+
+  it("title extracts user request from IDE context wrapper", () => {
+    const content = [
+      sessionMeta(),
+      eventMsg("task_started"),
+      eventMsg("user_message", {
+        message: "# Context from my IDE setup:\n\n## Active file: foo.ts\n\n## My request for Codex:\nClarify Copilot vs Claude UI",
+      }),
+      eventMsg("task_complete"),
+    ].join("\n");
+
+    const session = parseCodexSessionJsonl(content);
+    expect(session.title).toBe("Clarify Copilot vs Claude UI");
+  });
+
+  it("title uses raw text when no IDE context wrapper", () => {
+    const content = [
+      sessionMeta(),
+      eventMsg("task_started"),
+      userMessage("Plain CLI question"),
+      eventMsg("task_complete"),
+    ].join("\n");
+
+    const session = parseCodexSessionJsonl(content);
+    expect(session.title).toBe("Plain CLI question");
+  });
+
+  it("title truncates extracted request at 80 chars", () => {
+    const longRequest = "X".repeat(100);
+    const content = [
+      sessionMeta(),
+      eventMsg("task_started"),
+      eventMsg("user_message", {
+        message: `# Context from my IDE setup:\n\n## My request for Codex:\n${longRequest}`,
+      }),
+      eventMsg("task_complete"),
+    ].join("\n");
+
+    const session = parseCodexSessionJsonl(content);
+    expect(session.title).toBe("X".repeat(80) + "…");
+  });
+
+  /* ---------------------------------------------------------------- */
+  /*  Full VS Code session simulation                                 */
+  /* ---------------------------------------------------------------- */
+
+  it("handles realistic VS Code session with context + task_started", () => {
+    const content = [
+      sessionMeta(),
+      // Injected context (before task_started)
+      responseItem("message", {
+        role: "developer",
+        content: [{ type: "input_text", text: "<permissions instructions>..." }],
+      }),
+      userMessage("# AGENTS.md instructions for /project\n\nSkills list..."),
+      userMessage("<environment_context>\n  <cwd>/project</cwd>\n</environment_context>"),
+      responseItem("message", {
+        role: "developer",
+        content: [{ type: "input_text", text: "<collaboration_mode>..." }],
+      }),
+      // Real turn
+      eventMsg("task_started", { turn_id: "t1" }),
+      userMessage("# Context from my IDE setup:\n\n## Active file: app.ts\n\n## My request for Codex:\nAdd error handling"),
+      eventMsg("user_message", {
+        message: "# Context from my IDE setup:\n\n## Active file: app.ts\n\n## My request for Codex:\nAdd error handling",
+      }),
+      functionCall("exec_command", "call_1"),
+      tokenCount({ input_tokens: 5000, cached_input_tokens: 3000, output_tokens: 800 }),
+      eventMsg("task_complete", { turn_id: "t1" }),
+    ].join("\n");
+
+    const session = parseCodexSessionJsonl(content);
+    // Should have exactly 1 turn (no phantom from context messages)
+    expect(session.requests).toHaveLength(1);
+    expect(session.title).toBe("Add error handling");
+    expect(session.requests[0].toolCalls).toHaveLength(1);
+    expect(session.requests[0].usage.promptTokens).toBe(5000);
   });
 });

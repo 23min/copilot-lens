@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - "similar workspace" badge on Copilot sessions found via folder-name fallback (strategy 3) — warns that these may be from a different workspace with the same folder name (#25)
 - "global" badge on Codex sessions — indicates sessions are not project-scoped (#24)
 - `Session.scope` field to track discovery strategy: `"workspace"`, `"fallback"`, or `"global"`
+- Codex sessions now show the first user prompt as the session title instead of the raw session ID (#30)
 
 ### Changed
 - Metrics Dashboard "Sessions" stat card now only counts sessions with at least 1 request
