@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Progress notification ("Scanning sessions...") when opening Metrics Dashboard, Session Explorer, or Agent Graph (#29)
 - Empty sessions (0 requests) are now filtered from Session Explorer and Metrics Dashboard, with a count of hidden sessions shown (#29)
+- "similar workspace" badge on Copilot sessions found via folder-name fallback (strategy 3) — warns that these may be from a different workspace with the same folder name (#25)
+- "global" badge on Codex sessions — indicates sessions are not project-scoped (#24)
+- `Session.scope` field to track discovery strategy: `"workspace"`, `"fallback"`, or `"global"`
 
 ### Changed
 - Metrics Dashboard "Sessions" stat card now only counts sessions with at least 1 request

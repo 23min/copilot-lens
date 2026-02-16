@@ -164,6 +164,7 @@ export class CopilotSessionProvider implements SessionProvider {
           await scanWorkspaceStorageRoot(configDir, ourName),
         );
         if (scanned.length > 0) {
+          for (const s of scanned) s.scope = "fallback";
           log.info(`  Found ${scanned.length} session(s) via storage root scan`);
           return scanned;
         }
@@ -193,6 +194,7 @@ export class CopilotSessionProvider implements SessionProvider {
       const result = await collectFromDirs(
         await scanWorkspaceStorageRoot(storageRoot, ourName),
       );
+      for (const s of result) s.scope = "fallback";
       log.info(`  Found ${result.length} session(s) via sibling scan`);
       return result;
     }
