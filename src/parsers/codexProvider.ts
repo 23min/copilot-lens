@@ -63,6 +63,7 @@ export class CodexSessionProvider implements SessionProvider {
       }
     }
 
+    for (const s of sessions) s.scope = "global";
     log.info(`Codex: parsed ${sessions.length} session(s)`);
     return sessions;
   }

@@ -33,6 +33,8 @@ export interface SkillRef {
 
 export type SessionProviderType = "copilot" | "claude" | "codex";
 
+export type SessionScope = "workspace" | "fallback" | "global";
+
 export interface Session {
   sessionId: string;
   title: string | null;
@@ -40,4 +42,5 @@ export interface Session {
   requests: SessionRequest[];
   source: string;
   provider: SessionProviderType;
+  scope?: SessionScope;
 }
