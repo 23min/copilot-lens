@@ -14,6 +14,8 @@ type SourceFilter = "all" | "copilot" | "claude" | "codex";
 interface ToolCallInfo {
   id: string;
   name: string;
+  subagentDescription?: string;
+  childToolCalls?: ToolCallInfo[];
 }
 
 interface SkillRef {
@@ -204,6 +206,31 @@ class SessionExplorer extends LitElement {
       border-radius: 3px;
       font-size: 10px;
     }
+    .tool-tag.subagent-call {
+      background: rgba(138, 171, 127, 0.25);
+      color: #8aab7f;
+    }
+    .subagent-detail {
+      margin-top: 4px;
+      padding: 8px;
+      background: rgba(138, 171, 127, 0.08);
+      border-left: 2px solid #8aab7f;
+      border-radius: 0 4px 4px 0;
+    }
+    .subagent-detail .subagent-desc {
+      font-size: 12px;
+      color: #8aab7f;
+      margin-bottom: 4px;
+    }
+    .subagent-detail .child-tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+    }
+    .subagent-detail .child-tool {
+      font-size: 10px;
+      opacity: 0.7;
+    }
     .entry-stats {
       display: flex;
       gap: 12px;
@@ -386,6 +413,14 @@ class SessionExplorer extends LitElement {
     return new Date(ts).toLocaleString();
   }
 
+  private summarizeChildTools(children: ToolCallInfo[]): [string, number][] {
+    const counts = new Map<string, number>();
+    for (const c of children) {
+      counts.set(c.name, (counts.get(c.name) ?? 0) + 1);
+    }
+    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+  }
+
   private formatDuration(ms: number | null): string {
     if (ms === null) return "-";
     if (ms < 1000) return `${ms}ms`;
@@ -520,7 +555,9 @@ class SessionExplorer extends LitElement {
                     <div class="entry-tools">
                       ${req.toolCalls.map(
                         (tc) =>
-                          html`<span class="tool-tag">${tc.name}</span>`,
+                          tc.childToolCalls && tc.childToolCalls.length > 0
+                            ? html`<span class="tool-tag subagent-call">${tc.name} (${tc.childToolCalls.length} tools)</span>`
+                            : html`<span class="tool-tag">${tc.name}</span>`,
                       )}
                     </div>
                   `
@@ -553,8 +590,24 @@ class SessionExplorer extends LitElement {
           ? html`
               <div class="detail-section">
                 <h3>Tool Calls (${req.toolCalls.length})</h3>
-                ${req.toolCalls.map(
-                  (tc) => html`<div class="detail-text">${tc.name}</div>`,
+                ${req.toolCalls.map((tc) =>
+                  tc.childToolCalls && tc.childToolCalls.length > 0
+                    ? html`
+                        <div class="detail-text">${tc.name}</div>
+                        <div class="subagent-detail">
+                          ${tc.subagentDescription
+                            ? html`<div class="subagent-desc">${tc.subagentDescription}</div>`
+                            : null}
+                          <div class="child-tools">
+                            ${this.summarizeChildTools(tc.childToolCalls).map(
+                              ([name, count]) => html`
+                                <span class="tool-tag child-tool">${name}${count > 1 ? ` x${count}` : ""}</span>
+                              `,
+                            )}
+                          </div>
+                        </div>
+                      `
+                    : html`<div class="detail-text">${tc.name}</div>`,
                 )}
               </div>
             `

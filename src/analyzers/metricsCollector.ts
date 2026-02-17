@@ -84,9 +84,14 @@ export function collectMetrics(
       modelTok.completion += req.usage.completionTokens;
       modelTokens.set(req.modelId, modelTok);
 
-      // Tool usage
+      // Tool usage (including subagent child tools)
       for (const tc of req.toolCalls) {
         toolCounts.set(tc.name, (toolCounts.get(tc.name) ?? 0) + 1);
+        if (tc.childToolCalls) {
+          for (const child of tc.childToolCalls) {
+            toolCounts.set(child.name, (toolCounts.get(child.name) ?? 0) + 1);
+          }
+        }
       }
 
       // Skill usage
