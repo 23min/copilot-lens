@@ -408,9 +408,19 @@ function extractSession(
     };
   });
 
+  // Use customTitle if set by Copilot Chat, otherwise fall back to
+  // the first user message (truncated) so sessions aren't just GUIDs.
+  let title = (state.customTitle as string) ?? null;
+  if (!title && requests.length > 0) {
+    const firstMsg = requests[0].messageText.trim();
+    if (firstMsg) {
+      title = firstMsg.length > 80 ? firstMsg.slice(0, 80) + "\u2026" : firstMsg;
+    }
+  }
+
   return {
     sessionId: String(state.sessionId ?? "unknown"),
-    title: (state.customTitle as string) ?? null,
+    title,
     creationDate: (state.creationDate as number) ?? 0,
     requests,
     source,

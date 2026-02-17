@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MCP Servers bar chart in Metrics Dashboard (shown only when MCP data exists)
 
 ### Changed
+- Copilot sessions without a `customTitle` now show the first user message as the title (truncated to 80 chars) instead of the raw GUID
 - Reduced output channel noise: demoted per-file discovery and strategy-level logs from `info` to `debug` — only activation and refresh summary remain at `info`
 - Missing session directories (ENOENT) now log at `debug` instead of `warn`
 

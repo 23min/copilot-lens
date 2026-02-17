@@ -123,6 +123,57 @@ describe("parseSessionJsonl", () => {
     expect(session.requests).toEqual([]);
   });
 
+  it("falls back to first user message as title when customTitle is absent", () => {
+    const lines = [
+      JSON.stringify({
+        kind: 0,
+        v: { sessionId: "no-title", creationDate: 0, requests: [] },
+      }),
+      JSON.stringify({
+        kind: 2,
+        k: ["requests"],
+        v: [
+          {
+            requestId: "req-1",
+            timestamp: 0,
+            agent: { id: "github.copilot.editsAgent" },
+            modelId: "m1",
+            message: { text: "Help me fix the login bug" },
+          },
+        ],
+      }),
+    ].join("\n");
+
+    const session = parseSessionJsonl(lines);
+    expect(session.title).toBe("Help me fix the login bug");
+  });
+
+  it("truncates long fallback titles to 80 chars", () => {
+    const longMsg = "A".repeat(120);
+    const lines = [
+      JSON.stringify({
+        kind: 0,
+        v: { sessionId: "long-title", creationDate: 0, requests: [] },
+      }),
+      JSON.stringify({
+        kind: 2,
+        k: ["requests"],
+        v: [
+          {
+            requestId: "req-1",
+            timestamp: 0,
+            agent: { id: "agent" },
+            modelId: "m1",
+            message: { text: longMsg },
+          },
+        ],
+      }),
+    ].join("\n");
+
+    const session = parseSessionJsonl(lines);
+    expect(session.title).toBe("A".repeat(80) + "\u2026");
+  });
+
   it("detects custom agent from inputState.mode in initial state", () => {
     const lines = [
       JSON.stringify({
