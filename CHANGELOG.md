@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MCP tool calls grouped by server in Session Explorer detail view
 - MCP Servers bar chart in Metrics Dashboard (shown only when MCP data exists)
 
+### Changed
+- Reduced output channel noise: demoted per-file discovery and strategy-level logs from `info` to `debug` — only activation and refresh summary remain at `info`
+- Missing session directories (ENOENT) now log at `debug` instead of `warn`
+
 ## [0.0.14] - 2026-02-16
 
 ### Added

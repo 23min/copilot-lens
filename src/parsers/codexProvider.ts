@@ -26,9 +26,9 @@ export class CodexSessionProvider implements SessionProvider {
 
     // 1. User-configured codexDir
     if (configDir) {
-      log.info(`Codex: scanning configured codexDir = "${configDir}"`);
+      log.debug(`Codex: scanning configured codexDir = "${configDir}"`);
       const configEntries = await discoverCodexSessions(configDir);
-      log.info(`  Found ${configEntries.length} session(s) via configured dir`);
+      log.debug(`  Found ${configEntries.length} session(s) via configured dir`);
       for (const entry of configEntries) {
         seen.add(entry.fullPath);
         allEntries.push(entry);
@@ -38,7 +38,7 @@ export class CodexSessionProvider implements SessionProvider {
     // 2. Default location (CODEX_HOME or ~/.codex/sessions)
     const defaultDir = getCodexSessionsDir();
     const defaultEntries = await discoverCodexSessions(defaultDir);
-    log.info(`  Found ${defaultEntries.length} session(s) via default path (${defaultDir})`);
+    log.debug(`  Found ${defaultEntries.length} session(s) via default path (${defaultDir})`);
     for (const entry of defaultEntries) {
       if (!seen.has(entry.fullPath)) {
         allEntries.push(entry);
@@ -47,7 +47,7 @@ export class CodexSessionProvider implements SessionProvider {
 
     if (allEntries.length === 0) return [];
 
-    log.info(`Codex: parsing ${allEntries.length} session(s)`);
+    log.debug(`Codex: parsing ${allEntries.length} session(s)`);
     const sessions: Session[] = [];
 
     for (const entry of allEntries) {
@@ -63,7 +63,7 @@ export class CodexSessionProvider implements SessionProvider {
       }
     }
 
-    log.info(`Codex: parsed ${sessions.length} session(s)`);
+    log.debug(`Codex: parsed ${sessions.length} session(s)`);
     return sessions;
   }
 
