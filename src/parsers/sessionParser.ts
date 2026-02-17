@@ -193,7 +193,14 @@ export function parseChatReplay(content: string): Session {
 
 /**
  * Scan a request's response array for toolInvocationSerialized entries
- * to enrich runSubagent tool calls with descriptions and child tool lists.
+ * to replace runSubagent tool calls with enriched versions that include
+ * descriptions and child tool lists.
+ *
+ * The response array uses different IDs than toolCallRounds, and may
+ * contain subagent invocations not present in toolCallRounds. So we
+ * treat the response array as the source of truth for runSubagent data:
+ * remove any runSubagent entries from toolCalls and replace them with
+ * entries built from the response array.
  */
 function enrichSubagentToolCalls(
   toolCalls: ToolCallInfo[],
@@ -204,8 +211,10 @@ function enrichSubagentToolCalls(
   if (!Array.isArray(response)) return;
 
   // Build maps from response entries
-  const subagentDescriptions = new Map<string, string>();
+  const subagentParents = new Map<string, string>(); // toolCallId → description
   const childrenByParent = new Map<string, ToolCallInfo[]>();
+  // Track insertion order for stable output
+  const parentOrder: string[] = [];
 
   for (const entry of response) {
     const e = entry as Record<string, unknown>;
@@ -215,14 +224,12 @@ function enrichSubagentToolCalls(
     const toolId = e.toolId as string | undefined;
     const parentId = e.subAgentInvocationId as string | undefined;
 
-    // Collect runSubagent descriptions (take first occurrence per toolCallId)
+    // Collect runSubagent parents (take first occurrence per toolCallId)
     if (toolId === "runSubagent" && toolCallId) {
       const tsd = e.toolSpecificData as Record<string, unknown> | undefined;
-      if (tsd?.kind === "subagent" && !subagentDescriptions.has(toolCallId)) {
-        subagentDescriptions.set(
-          toolCallId,
-          String(tsd.description ?? ""),
-        );
+      if (tsd?.kind === "subagent" && !subagentParents.has(toolCallId)) {
+        subagentParents.set(toolCallId, String(tsd.description ?? ""));
+        parentOrder.push(toolCallId);
       }
     }
 
@@ -240,12 +247,26 @@ function enrichSubagentToolCalls(
     }
   }
 
-  // Enrich matching tool calls
-  for (const tc of toolCalls) {
-    if (tc.name !== "runSubagent") continue;
-    tc.subagentDescription = subagentDescriptions.get(tc.id);
-    tc.childToolCalls = childrenByParent.get(tc.id) ?? [];
-  }
+  if (subagentParents.size === 0) return;
+
+  // Remove toolCallRounds-based runSubagent entries (IDs don't match)
+  // and find the position of the first one for insertion
+  let insertIndex = toolCalls.findIndex((tc) => tc.name === "runSubagent");
+  if (insertIndex === -1) insertIndex = toolCalls.length;
+
+  const filtered = toolCalls.filter((tc) => tc.name !== "runSubagent");
+  toolCalls.length = 0;
+  toolCalls.push(...filtered);
+
+  // Insert enriched entries from response array at the original position
+  const enriched: ToolCallInfo[] = parentOrder.map((id) => ({
+    id,
+    name: "runSubagent",
+    subagentDescription: subagentParents.get(id),
+    childToolCalls: childrenByParent.get(id) ?? [],
+  }));
+
+  toolCalls.splice(insertIndex, 0, ...enriched);
 }
 
 // --- Shared extraction ---
