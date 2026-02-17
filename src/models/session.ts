@@ -24,6 +24,8 @@ export interface SessionRequest {
 export interface ToolCallInfo {
   id: string;
   name: string;
+  subagentDescription?: string;
+  childToolCalls?: ToolCallInfo[];
 }
 
 export interface SkillRef {

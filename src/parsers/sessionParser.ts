@@ -189,6 +189,65 @@ export function parseChatReplay(content: string): Session {
   };
 }
 
+// --- Subagent enrichment ---
+
+/**
+ * Scan a request's response array for toolInvocationSerialized entries
+ * to enrich runSubagent tool calls with descriptions and child tool lists.
+ */
+function enrichSubagentToolCalls(
+  toolCalls: ToolCallInfo[],
+  rawRequest: unknown,
+): void {
+  const r = rawRequest as Record<string, unknown>;
+  const response = r.response as unknown[] | undefined;
+  if (!Array.isArray(response)) return;
+
+  // Build maps from response entries
+  const subagentDescriptions = new Map<string, string>();
+  const childrenByParent = new Map<string, ToolCallInfo[]>();
+
+  for (const entry of response) {
+    const e = entry as Record<string, unknown>;
+    if (e.kind !== "toolInvocationSerialized") continue;
+
+    const toolCallId = e.toolCallId as string | undefined;
+    const toolId = e.toolId as string | undefined;
+    const parentId = e.subAgentInvocationId as string | undefined;
+
+    // Collect runSubagent descriptions (take first occurrence per toolCallId)
+    if (toolId === "runSubagent" && toolCallId) {
+      const tsd = e.toolSpecificData as Record<string, unknown> | undefined;
+      if (tsd?.kind === "subagent" && !subagentDescriptions.has(toolCallId)) {
+        subagentDescriptions.set(
+          toolCallId,
+          String(tsd.description ?? ""),
+        );
+      }
+    }
+
+    // Collect child tool calls grouped by parent subAgentInvocationId
+    if (parentId && toolCallId) {
+      let children = childrenByParent.get(parentId);
+      if (!children) {
+        children = [];
+        childrenByParent.set(parentId, children);
+      }
+      children.push({
+        id: toolCallId,
+        name: String(toolId ?? ""),
+      });
+    }
+  }
+
+  // Enrich matching tool calls
+  for (const tc of toolCalls) {
+    if (tc.name !== "runSubagent") continue;
+    tc.subagentDescription = subagentDescriptions.get(tc.id);
+    tc.childToolCalls = childrenByParent.get(tc.id) ?? [];
+  }
+}
+
 // --- Shared extraction ---
 
 function extractSession(
@@ -219,6 +278,9 @@ function extractSession(
         });
       }
     }
+
+    // Enrich runSubagent tool calls with metadata from response array
+    enrichSubagentToolCalls(toolCalls, raw);
 
     // Extract tool call args from toolCallResults for skill detection
     const toolCallResults = (meta?.toolCallResults ?? {}) as Record<

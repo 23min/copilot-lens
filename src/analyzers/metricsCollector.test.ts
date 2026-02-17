@@ -319,6 +319,46 @@ describe("collectMetrics", () => {
     expect(mainAgent?.count).toBe(1);
   });
 
+  it("counts subagent child tool calls in tool usage", () => {
+    const sessions = [
+      makeSession({
+        requests: [
+          {
+            requestId: "r1",
+            timestamp: Date.now(),
+            agentId: "github.copilot.editsAgent",
+            customAgentName: null,
+            modelId: "copilot/gpt-5",
+            messageText: "analyze",
+            timings: { firstProgress: null, totalElapsed: null },
+            usage: { promptTokens: 2000, completionTokens: 500 },
+            toolCalls: [
+              {
+                id: "sa-1",
+                name: "runSubagent",
+                subagentDescription: "Read files",
+                childToolCalls: [
+                  { id: "c1", name: "copilot_readFile" },
+                  { id: "c2", name: "copilot_readFile" },
+                  { id: "c3", name: "copilot_listDirectory" },
+                ],
+              },
+              { id: "tc-1", name: "read_file" },
+            ],
+            availableSkills: [],
+            loadedSkills: [],
+          },
+        ],
+      }),
+    ];
+
+    const metrics = collectMetrics(sessions, [], []);
+    expect(metrics.toolUsage.find((t) => t.name === "runSubagent")?.count).toBe(1);
+    expect(metrics.toolUsage.find((t) => t.name === "copilot_readFile")?.count).toBe(2);
+    expect(metrics.toolUsage.find((t) => t.name === "copilot_listDirectory")?.count).toBe(1);
+    expect(metrics.toolUsage.find((t) => t.name === "read_file")?.count).toBe(1);
+  });
+
   it("includes subagent tokens in totals", () => {
     const sessions = [
       makeSession({
