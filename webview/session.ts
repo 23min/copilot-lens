@@ -16,6 +16,7 @@ interface ToolCallInfo {
   name: string;
   subagentDescription?: string;
   childToolCalls?: ToolCallInfo[];
+  mcpServer?: string;
 }
 
 interface SkillRef {
@@ -209,6 +210,15 @@ class SessionExplorer extends LitElement {
     .tool-tag.subagent-call {
       background: rgba(138, 171, 127, 0.25);
       color: #8aab7f;
+    }
+    .tool-tag.mcp-tool {
+      background: rgba(130, 170, 196, 0.25);
+      color: #82aac4;
+    }
+    .mcp-server-badge {
+      font-size: 9px;
+      opacity: 0.7;
+      margin-left: 2px;
     }
     .subagent-detail {
       margin-top: 4px;
@@ -421,6 +431,56 @@ class SessionExplorer extends LitElement {
     return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
   }
 
+  private renderDetailToolCalls(toolCalls: ToolCallInfo[]) {
+    // Group tools: subagents first, then by MCP server, then built-in
+    const subagents = toolCalls.filter(
+      (tc) => tc.childToolCalls && tc.childToolCalls.length > 0,
+    );
+    const mcpByServer = new Map<string, ToolCallInfo[]>();
+    const builtIn: ToolCallInfo[] = [];
+
+    for (const tc of toolCalls) {
+      if (tc.childToolCalls && tc.childToolCalls.length > 0) continue;
+      if (tc.mcpServer) {
+        let list = mcpByServer.get(tc.mcpServer);
+        if (!list) {
+          list = [];
+          mcpByServer.set(tc.mcpServer, list);
+        }
+        list.push(tc);
+      } else {
+        builtIn.push(tc);
+      }
+    }
+
+    return html`
+      ${subagents.map(
+        (tc) => html`
+          <div class="detail-text">${tc.name}</div>
+          <div class="subagent-detail">
+            ${tc.subagentDescription
+              ? html`<div class="subagent-desc">${tc.subagentDescription}</div>`
+              : null}
+            <div class="child-tools">
+              ${this.summarizeChildTools(tc.childToolCalls!).map(
+                ([name, count]) => html`
+                  <span class="tool-tag child-tool">${name}${count > 1 ? ` x${count}` : ""}</span>
+                `,
+              )}
+            </div>
+          </div>
+        `,
+      )}
+      ${Array.from(mcpByServer.entries()).map(
+        ([server, tools]) => html`
+          <div class="detail-text" style="margin-top: 4px; color: #82aac4; font-size: 11px;">MCP: ${server}</div>
+          ${tools.map((tc) => html`<div class="detail-text" style="padding-left: 12px;">${tc.name}</div>`)}
+        `,
+      )}
+      ${builtIn.map((tc) => html`<div class="detail-text">${tc.name}</div>`)}
+    `;
+  }
+
   private formatDuration(ms: number | null): string {
     if (ms === null) return "-";
     if (ms < 1000) return `${ms}ms`;
@@ -557,7 +617,9 @@ class SessionExplorer extends LitElement {
                         (tc) =>
                           tc.childToolCalls && tc.childToolCalls.length > 0
                             ? html`<span class="tool-tag subagent-call">${tc.name} (${tc.childToolCalls.length} tools)</span>`
-                            : html`<span class="tool-tag">${tc.name}</span>`,
+                            : tc.mcpServer
+                              ? html`<span class="tool-tag mcp-tool">${tc.name}<span class="mcp-server-badge">(${tc.mcpServer})</span></span>`
+                              : html`<span class="tool-tag">${tc.name}</span>`,
                       )}
                     </div>
                   `
@@ -590,25 +652,7 @@ class SessionExplorer extends LitElement {
           ? html`
               <div class="detail-section">
                 <h3>Tool Calls (${req.toolCalls.length})</h3>
-                ${req.toolCalls.map((tc) =>
-                  tc.childToolCalls && tc.childToolCalls.length > 0
-                    ? html`
-                        <div class="detail-text">${tc.name}</div>
-                        <div class="subagent-detail">
-                          ${tc.subagentDescription
-                            ? html`<div class="subagent-desc">${tc.subagentDescription}</div>`
-                            : null}
-                          <div class="child-tools">
-                            ${this.summarizeChildTools(tc.childToolCalls).map(
-                              ([name, count]) => html`
-                                <span class="tool-tag child-tool">${name}${count > 1 ? ` x${count}` : ""}</span>
-                              `,
-                            )}
-                          </div>
-                        </div>
-                      `
-                    : html`<div class="detail-text">${tc.name}</div>`,
-                )}
+                ${this.renderDetailToolCalls(req.toolCalls)}
               </div>
             `
           : null}

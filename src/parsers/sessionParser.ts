@@ -269,6 +269,56 @@ function enrichSubagentToolCalls(
   toolCalls.splice(insertIndex, 0, ...enriched);
 }
 
+// --- MCP source extraction ---
+
+/**
+ * Scan a request's response array for toolInvocationSerialized entries
+ * with MCP source metadata. Returns a map of tool name → server label.
+ * The same tool name always belongs to the same MCP server, so we can
+ * match by name rather than by ID.
+ */
+function extractMcpSources(rawRequest: unknown): Map<string, string> {
+  const r = rawRequest as Record<string, unknown>;
+  const response = r.response as unknown[] | undefined;
+  const mcpMap = new Map<string, string>();
+  if (!Array.isArray(response)) return mcpMap;
+
+  for (const entry of response) {
+    const e = entry as Record<string, unknown>;
+    if (e.kind !== "toolInvocationSerialized") continue;
+
+    const source = e.source as Record<string, unknown> | undefined;
+    if (source?.type !== "mcp") continue;
+
+    const toolId = e.toolId as string | undefined;
+    const serverLabel = source.serverLabel as string | undefined;
+    if (toolId && serverLabel && !mcpMap.has(toolId)) {
+      mcpMap.set(toolId, serverLabel);
+    }
+  }
+
+  return mcpMap;
+}
+
+/**
+ * Apply MCP server labels to tool calls and their children.
+ */
+function applyMcpSources(
+  toolCalls: ToolCallInfo[],
+  mcpMap: Map<string, string>,
+): void {
+  if (mcpMap.size === 0) return;
+  for (const tc of toolCalls) {
+    const server = mcpMap.get(tc.name);
+    if (server) {
+      tc.mcpServer = server;
+    }
+    if (tc.childToolCalls) {
+      applyMcpSources(tc.childToolCalls, mcpMap);
+    }
+  }
+}
+
 // --- Shared extraction ---
 
 function extractSession(
@@ -302,6 +352,10 @@ function extractSession(
 
     // Enrich runSubagent tool calls with metadata from response array
     enrichSubagentToolCalls(toolCalls, raw);
+
+    // Extract and apply MCP server labels from response array
+    const mcpMap = extractMcpSources(raw);
+    applyMcpSources(toolCalls, mcpMap);
 
     // Extract tool call args from toolCallResults for skill detection
     const toolCallResults = (meta?.toolCallResults ?? {}) as Record<

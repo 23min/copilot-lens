@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Copilot `runSubagent` tool call detection: parses `toolInvocationSerialized` entries from the response array to extract subagent descriptions and child tool calls (closes #28)
 - Subagent child tools now counted in Metrics Dashboard tool usage (previously invisible)
 - Session Explorer shows subagent tool calls with description and summarized child tool list
+- MCP tool call detection: parses `source` field from response array to identify MCP server origin per tool call (closes #32)
+- MCP server badges on tool tags in Session Explorer (blue-tinted with server name)
+- MCP tool calls grouped by server in Session Explorer detail view
+- MCP Servers bar chart in Metrics Dashboard (shown only when MCP data exists)
 
 ## [0.0.14] - 2026-02-16
 
