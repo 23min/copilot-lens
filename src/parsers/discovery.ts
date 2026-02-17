@@ -19,7 +19,7 @@ const SKILL_GLOBS = [
 async function discoverCopilotAgents(): Promise<Agent[]> {
   const log = getLogger();
   const uris = await vscode.workspace.findFiles(COPILOT_AGENT_GLOB);
-  log.info(`Copilot agent discovery: found ${uris.length} file(s)`);
+  log.debug(`Copilot agent discovery: found ${uris.length} file(s)`);
   const agents: Agent[] = [];
 
   for (const uri of uris) {
@@ -29,7 +29,7 @@ async function discoverCopilotAgents(): Promise<Agent[]> {
       const agent = parseAgent(content, relativePath, "copilot");
       agent.fileUri = uri.toString();
       agents.push(agent);
-      log.info(`  Parsed Copilot agent: ${agent.name} (${relativePath})`);
+      log.debug(`  Parsed Copilot agent: ${agent.name} (${relativePath})`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       log.warn(`  Skipping Copilot agent ${uri.fsPath}: ${msg}`);
@@ -42,7 +42,7 @@ async function discoverCopilotAgents(): Promise<Agent[]> {
 async function discoverClaudeProjectAgents(): Promise<Agent[]> {
   const log = getLogger();
   const uris = await vscode.workspace.findFiles(CLAUDE_AGENT_GLOB);
-  log.info(`Claude project agent discovery: found ${uris.length} file(s)`);
+  log.debug(`Claude project agent discovery: found ${uris.length} file(s)`);
   const agents: Agent[] = [];
 
   for (const uri of uris) {
@@ -52,7 +52,7 @@ async function discoverClaudeProjectAgents(): Promise<Agent[]> {
       const agent = parseAgent(content, relativePath, "claude");
       agent.fileUri = uri.toString();
       agents.push(agent);
-      log.info(`  Parsed Claude agent: ${agent.name} (${relativePath})`);
+      log.debug(`  Parsed Claude agent: ${agent.name} (${relativePath})`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       log.warn(`  Skipping Claude agent ${uri.fsPath}: ${msg}`);
@@ -70,12 +70,12 @@ async function discoverClaudeGlobalAgents(): Promise<Agent[]> {
   try {
     entries = await fs.readdir(globalDir);
   } catch {
-    log.info(`Claude global agent discovery: ${globalDir} not found`);
+    log.debug(`Claude global agent discovery: ${globalDir} not found`);
     return [];
   }
 
   const mdFiles = entries.filter((e) => e.endsWith(".md"));
-  log.info(`Claude global agent discovery: found ${mdFiles.length} file(s) in ${globalDir}`);
+  log.debug(`Claude global agent discovery: found ${mdFiles.length} file(s) in ${globalDir}`);
   const agents: Agent[] = [];
 
   for (const file of mdFiles) {
@@ -85,7 +85,7 @@ async function discoverClaudeGlobalAgents(): Promise<Agent[]> {
       const agent = parseAgent(content, `~/.claude/agents/${file}`, "claude");
       agent.fileUri = vscode.Uri.file(filePath).toString();
       agents.push(agent);
-      log.info(`  Parsed Claude global agent: ${agent.name} (~/.claude/agents/${file})`);
+      log.debug(`  Parsed Claude global agent: ${agent.name} (~/.claude/agents/${file})`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       log.warn(`  Skipping Claude global agent ${filePath}: ${msg}`);
@@ -120,7 +120,7 @@ export async function discoverSkills(): Promise<Skill[]> {
     SKILL_GLOBS.map((g) => vscode.workspace.findFiles(g)),
   );
   const uris = uriArrays.flat();
-  log.info(`Skill discovery: found ${uris.length} file(s)`);
+  log.debug(`Skill discovery: found ${uris.length} file(s)`);
   const skills: Skill[] = [];
 
   for (const uri of uris) {
@@ -133,7 +133,7 @@ export async function discoverSkills(): Promise<Skill[]> {
       const skill = parseSkill(content, relativePath, provider);
       skill.fileUri = uri.toString();
       skills.push(skill);
-      log.info(`  Parsed skill: ${skill.name} [${provider}] (${relativePath})`);
+      log.debug(`  Parsed skill: ${skill.name} [${provider}] (${relativePath})`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       log.warn(`  Skipping skill ${uri.fsPath}: ${msg}`);

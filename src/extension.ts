@@ -32,7 +32,7 @@ async function refresh(
 ): Promise<void> {
   const log = getLogger();
   const start = Date.now();
-  log.info("Refresh started");
+  log.debug("Refresh started");
 
   try {
     const [agents, skills, sessions] = await Promise.all([

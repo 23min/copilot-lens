@@ -36,16 +36,16 @@ export class ClaudeSessionProvider implements SessionProvider {
 
     // 1. User-configured claudeDir (for devcontainers with mounts)
     if (configDir) {
-      log.info(`Claude: scanning configured claudeDir = "${configDir}"`);
+      log.debug(`Claude: scanning configured claudeDir = "${configDir}"`);
       const configEntries = await discoverClaudeSessionsInDir(configDir, workspacePath);
-      log.info(`  Found ${configEntries.length} session(s) via configured dir`);
+      log.debug(`  Found ${configEntries.length} session(s) via configured dir`);
       entries.push(...configEntries);
     }
 
     // 2. Default: ~/.claude/projects/{encoded-path}
     if (workspacePath) {
       const defaultEntries = await discoverClaudeSessions(workspacePath);
-      log.info(`  Found ${defaultEntries.length} session(s) via default path`);
+      log.debug(`  Found ${defaultEntries.length} session(s) via default path`);
       // Deduplicate by file path
       const seen = new Set(entries.map((e) => e.fullPath));
       for (const entry of defaultEntries) {
@@ -57,12 +57,12 @@ export class ClaudeSessionProvider implements SessionProvider {
 
     if (entries.length === 0) {
       if (!workspacePath && !configDir) {
-        log.info("Claude: no workspace path and no claudeDir configured, skipping");
+        log.debug("Claude: no workspace path and no claudeDir configured, skipping");
       }
       return [];
     }
 
-    log.info(`Claude: parsing ${entries.length} session(s)`);
+    log.debug(`Claude: parsing ${entries.length} session(s)`);
     const sessions: Session[] = [];
 
     for (const entry of entries) {
@@ -103,7 +103,7 @@ export class ClaudeSessionProvider implements SessionProvider {
       }
     }
 
-    log.info(`Claude: parsed ${sessions.length} session(s)`);
+    log.debug(`Claude: parsed ${sessions.length} session(s)`);
     return sessions;
   }
 

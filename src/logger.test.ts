@@ -4,6 +4,7 @@ import { initLogger, getLogger } from "./logger.js";
 describe("logger", () => {
   it("no-ops before initialization", () => {
     // Should not throw
+    getLogger().debug("test");
     getLogger().info("test");
     getLogger().warn("test");
     getLogger().error("test");
@@ -11,16 +12,23 @@ describe("logger", () => {
 
   describe("after initialization", () => {
     const channel = {
+      debug: vi.fn(),
       info: vi.fn(),
       warn: vi.fn(),
       error: vi.fn(),
     };
 
     beforeEach(() => {
+      channel.debug.mockClear();
       channel.info.mockClear();
       channel.warn.mockClear();
       channel.error.mockClear();
       initLogger(channel as any);
+    });
+
+    it("delegates debug to channel.debug", () => {
+      getLogger().debug("verbose");
+      expect(channel.debug).toHaveBeenCalledWith("verbose");
     });
 
     it("delegates info to channel.info", () => {
