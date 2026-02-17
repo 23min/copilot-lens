@@ -42,6 +42,7 @@ export function collectMetrics(
   const modelCounts = new Map<string, number>();
   const toolCounts = new Map<string, number>();
   const skillCounts = new Map<string, number>();
+  const mcpServerCounts = new Map<string, number>();
   const activityMap = new Map<string, number>();
   const agentTokens = new Map<string, { prompt: number; completion: number }>();
   const modelTokens = new Map<string, { prompt: number; completion: number }>();
@@ -84,12 +85,18 @@ export function collectMetrics(
       modelTok.completion += req.usage.completionTokens;
       modelTokens.set(req.modelId, modelTok);
 
-      // Tool usage (including subagent child tools)
+      // Tool usage (including subagent child tools and MCP server tracking)
       for (const tc of req.toolCalls) {
         toolCounts.set(tc.name, (toolCounts.get(tc.name) ?? 0) + 1);
+        if (tc.mcpServer) {
+          mcpServerCounts.set(tc.mcpServer, (mcpServerCounts.get(tc.mcpServer) ?? 0) + 1);
+        }
         if (tc.childToolCalls) {
           for (const child of tc.childToolCalls) {
             toolCounts.set(child.name, (toolCounts.get(child.name) ?? 0) + 1);
+            if (child.mcpServer) {
+              mcpServerCounts.set(child.mcpServer, (mcpServerCounts.get(child.mcpServer) ?? 0) + 1);
+            }
           }
         }
       }
@@ -133,5 +140,6 @@ export function collectMetrics(
     activity,
     unusedAgents,
     unusedSkills,
+    mcpServerUsage: countMap(mcpServerCounts),
   };
 }

@@ -26,6 +26,7 @@ export interface ToolCallInfo {
   name: string;
   subagentDescription?: string;
   childToolCalls?: ToolCallInfo[];
+  mcpServer?: string;
 }
 
 export interface SkillRef {

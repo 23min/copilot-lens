@@ -33,4 +33,5 @@ export interface AggregatedMetrics {
   activity: ActivityEntry[];
   unusedAgents: UnusedEntry[];
   unusedSkills: UnusedEntry[];
+  mcpServerUsage: CountEntry[];
 }

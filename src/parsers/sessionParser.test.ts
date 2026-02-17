@@ -518,6 +518,220 @@ describe("parseSessionJsonl — runSubagent", () => {
   });
 });
 
+// --- MCP tool fixtures ---
+
+const MCP_FIXTURE = [
+  JSON.stringify({
+    kind: 0,
+    v: {
+      sessionId: "mcp-session",
+      creationDate: 1770929049693,
+      requests: [],
+    },
+  }),
+  JSON.stringify({
+    kind: 2,
+    k: ["requests"],
+    v: [
+      {
+        requestId: "req-1",
+        timestamp: 1770929089337,
+        agent: { id: "github.copilot.editsAgent" },
+        modelId: "copilot/gpt-5",
+        message: { text: "Search for pattern" },
+        response: [
+          // MCP tool from Serena
+          {
+            kind: "toolInvocationSerialized",
+            toolCallId: "tc-1",
+            toolId: "mcp_serena_search_for_pattern",
+            source: {
+              type: "mcp",
+              serverLabel: "FastMCP",
+              label: "serena",
+              collectionId: "mcp.config.ws0",
+              definitionId: "mcp.config.ws0.serena",
+            },
+          },
+          // Another Serena tool
+          {
+            kind: "toolInvocationSerialized",
+            toolCallId: "tc-2",
+            toolId: "mcp_serena_find_symbol",
+            source: {
+              type: "mcp",
+              serverLabel: "FastMCP",
+              label: "serena",
+              collectionId: "mcp.config.ws0",
+              definitionId: "mcp.config.ws0.serena",
+            },
+          },
+          // Built-in tool
+          {
+            kind: "toolInvocationSerialized",
+            toolCallId: "tc-3",
+            toolId: "read_file",
+            source: {
+              type: "internal",
+              label: "Built-In",
+            },
+          },
+          // MCP tool from GitKraken
+          {
+            kind: "toolInvocationSerialized",
+            toolCallId: "tc-4",
+            toolId: "mcp_gitkraken_bun_git_status",
+            source: {
+              type: "mcp",
+              serverLabel: "GitKraken CLI",
+              label: "GitKraken (bundled with GitLens)",
+              collectionId: "eamodio.gitlens/gkMcpProvider",
+              definitionId: "eamodio.gitlens/GitKraken",
+            },
+          },
+        ],
+      },
+    ],
+  }),
+  JSON.stringify({
+    kind: 1,
+    k: ["requests", 0, "result"],
+    v: {
+      timings: { firstProgress: 500, totalElapsed: 3000 },
+      metadata: {
+        toolCallRounds: [
+          {
+            toolCalls: [
+              { id: "round-tc-1", name: "mcp_serena_search_for_pattern" },
+              { id: "round-tc-2", name: "mcp_serena_find_symbol" },
+              { id: "round-tc-3", name: "read_file" },
+              { id: "round-tc-4", name: "mcp_gitkraken_bun_git_status" },
+            ],
+          },
+        ],
+      },
+      usage: { promptTokens: 2000, completionTokens: 500 },
+    },
+  }),
+].join("\n");
+
+const MCP_SUBAGENT_FIXTURE = [
+  JSON.stringify({
+    kind: 0,
+    v: {
+      sessionId: "mcp-subagent-session",
+      creationDate: 1770929049693,
+      requests: [],
+    },
+  }),
+  JSON.stringify({
+    kind: 2,
+    k: ["requests"],
+    v: [
+      {
+        requestId: "req-1",
+        timestamp: 1770929089337,
+        agent: { id: "github.copilot.editsAgent" },
+        modelId: "copilot/gpt-5",
+        message: { text: "Analyze with subagent" },
+        response: [
+          // runSubagent parent
+          {
+            kind: "toolInvocationSerialized",
+            toolCallId: "sa-1",
+            toolId: "runSubagent",
+            toolSpecificData: { kind: "subagent", description: "Search code" },
+          },
+          // MCP child tool inside subagent
+          {
+            kind: "toolInvocationSerialized",
+            toolCallId: "child-1",
+            toolId: "mcp_serena_search_for_pattern",
+            subAgentInvocationId: "sa-1",
+            source: {
+              type: "mcp",
+              serverLabel: "FastMCP",
+              label: "serena",
+            },
+          },
+          // Built-in child tool inside subagent
+          {
+            kind: "toolInvocationSerialized",
+            toolCallId: "child-2",
+            toolId: "copilot_readFile",
+            subAgentInvocationId: "sa-1",
+            source: {
+              type: "internal",
+              label: "Built-In",
+            },
+          },
+        ],
+      },
+    ],
+  }),
+  JSON.stringify({
+    kind: 1,
+    k: ["requests", 0, "result"],
+    v: {
+      metadata: {
+        toolCallRounds: [
+          { toolCalls: [{ id: "round-sa-1", name: "runSubagent" }] },
+        ],
+      },
+      usage: { promptTokens: 1000, completionTokens: 200 },
+    },
+  }),
+].join("\n");
+
+describe("parseSessionJsonl — MCP tools", () => {
+  it("extracts mcpServer from response source field", () => {
+    const session = parseSessionJsonl(MCP_FIXTURE);
+    const req = session.requests[0];
+    const serena = req.toolCalls.find(
+      (t) => t.name === "mcp_serena_search_for_pattern",
+    );
+    expect(serena?.mcpServer).toBe("FastMCP");
+  });
+
+  it("sets mcpServer on all matching tools by name", () => {
+    const session = parseSessionJsonl(MCP_FIXTURE);
+    const req = session.requests[0];
+    const gitkraken = req.toolCalls.find(
+      (t) => t.name === "mcp_gitkraken_bun_git_status",
+    );
+    expect(gitkraken?.mcpServer).toBe("GitKraken CLI");
+
+    const findSymbol = req.toolCalls.find(
+      (t) => t.name === "mcp_serena_find_symbol",
+    );
+    expect(findSymbol?.mcpServer).toBe("FastMCP");
+  });
+
+  it("does not set mcpServer on built-in tools", () => {
+    const session = parseSessionJsonl(MCP_FIXTURE);
+    const req = session.requests[0];
+    const readFile = req.toolCalls.find((t) => t.name === "read_file");
+    expect(readFile?.mcpServer).toBeUndefined();
+  });
+
+  it("sets mcpServer on subagent child tool calls", () => {
+    const session = parseSessionJsonl(MCP_SUBAGENT_FIXTURE);
+    const req = session.requests[0];
+    const sa = req.toolCalls.find((t) => t.name === "runSubagent");
+    expect(sa?.childToolCalls).toHaveLength(2);
+
+    const mcpChild = sa!.childToolCalls!.find(
+      (c) => c.name === "mcp_serena_search_for_pattern",
+    );
+    expect(mcpChild?.mcpServer).toBe("FastMCP");
+
+    const builtinChild = sa!.childToolCalls!.find(
+      (c) => c.name === "copilot_readFile",
+    );
+    expect(builtinChild?.mcpServer).toBeUndefined();
+  });
+});
+
 const CHATREPLAY_FIXTURE = JSON.stringify({
   exportedAt: "2026-02-12T21:13:03.592Z",
   totalPrompts: 1,

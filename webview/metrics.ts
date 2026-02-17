@@ -42,6 +42,7 @@ interface AggregatedMetrics {
   activity: { date: string; count: number }[];
   unusedAgents: UnusedEntry[];
   unusedSkills: UnusedEntry[];
+  mcpServerUsage: CountEntry[];
 }
 
 interface DonutSlice {
@@ -818,6 +819,13 @@ class MetricsDashboard extends LitElement {
 
       <h2>Tool Calls</h2>
       ${this.renderBarChart(m.toolUsage, "#c9b87c")}
+
+      ${m.mcpServerUsage.length > 0
+        ? html`
+            <h2>MCP Servers</h2>
+            ${this.renderBarChart(m.mcpServerUsage, "#82aac4")}
+          `
+        : null}
 
       <h2>Skill Usage</h2>
       ${this.renderBarChart(m.skillUsage, "#8aab7f")}
