@@ -370,6 +370,16 @@ class SessionExplorer extends LitElement {
       background: rgba(160, 160, 160, 0.1);
       color: var(--vscode-descriptionForeground, #8b8b8b);
     }
+    .recovered-badge {
+      font-size: 9px;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-weight: 500;
+      margin-right: 6px;
+      flex-shrink: 0;
+      background: rgba(201, 184, 124, 0.12);
+      color: var(--vscode-descriptionForeground, #8b8b8b);
+    }
   `;
 
   @state() private sessions: Session[] = [];
@@ -470,6 +480,14 @@ class SessionExplorer extends LitElement {
     else if (env === "wsl") label = "WSL";
 
     return html`<span class="env-badge" title="Recorded in: ${env}">${label}</span>`;
+  }
+
+  private renderRecoveredBadge(session: Session) {
+    if (session.scope !== "fallback") return null;
+    const tip = session.matchedWorkspace
+      ? `Recovered from stale hash: ${session.matchedWorkspace}`
+      : "Recovered from a previous workspace hash — may not appear in Copilot Chat history";
+    return html`<span class="recovered-badge" title="${tip}">recovered</span>`;
   }
 
   private workspaceMatchIcon(workspaceUri?: string): string {
@@ -596,6 +614,7 @@ class SessionExplorer extends LitElement {
                       ${session.provider === "copilot" ? "Copilot" : session.provider === "claude" ? "Claude" : "Codex"}
                     </span>
                     ${this.renderEnvBadge(session)}
+                    ${this.renderRecoveredBadge(session)}
                     <span class="session-title">
                       ${session.title ?? session.sessionId}
                     </span>

@@ -114,6 +114,10 @@ VS Code derives a hash from the workspace URI to scope `workspaceStorage` direct
 
 **Agent Lens mitigation**: Agent Lens automatically scans sibling hash directories matching your workspace folder name (strategy 3 in the Copilot provider). This finds sessions under stale hashes that Copilot Chat itself no longer shows.
 
+When stale-hash sessions are recovered, Agent Lens:
+- Shows a one-time **info notification** explaining how many sessions were found and that they may not appear in Copilot Chat's own history.
+- Marks each recovered session with a subtle **`recovered`** badge in the Session Explorer, with a tooltip showing the exact workspace URI from the stale hash directory.
+
 This is tracked upstream as [vscode#285059](https://github.com/microsoft/vscode/issues/285059) (closed as "not planned").
 
 ---
