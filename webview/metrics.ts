@@ -1,5 +1,6 @@
 import { LitElement, html, css, svg } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import { classMap } from "lit/directives/class-map.js";
 import { arc as d3Arc, pie as d3Pie } from "d3";
 
 declare function acquireVsCodeApi(): {
@@ -16,6 +17,14 @@ interface CountEntry {
   name: string;
   count: number;
   isCustom?: boolean;
+}
+
+const BUILTIN_AGENT_PREFIXES = ['github.copilot.'];
+const BUILTIN_AGENT_NAMES = new Set(['codex-cli', 'claude-code', 'claude-code:subagent']);
+
+function isCustomAgent(name: string): boolean {
+  if (BUILTIN_AGENT_NAMES.has(name)) return false;
+  return !BUILTIN_AGENT_PREFIXES.some((p) => name.startsWith(p));
 }
 
 interface TokenEntry {
@@ -151,7 +160,7 @@ class MetricsDashboard extends LitElement {
       flex-shrink: 0;
     }
     .bar-label--custom {
-      color: var(--vscode-charts-yellow, #c9b87c);
+      color: #4ec9b0;
       font-weight: 600;
     }
     .bar-track {
@@ -407,6 +416,7 @@ class MetricsDashboard extends LitElement {
       string,
       { totalTokens: number; avgPrompt: number; avgCompletion: number }
     >,
+    labelClass?: (name: string) => boolean,
   ) {
     const items = entries.slice(0, maxItems);
     const maxCount = Math.max(...items.map((e) => e.count), 1);
@@ -421,10 +431,11 @@ class MetricsDashboard extends LitElement {
                 if (!tooltipData) return;
                 const data = tooltipData.get(entry.name);
                 if (!data) return;
+                const customTag = labelClass?.(entry.name) ? ' (custom agent)' : '';
                 this.tooltip = {
                   x: e.clientX + 12,
                   y: e.clientY - 10,
-                  name: entry.name,
+                  name: entry.name + customTag,
                   detail: `${entry.count} requests · ${this.formatNumber(data.totalTokens)} tokens\nAvg prompt: ${this.formatNumber(data.avgPrompt)} · Avg completion: ${this.formatNumber(data.avgCompletion)}`,
                 };
               }}"
@@ -441,7 +452,7 @@ class MetricsDashboard extends LitElement {
                 }
               }}"
             >
-              <span class="bar-label${entry.isCustom ? ' bar-label--custom' : ''}" title="${entry.name}${entry.isCustom ? ' (custom agent)' : ''}">${entry.name}</span>
+              <span class=${classMap({ 'bar-label': true, 'bar-label--custom': !!labelClass?.(entry.name) })} title="${tooltipData ? '' : entry.name}">${entry.name}</span>
               <div class="bar-track">
                 <div
                   class="bar-fill"
@@ -817,7 +828,7 @@ class MetricsDashboard extends LitElement {
       </div>
 
       <h2>Agent Usage</h2>
-      ${this.renderBarChart(m.agentUsage, "#c4a882", 10, agentTooltipData)}
+      ${this.renderBarChart(m.agentUsage, "#c4a882", 10, agentTooltipData, isCustomAgent)}
 
       <h2>Model Usage</h2>
       ${this.renderBarChart(m.modelUsage, "#b09090")}
