@@ -13,6 +13,19 @@ function countMap(map: Map<string, number>): CountEntry[] {
     .sort((a, b) => b.count - a.count);
 }
 
+function countMapWithCustom(
+  map: Map<string, number>,
+  customNames: Set<string>,
+): CountEntry[] {
+  return Array.from(map.entries())
+    .map(([name, count]) => ({
+      name,
+      count,
+      isCustom: customNames.has(name) ? true : undefined,
+    }))
+    .sort((a, b) => b.count - a.count);
+}
+
 function tokenMap(
   map: Map<string, { prompt: number; completion: number }>,
 ): TokenEntry[] {
@@ -131,7 +144,7 @@ export function collectMetrics(
     totalRequests,
     totalTokens: { prompt: promptTokens, completion: completionTokens },
     cacheTokens: { read: cacheReadTokens, creation: cacheCreationTokens },
-    agentUsage: countMap(agentCounts),
+    agentUsage: countMapWithCustom(agentCounts, usedAgents),
     modelUsage: countMap(modelCounts),
     toolUsage: countMap(toolCounts),
     skillUsage: countMap(skillCounts),
