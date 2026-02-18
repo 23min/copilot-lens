@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.16] - 2026-02-18
+
+### Added
+- Multi-source Copilot session discovery: strategy 4 probes the platform-native VS Code storage root (macOS, Linux, Windows) for sessions that live outside the workspace hash or remote-SSH paths (closes #37)
+- `sessionDir` config is now additive — complements rather than overrides automatic discovery, so sessions from all sources are merged and deduplicated
+- Custom agent highlighting in Metrics Dashboard: custom agents (from `.github/agents/`) appear in teal with a `(custom agent)` tooltip suffix
+
+### Fixed
+- Strategy 1 (sessionDir) scope incorrectly stamped as `"fallback"` instead of `"workspace"`, causing spurious `recovered` badges on all sessions when using `sessionDir`
+
 ## [0.0.15] - 2026-02-18
 
 ### Added

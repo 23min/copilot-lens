@@ -17,7 +17,7 @@ Open issues, ordered by priority. Issues within the same tier can be worked in a
 
 ### Completed Milestones
 
-M0 (Setup), M1 (Parsers), M2 (Graph Model), M3 (Tree View), M4 (Graph Webview), M5 (Session Parser), M6 (Metrics Dashboard), M7 (Session Explorer), M8 (Tool Visibility: subagent + MCP parsing), M9 (Claude Agent Discovery), M10 (Codex Support), M11 (Hash Instability Mitigation) — all shipped as of v0.0.15.
+M0 (Setup), M1 (Parsers), M2 (Graph Model), M3 (Tree View), M4 (Graph Webview), M5 (Session Parser), M6 (Metrics Dashboard), M7 (Session Explorer), M8 (Tool Visibility: subagent + MCP parsing), M9 (Claude Agent Discovery), M10 (Codex Support), M11 (Hash Instability Mitigation), M12 (Multi-Source Discovery + Custom Agent Highlighting) — all shipped as of v0.0.16.
 
 ---
 
