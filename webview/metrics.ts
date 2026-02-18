@@ -15,6 +15,7 @@ type SourceFilter = "all" | "copilot" | "claude" | "codex";
 interface CountEntry {
   name: string;
   count: number;
+  isCustom?: boolean;
 }
 
 interface TokenEntry {
@@ -148,6 +149,10 @@ class MetricsDashboard extends LitElement {
       text-overflow: ellipsis;
       white-space: nowrap;
       flex-shrink: 0;
+    }
+    .bar-label--custom {
+      color: var(--vscode-charts-yellow, #c9b87c);
+      font-weight: 600;
     }
     .bar-track {
       flex: 1;
@@ -436,7 +441,7 @@ class MetricsDashboard extends LitElement {
                 }
               }}"
             >
-              <span class="bar-label" title="${entry.name}">${entry.name}</span>
+              <span class="bar-label${entry.isCustom ? ' bar-label--custom' : ''}" title="${entry.name}${entry.isCustom ? ' (custom agent)' : ''}">${entry.name}</span>
               <div class="bar-track">
                 <div
                   class="bar-fill"

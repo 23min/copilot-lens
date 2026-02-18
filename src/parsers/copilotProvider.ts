@@ -187,7 +187,7 @@ export class CopilotSessionProvider implements SessionProvider {
 
       if (ourName) {
         const matches = await scanWorkspaceStorageRoot(configDir, ourName);
-        const scanned = await collectFromMatches(matches, "fallback");
+        const scanned = await collectFromMatches(matches, "workspace");
         if (scanned.length > 0) {
           log.debug(`  Found ${scanned.length} session(s) via storage root scan`);
           return scanned;

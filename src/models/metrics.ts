@@ -1,6 +1,7 @@
 export interface CountEntry {
   name: string;
   count: number;
+  isCustom?: boolean;
 }
 
 export interface ActivityEntry {
