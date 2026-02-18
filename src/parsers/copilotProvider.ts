@@ -78,14 +78,20 @@ function workspaceName(uri: string): string {
   return lastSlash >= 0 ? cleaned.slice(lastSlash + 1) : cleaned;
 }
 
+interface ChatSessionsMatch {
+  dir: string;
+  workspaceUri: string;
+}
+
 /**
  * Scan a workspaceStorage root for chatSessions directories that match
- * the current workspace by folder name.
+ * the current workspace by folder name. Returns each match with its
+ * workspace URI so callers can stamp matchedWorkspace on sessions.
  */
 async function scanWorkspaceStorageRoot(
   workspaceStorageRoot: string,
   targetName: string,
-): Promise<string[]> {
+): Promise<ChatSessionsMatch[]> {
   const log = getLogger();
   let hashDirs: string[];
   try {
@@ -97,27 +103,35 @@ async function scanWorkspaceStorageRoot(
   }
 
   log.debug(`  Scanning ${hashDirs.length} hash dir(s) for workspace "${targetName}"`);
-  const dirs: string[] = [];
+  const matches: ChatSessionsMatch[] = [];
   for (const entry of hashDirs) {
     const candidateDir = path.join(workspaceStorageRoot, entry);
     const candidateUri = await readWorkspaceUri(candidateDir);
     if (!candidateUri) continue;
 
     if (workspaceName(candidateUri) === targetName) {
-      dirs.push(path.join(candidateDir, "chatSessions"));
+      matches.push({
+        dir: path.join(candidateDir, "chatSessions"),
+        workspaceUri: candidateUri,
+      });
     }
   }
-  return dirs;
+  return matches;
 }
 
-async function collectFromDirs(dirs: string[]): Promise<Session[]> {
+async function collectFromMatches(
+  matches: ChatSessionsMatch[],
+  scope: "workspace" | "fallback",
+): Promise<Session[]> {
   const seen = new Set<string>();
   const sessions: Session[] = [];
-  for (const dir of dirs) {
+  for (const { dir, workspaceUri } of matches) {
     const found = await readSessionsFromDir(dir);
     for (const s of found) {
       if (!seen.has(s.sessionId)) {
         seen.add(s.sessionId);
+        s.scope = scope;
+        s.matchedWorkspace = workspaceUri;
         sessions.push(s);
       }
     }
@@ -172,11 +186,9 @@ export class CopilotSessionProvider implements SessionProvider {
       }
 
       if (ourName) {
-        const scanned = await collectFromDirs(
-          await scanWorkspaceStorageRoot(configDir, ourName),
-        );
+        const matches = await scanWorkspaceStorageRoot(configDir, ourName);
+        const scanned = await collectFromMatches(matches, "fallback");
         if (scanned.length > 0) {
-          for (const s of scanned) s.scope = "fallback";
           log.debug(`  Found ${scanned.length} session(s) via storage root scan`);
           return scanned;
         }
@@ -191,6 +203,13 @@ export class CopilotSessionProvider implements SessionProvider {
       const primary = await readSessionsFromDir(primaryDir);
       if (primary.length > 0) {
         log.debug(`  Found ${primary.length} session(s)`);
+        // stamp matchedWorkspace from the current hash dir's workspace.json
+        const hashDir = path.dirname(primaryDir);
+        const uri = await readWorkspaceUri(hashDir);
+        for (const s of primary) {
+          s.scope = "workspace";
+          if (uri) s.matchedWorkspace = uri;
+        }
         return primary;
       }
       log.debug("  No sessions found in primary dir");
@@ -203,11 +222,17 @@ export class CopilotSessionProvider implements SessionProvider {
       const hashDir = path.dirname(extensionContext.storageUri.fsPath);
       const storageRoot = path.dirname(hashDir);
       log.debug(`Copilot strategy 3: scanning sibling dirs under "${storageRoot}"`);
-      const result = await collectFromDirs(
-        await scanWorkspaceStorageRoot(storageRoot, ourName),
-      );
-      for (const s of result) s.scope = "fallback";
-      log.debug(`  Found ${result.length} session(s) via sibling scan`);
+      const matches = await scanWorkspaceStorageRoot(storageRoot, ourName);
+      const result = await collectFromMatches(matches, "fallback");
+      if (result.length > 0) {
+        log.debug(`  Found ${result.length} session(s) via sibling scan (stale hash)`);
+        void vscode.window.showInformationMessage(
+          `Agent Lens: Found ${result.length} Copilot Chat session${result.length === 1 ? "" : "s"} from a previous workspace hash. ` +
+          `These may not appear in Copilot Chat's own history.`,
+        );
+      } else {
+        log.debug(`  Found 0 session(s) via sibling scan`);
+      }
       return result;
     }
 

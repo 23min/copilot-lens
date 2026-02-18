@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Session.environment` field propagated from `vscode.env.remoteName` at discovery time
 - Diagnostic report (`Agent Lens: Diagnose Session Discovery`) now shows `X session file(s), Y non-empty` for each Copilot strategy — makes it immediately obvious when VS Code has lazy-written empty files
 - Refresh summary log now includes `(N non-empty)` session count
+- Copilot hash instability mitigation (closes #26): sessions found under stale workspace hashes (e.g. after a container rebuild) now surface a `recovered` badge in Session Explorer with a tooltip showing the original workspace URI; a one-time info notification appears when stale-hash sessions are found that aren't in the current hash
+- `Session.matchedWorkspace` field now populated from the `workspace.json` of the hash directory where each session was found
+- `Session.scope` stamped as `"workspace"` (current hash) or `"fallback"` (stale hash) on all Copilot sessions
 
 ### Changed
 - Copilot sessions without a `customTitle` now show the first user message as the title (truncated to 80 chars) instead of the raw GUID
