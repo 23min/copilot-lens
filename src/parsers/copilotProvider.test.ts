@@ -6,6 +6,7 @@ import * as path from "node:path";
 vi.mock("node:fs/promises", () => ({
   readdir: vi.fn(),
   readFile: vi.fn(),
+  access: vi.fn(),
 }));
 
 vi.mock("vscode", () => ({
@@ -25,7 +26,7 @@ const mockReadFile = vi.mocked(fs.readFile);
 
 // We test the internal helpers through their effects on the public
 // discoverSessions() method, using a minimal fake ExtensionContext.
-import { CopilotSessionProvider } from "./copilotProvider.js";
+import { CopilotSessionProvider, getPlatformStorageRoot } from "./copilotProvider.js";
 import type { SessionDiscoveryContext } from "./sessionProvider.js";
 import * as vscode from "vscode";
 
@@ -237,5 +238,182 @@ describe("CopilotSessionProvider — stale hash fallback (strategy 3)", () => {
 
     expect(sessions).toHaveLength(0);
     expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
+  });
+});
+
+describe("CopilotSessionProvider — platform storage root (strategy 4)", () => {
+  const PLATFORM_ROOT = path.join("/Users/testuser", "Library", "Application Support", "Code", "User", "workspaceStorage");
+  const PLATFORM_HASH = "dddd4444";
+
+  beforeEach(() => {
+    vi.spyOn(CopilotSessionProvider.prototype, "getPlatformStorageRoot" as any).mockReturnValue(PLATFORM_ROOT);
+  });
+
+  it("discovers sessions from the platform storage root", async () => {
+    const platformChatDir = path.join(PLATFORM_ROOT, PLATFORM_HASH, "chatSessions");
+    const currentChatDir = path.join(STORAGE_ROOT, CURRENT_HASH, "chatSessions");
+
+    mockReaddir.mockImplementation(async (p) => {
+      const ps = String(p);
+      // Strategy 2: primary hash — empty
+      if (ps === currentChatDir) throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+      // Strategy 3: sibling scan — only current hash, nothing new
+      if (ps === STORAGE_ROOT) return [CURRENT_HASH] as any;
+      // Strategy 4: platform root
+      if (ps === PLATFORM_ROOT) return [PLATFORM_HASH] as any;
+      if (ps === platformChatDir) return ["session-platform.jsonl"] as any;
+      throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+    });
+    mockReadFile.mockImplementation(async (p) => {
+      const ps = String(p);
+      if (ps === path.join(PLATFORM_ROOT, PLATFORM_HASH, "workspace.json")) {
+        return JSON.stringify({ folder: WORKSPACE_URI });
+      }
+      if (ps === path.join(STORAGE_ROOT, CURRENT_HASH, "workspace.json")) {
+        return JSON.stringify({ folder: WORKSPACE_URI });
+      }
+      if (ps.endsWith("session-platform.jsonl")) return minimalSession("session-platform");
+      throw new Error("ENOENT");
+    });
+
+    const provider = new CopilotSessionProvider();
+    const sessions = await provider.discoverSessions(makeCtx());
+
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].sessionId).toBe("session-platform");
+    expect(sessions[0].scope).toBe("workspace");
+  });
+
+  it("deduplicates sessions across strategies", async () => {
+    const currentChatDir = path.join(STORAGE_ROOT, CURRENT_HASH, "chatSessions");
+    const platformChatDir = path.join(PLATFORM_ROOT, PLATFORM_HASH, "chatSessions");
+
+    mockReaddir.mockImplementation(async (p) => {
+      const ps = String(p);
+      // Strategy 2: primary hash has one session
+      if (ps === currentChatDir) return ["session-shared.jsonl"] as any;
+      // Strategy 3: sibling scan
+      if (ps === STORAGE_ROOT) return [CURRENT_HASH] as any;
+      // Strategy 4: platform root has same session + one new
+      if (ps === PLATFORM_ROOT) return [PLATFORM_HASH] as any;
+      if (ps === platformChatDir) return ["session-shared.jsonl", "session-local.jsonl"] as any;
+      throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+    });
+    mockReadFile.mockImplementation(async (p) => {
+      const ps = String(p);
+      if (ps.endsWith("workspace.json")) return JSON.stringify({ folder: WORKSPACE_URI });
+      if (ps.includes("session-shared.jsonl")) return minimalSession("session-shared");
+      if (ps.includes("session-local.jsonl")) return minimalSession("session-local");
+      throw new Error("ENOENT");
+    });
+
+    const provider = new CopilotSessionProvider();
+    const sessions = await provider.discoverSessions(makeCtx());
+
+    expect(sessions).toHaveLength(2);
+    const ids = sessions.map((s) => s.sessionId).sort();
+    expect(ids).toEqual(["session-local", "session-shared"]);
+  });
+
+  it("skips strategy 4 when platform root equals current storage root", async () => {
+    vi.spyOn(CopilotSessionProvider.prototype, "getPlatformStorageRoot" as any).mockReturnValue(STORAGE_ROOT);
+
+    const currentChatDir = path.join(STORAGE_ROOT, CURRENT_HASH, "chatSessions");
+
+    mockReaddir.mockImplementation(async (p) => {
+      const ps = String(p);
+      if (ps === currentChatDir) return ["session-abc.jsonl"] as any;
+      if (ps === STORAGE_ROOT) return [CURRENT_HASH] as any;
+      throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+    });
+    mockReadFile.mockImplementation(async (p) => {
+      const ps = String(p);
+      if (ps.endsWith("workspace.json")) return JSON.stringify({ folder: WORKSPACE_URI });
+      if (ps.endsWith("session-abc.jsonl")) return minimalSession("session-abc");
+      throw new Error("ENOENT");
+    });
+
+    const provider = new CopilotSessionProvider();
+    const sessions = await provider.discoverSessions(makeCtx());
+
+    // Should only find the session once (from strategy 2), not duplicated
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].sessionId).toBe("session-abc");
+  });
+});
+
+describe("CopilotSessionProvider — accumulative discovery", () => {
+  it("accumulates sessions from strategy 1 and strategy 2 together", async () => {
+    const configDir = "/mnt/host-sessions";
+    const currentChatDir = path.join(STORAGE_ROOT, CURRENT_HASH, "chatSessions");
+
+    vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
+      get: vi.fn().mockReturnValue(configDir),
+    } as any);
+
+    mockReaddir.mockImplementation(async (p) => {
+      const ps = String(p);
+      // Strategy 1: configDir has one session
+      if (ps === configDir) return ["session-config.jsonl"] as any;
+      // Strategy 2: primary hash has a different session
+      if (ps === currentChatDir) return ["session-primary.jsonl"] as any;
+      // Strategy 3: sibling scan
+      if (ps === STORAGE_ROOT) return [CURRENT_HASH] as any;
+      throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+    });
+    mockReadFile.mockImplementation(async (p) => {
+      const ps = String(p);
+      if (ps.endsWith("workspace.json")) return JSON.stringify({ folder: WORKSPACE_URI });
+      if (ps.endsWith("session-config.jsonl")) return minimalSession("session-config");
+      if (ps.endsWith("session-primary.jsonl")) return minimalSession("session-primary");
+      throw new Error("ENOENT");
+    });
+
+    const provider = new CopilotSessionProvider();
+    const sessions = await provider.discoverSessions(makeCtx());
+
+    expect(sessions).toHaveLength(2);
+    const ids = sessions.map((s) => s.sessionId).sort();
+    expect(ids).toEqual(["session-config", "session-primary"]);
+  });
+
+  it("does not duplicate sessions found by both strategy 1 and strategy 2", async () => {
+    const configDir = "/mnt/host-sessions";
+    const currentChatDir = path.join(STORAGE_ROOT, CURRENT_HASH, "chatSessions");
+
+    vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
+      get: vi.fn().mockReturnValue(configDir),
+    } as any);
+
+    mockReaddir.mockImplementation(async (p) => {
+      const ps = String(p);
+      if (ps === configDir) return ["session-same.jsonl"] as any;
+      if (ps === currentChatDir) return ["session-same.jsonl"] as any;
+      if (ps === STORAGE_ROOT) return [CURRENT_HASH] as any;
+      throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+    });
+    mockReadFile.mockImplementation(async (p) => {
+      const ps = String(p);
+      if (ps.endsWith("workspace.json")) return JSON.stringify({ folder: WORKSPACE_URI });
+      if (ps.includes("session-same.jsonl")) return minimalSession("session-same");
+      throw new Error("ENOENT");
+    });
+
+    const provider = new CopilotSessionProvider();
+    const sessions = await provider.discoverSessions(makeCtx());
+
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].sessionId).toBe("session-same");
+  });
+});
+
+describe("getPlatformStorageRoot", () => {
+  it("returns macOS path on darwin", () => {
+    // Restore real implementation for this test
+    vi.restoreAllMocks();
+    if (process.platform === "darwin") {
+      const result = getPlatformStorageRoot();
+      expect(result).toContain("Library/Application Support/Code/User/workspaceStorage");
+    }
   });
 });

@@ -9,6 +9,7 @@ import type {
   WatchTarget,
 } from "./sessionProvider.js";
 import { getLogger } from "../logger.js";
+import { getPlatformStorageRoot } from "./platformStorage.js";
 
 /**
  * Read all session files from a single chatSessions directory.
@@ -163,8 +164,38 @@ function getChatSessionsDir(
   return path.join(workspaceHashDir, "chatSessions");
 }
 
+/**
+ * Return the platform-native VS Code app storage root.
+ * Re-exported from platformStorage for backwards compatibility.
+ */
+export { getPlatformStorageRoot } from "./platformStorage.js";
+
+/**
+ * Accumulate sessions into a pool, deduplicating by sessionId.
+ */
+function mergeInto(
+  pool: Session[],
+  seen: Set<string>,
+  incoming: Session[],
+): number {
+  let added = 0;
+  for (const s of incoming) {
+    if (!seen.has(s.sessionId)) {
+      seen.add(s.sessionId);
+      pool.push(s);
+      added++;
+    }
+  }
+  return added;
+}
+
 export class CopilotSessionProvider implements SessionProvider {
   readonly name = "Copilot";
+
+  /** Overridable for testing. */
+  protected getPlatformStorageRoot(): string | null {
+    return getPlatformStorageRoot();
+  }
 
   async discoverSessions(ctx: SessionDiscoveryContext): Promise<Session[]> {
     const log = getLogger();
@@ -172,7 +203,10 @@ export class CopilotSessionProvider implements SessionProvider {
     const ourName = await getWorkspaceFolderName(extensionContext);
     log.debug(`Copilot session discovery: workspace name = "${ourName ?? "(unknown)"}"`);
 
-    // 1. Check user-configured sessionDir first (for devcontainers with mounts)
+    const pool: Session[] = [];
+    const seen = new Set<string>();
+
+    // ── Strategy 1: user-configured sessionDir (complements, not overrides) ──
     const configDir = vscode.workspace
       .getConfiguration("agentLens")
       .get<string>("sessionDir");
@@ -182,62 +216,83 @@ export class CopilotSessionProvider implements SessionProvider {
       const direct = await readSessionsFromDir(configDir);
       if (direct.length > 0) {
         log.debug(`  Found ${direct.length} session(s) directly`);
-        return direct;
-      }
-
-      if (ourName) {
+        mergeInto(pool, seen, direct);
+      } else if (ourName) {
         const matches = await scanWorkspaceStorageRoot(configDir, ourName);
         const scanned = await collectFromMatches(matches, "workspace");
         if (scanned.length > 0) {
           log.debug(`  Found ${scanned.length} session(s) via storage root scan`);
-          return scanned;
+          mergeInto(pool, seen, scanned);
         }
       }
-      log.debug("  No sessions found via configured dir");
+      if (pool.length === 0) {
+        log.debug("  No sessions found via configured dir");
+      }
     }
 
-    // 2. Try primary location (current workspace hash)
+    // ── Strategy 2: primary location (current workspace hash) ──
     const primaryDir = getChatSessionsDir(extensionContext);
     if (primaryDir) {
       log.debug(`Copilot strategy 2: primary dir = "${primaryDir}"`);
       const primary = await readSessionsFromDir(primaryDir);
       if (primary.length > 0) {
         log.debug(`  Found ${primary.length} session(s)`);
-        // stamp matchedWorkspace from the current hash dir's workspace.json
         const hashDir = path.dirname(primaryDir);
         const uri = await readWorkspaceUri(hashDir);
         for (const s of primary) {
           s.scope = "workspace";
           if (uri) s.matchedWorkspace = uri;
         }
-        return primary;
+        mergeInto(pool, seen, primary);
+      } else {
+        log.debug("  No sessions found in primary dir");
       }
-      log.debug("  No sessions found in primary dir");
     } else {
       log.debug("Copilot strategy 2: skipped (no storageUri)");
     }
 
-    // 3. Fallback: scan sibling hash directories for the same workspace
+    // ── Strategy 3: sibling hash directories (stale hash recovery) ──
     if (ourName && extensionContext.storageUri) {
       const hashDir = path.dirname(extensionContext.storageUri.fsPath);
       const storageRoot = path.dirname(hashDir);
       log.debug(`Copilot strategy 3: scanning sibling dirs under "${storageRoot}"`);
       const matches = await scanWorkspaceStorageRoot(storageRoot, ourName);
       const result = await collectFromMatches(matches, "fallback");
-      if (result.length > 0) {
-        log.debug(`  Found ${result.length} session(s) via sibling scan (stale hash)`);
+      const added = mergeInto(pool, seen, result);
+      if (added > 0) {
+        log.debug(`  Found ${added} new session(s) via sibling scan (stale hash)`);
         void vscode.window.showInformationMessage(
-          `Agent Lens: Found ${result.length} Copilot Chat session${result.length === 1 ? "" : "s"} from a previous workspace hash. ` +
+          `Agent Lens: Found ${added} Copilot Chat session${added === 1 ? "" : "s"} from a previous workspace hash. ` +
           `These may not appear in Copilot Chat's own history.`,
         );
       } else {
-        log.debug(`  Found 0 session(s) via sibling scan`);
+        log.debug(`  Found 0 new session(s) via sibling scan`);
       }
-      return result;
     }
 
-    log.debug("Copilot: no sessions found");
-    return [];
+    // ── Strategy 4: platform app storage root ──
+    if (ourName) {
+      const platformRoot = this.getPlatformStorageRoot();
+      // Only probe if it's different from the storage root already scanned in strategy 3
+      const currentStorageRoot = extensionContext.storageUri
+        ? path.dirname(path.dirname(extensionContext.storageUri.fsPath))
+        : null;
+
+      if (platformRoot && platformRoot !== currentStorageRoot) {
+        log.debug(`Copilot strategy 4: platform storage root = "${platformRoot}"`);
+        const matches = await scanWorkspaceStorageRoot(platformRoot, ourName);
+        const result = await collectFromMatches(matches, "workspace");
+        const added = mergeInto(pool, seen, result);
+        log.debug(`  Found ${added} new session(s) via platform storage root`);
+      } else if (platformRoot) {
+        log.debug("Copilot strategy 4: skipped (same as strategy 3 root)");
+      } else {
+        log.debug("Copilot strategy 4: skipped (unsupported platform)");
+      }
+    }
+
+    log.debug(`Copilot: total ${pool.length} session(s) discovered`);
+    return pool;
   }
 
   getWatchTargets(ctx: SessionDiscoveryContext): WatchTarget[] {
