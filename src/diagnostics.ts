@@ -242,6 +242,56 @@ async function diagnoseCopilot(
     }
   }
 
+  // Strategy 4: platform app storage root
+  const { getPlatformStorageRoot } = await import("./parsers/platformStorage.js");
+  const platformRoot = getPlatformStorageRoot();
+  const currentStorageRoot = env.storageUri
+    ? path.dirname(path.dirname(env.storageUri))
+    : null;
+
+  if (platformRoot && platformRoot !== currentStorageRoot) {
+    const accessible = await isAccessible(platformRoot);
+    const wsName = env.workspacePath ? path.basename(env.workspacePath) : null;
+
+    if (accessible && wsName) {
+      const { matched, total } = await scanStorageRootSummary(platformRoot, wsName);
+      let platformTotal = 0;
+      let platformNonEmpty = 0;
+      if (matched > 0) {
+        const dirs = await findMatchingChatSessionsDirs(platformRoot, wsName);
+        for (const d of dirs) {
+          const counts = await countSessionsWithContent(d);
+          platformTotal += counts.total;
+          platformNonEmpty += counts.nonEmpty;
+        }
+        totalFiles += platformTotal;
+      }
+
+      strategies.push({
+        name: "platformRoot",
+        path: platformRoot,
+        accessible: true,
+        details: `${total} hash dir(s), ${matched} matched "${wsName}" — ${platformTotal} session file(s), ${platformNonEmpty} non-empty`,
+      });
+    } else {
+      strategies.push({
+        name: "platformRoot",
+        path: platformRoot ?? "(unsupported platform)",
+        accessible,
+        details: accessible
+          ? "skipped — no workspace name for matching"
+          : "directory not accessible",
+      });
+    }
+  } else if (platformRoot) {
+    strategies.push({
+      name: "platformRoot",
+      path: platformRoot,
+      accessible: true,
+      details: "skipped — same as siblingScan root",
+    });
+  }
+
   return { name: "Copilot", configuredDir: settings.sessionDir, strategies, totalFiles };
 }
 
