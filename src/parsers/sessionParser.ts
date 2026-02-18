@@ -189,6 +189,136 @@ export function parseChatReplay(content: string): Session {
   };
 }
 
+// --- Subagent enrichment ---
+
+/**
+ * Scan a request's response array for toolInvocationSerialized entries
+ * to replace runSubagent tool calls with enriched versions that include
+ * descriptions and child tool lists.
+ *
+ * The response array uses different IDs than toolCallRounds, and may
+ * contain subagent invocations not present in toolCallRounds. So we
+ * treat the response array as the source of truth for runSubagent data:
+ * remove any runSubagent entries from toolCalls and replace them with
+ * entries built from the response array.
+ */
+function enrichSubagentToolCalls(
+  toolCalls: ToolCallInfo[],
+  rawRequest: unknown,
+): void {
+  const r = rawRequest as Record<string, unknown>;
+  const response = r.response as unknown[] | undefined;
+  if (!Array.isArray(response)) return;
+
+  // Build maps from response entries
+  const subagentParents = new Map<string, string>(); // toolCallId → description
+  const childrenByParent = new Map<string, ToolCallInfo[]>();
+  // Track insertion order for stable output
+  const parentOrder: string[] = [];
+
+  for (const entry of response) {
+    const e = entry as Record<string, unknown>;
+    if (e.kind !== "toolInvocationSerialized") continue;
+
+    const toolCallId = e.toolCallId as string | undefined;
+    const toolId = e.toolId as string | undefined;
+    const parentId = e.subAgentInvocationId as string | undefined;
+
+    // Collect runSubagent parents (take first occurrence per toolCallId)
+    if (toolId === "runSubagent" && toolCallId) {
+      const tsd = e.toolSpecificData as Record<string, unknown> | undefined;
+      if (tsd?.kind === "subagent" && !subagentParents.has(toolCallId)) {
+        subagentParents.set(toolCallId, String(tsd.description ?? ""));
+        parentOrder.push(toolCallId);
+      }
+    }
+
+    // Collect child tool calls grouped by parent subAgentInvocationId
+    if (parentId && toolCallId) {
+      let children = childrenByParent.get(parentId);
+      if (!children) {
+        children = [];
+        childrenByParent.set(parentId, children);
+      }
+      children.push({
+        id: toolCallId,
+        name: String(toolId ?? ""),
+      });
+    }
+  }
+
+  if (subagentParents.size === 0) return;
+
+  // Remove toolCallRounds-based runSubagent entries (IDs don't match)
+  // and find the position of the first one for insertion
+  let insertIndex = toolCalls.findIndex((tc) => tc.name === "runSubagent");
+  if (insertIndex === -1) insertIndex = toolCalls.length;
+
+  const filtered = toolCalls.filter((tc) => tc.name !== "runSubagent");
+  toolCalls.length = 0;
+  toolCalls.push(...filtered);
+
+  // Insert enriched entries from response array at the original position
+  const enriched: ToolCallInfo[] = parentOrder.map((id) => ({
+    id,
+    name: "runSubagent",
+    subagentDescription: subagentParents.get(id),
+    childToolCalls: childrenByParent.get(id) ?? [],
+  }));
+
+  toolCalls.splice(insertIndex, 0, ...enriched);
+}
+
+// --- MCP source extraction ---
+
+/**
+ * Scan a request's response array for toolInvocationSerialized entries
+ * with MCP source metadata. Returns a map of tool name → server label.
+ * The same tool name always belongs to the same MCP server, so we can
+ * match by name rather than by ID.
+ */
+function extractMcpSources(rawRequest: unknown): Map<string, string> {
+  const r = rawRequest as Record<string, unknown>;
+  const response = r.response as unknown[] | undefined;
+  const mcpMap = new Map<string, string>();
+  if (!Array.isArray(response)) return mcpMap;
+
+  for (const entry of response) {
+    const e = entry as Record<string, unknown>;
+    if (e.kind !== "toolInvocationSerialized") continue;
+
+    const source = e.source as Record<string, unknown> | undefined;
+    if (source?.type !== "mcp") continue;
+
+    const toolId = e.toolId as string | undefined;
+    const serverLabel = source.serverLabel as string | undefined;
+    if (toolId && serverLabel && !mcpMap.has(toolId)) {
+      mcpMap.set(toolId, serverLabel);
+    }
+  }
+
+  return mcpMap;
+}
+
+/**
+ * Apply MCP server labels to tool calls and their children.
+ */
+function applyMcpSources(
+  toolCalls: ToolCallInfo[],
+  mcpMap: Map<string, string>,
+): void {
+  if (mcpMap.size === 0) return;
+  for (const tc of toolCalls) {
+    const server = mcpMap.get(tc.name);
+    if (server) {
+      tc.mcpServer = server;
+    }
+    if (tc.childToolCalls) {
+      applyMcpSources(tc.childToolCalls, mcpMap);
+    }
+  }
+}
+
 // --- Shared extraction ---
 
 function extractSession(
@@ -219,6 +349,13 @@ function extractSession(
         });
       }
     }
+
+    // Enrich runSubagent tool calls with metadata from response array
+    enrichSubagentToolCalls(toolCalls, raw);
+
+    // Extract and apply MCP server labels from response array
+    const mcpMap = extractMcpSources(raw);
+    applyMcpSources(toolCalls, mcpMap);
 
     // Extract tool call args from toolCallResults for skill detection
     const toolCallResults = (meta?.toolCallResults ?? {}) as Record<
@@ -271,9 +408,19 @@ function extractSession(
     };
   });
 
+  // Use customTitle if set by Copilot Chat, otherwise fall back to
+  // the first user message (truncated) so sessions aren't just GUIDs.
+  let title = (state.customTitle as string) ?? null;
+  if (!title && requests.length > 0) {
+    const firstMsg = requests[0].messageText.trim();
+    if (firstMsg) {
+      title = firstMsg.length > 80 ? firstMsg.slice(0, 80) + "\u2026" : firstMsg;
+    }
+  }
+
   return {
     sessionId: String(state.sessionId ?? "unknown"),
-    title: (state.customTitle as string) ?? null,
+    title,
     creationDate: (state.creationDate as number) ?? 0,
     requests,
     source,

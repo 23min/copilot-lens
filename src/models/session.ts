@@ -24,6 +24,9 @@ export interface SessionRequest {
 export interface ToolCallInfo {
   id: string;
   name: string;
+  subagentDescription?: string;
+  childToolCalls?: ToolCallInfo[];
+  mcpServer?: string;
 }
 
 export interface SkillRef {
@@ -43,4 +46,7 @@ export interface Session {
   source: string;
   provider: SessionProviderType;
   scope?: SessionScope;
+  matchedWorkspace?: string;
+  /** vscode.env.remoteName at the time of discovery, e.g. "ssh-remote", "dev-container", null for local */
+  environment?: string | null;
 }

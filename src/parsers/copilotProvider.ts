@@ -18,23 +18,35 @@ async function readSessionsFromDir(dir: string): Promise<Session[]> {
   try {
     entries = await fs.readdir(dir);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    getLogger().warn(`  Cannot read session dir "${dir}": ${msg}`);
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") {
+      getLogger().debug(`  Session dir not found: "${dir}"`);
+    } else {
+      const msg = err instanceof Error ? err.message : String(err);
+      getLogger().warn(`  Cannot read session dir "${dir}": ${msg}`);
+    }
     return [];
   }
 
   const sessions: Session[] = [];
+  let emptyCount = 0;
   for (const entry of entries) {
     if (!entry.endsWith(".jsonl") && !entry.endsWith(".json")) continue;
     const filePath = path.join(dir, entry);
     try {
       const content = await fs.readFile(filePath, "utf-8");
       const session = parseSessionJsonl(content);
+      if (session.requests.length === 0) {
+        emptyCount++;
+      }
       sessions.push(session);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       getLogger().warn(`  Skipping session file "${filePath}": ${msg}`);
     }
+  }
+  if (emptyCount > 0) {
+    getLogger().debug(`  Found ${sessions.length} session(s), ${emptyCount} empty (no requests)`);
   }
   return sessions;
 }
@@ -84,7 +96,7 @@ async function scanWorkspaceStorageRoot(
     return [];
   }
 
-  log.info(`  Scanning ${hashDirs.length} hash dir(s) for workspace "${targetName}"`);
+  log.debug(`  Scanning ${hashDirs.length} hash dir(s) for workspace "${targetName}"`);
   const dirs: string[] = [];
   for (const entry of hashDirs) {
     const candidateDir = path.join(workspaceStorageRoot, entry);
@@ -144,7 +156,7 @@ export class CopilotSessionProvider implements SessionProvider {
     const log = getLogger();
     const { extensionContext } = ctx;
     const ourName = await getWorkspaceFolderName(extensionContext);
-    log.info(`Copilot session discovery: workspace name = "${ourName ?? "(unknown)"}"`);
+    log.debug(`Copilot session discovery: workspace name = "${ourName ?? "(unknown)"}"`);
 
     // 1. Check user-configured sessionDir first (for devcontainers with mounts)
     const configDir = vscode.workspace
@@ -152,10 +164,10 @@ export class CopilotSessionProvider implements SessionProvider {
       .get<string>("sessionDir");
 
     if (configDir) {
-      log.info(`Copilot strategy 1: user-configured sessionDir = "${configDir}"`);
+      log.debug(`Copilot strategy 1: user-configured sessionDir = "${configDir}"`);
       const direct = await readSessionsFromDir(configDir);
       if (direct.length > 0) {
-        log.info(`  Found ${direct.length} session(s) directly`);
+        log.debug(`  Found ${direct.length} session(s) directly`);
         return direct;
       }
 
@@ -165,41 +177,41 @@ export class CopilotSessionProvider implements SessionProvider {
         );
         if (scanned.length > 0) {
           for (const s of scanned) s.scope = "fallback";
-          log.info(`  Found ${scanned.length} session(s) via storage root scan`);
+          log.debug(`  Found ${scanned.length} session(s) via storage root scan`);
           return scanned;
         }
       }
-      log.info("  No sessions found via configured dir");
+      log.debug("  No sessions found via configured dir");
     }
 
     // 2. Try primary location (current workspace hash)
     const primaryDir = getChatSessionsDir(extensionContext);
     if (primaryDir) {
-      log.info(`Copilot strategy 2: primary dir = "${primaryDir}"`);
+      log.debug(`Copilot strategy 2: primary dir = "${primaryDir}"`);
       const primary = await readSessionsFromDir(primaryDir);
       if (primary.length > 0) {
-        log.info(`  Found ${primary.length} session(s)`);
+        log.debug(`  Found ${primary.length} session(s)`);
         return primary;
       }
-      log.info("  No sessions found in primary dir");
+      log.debug("  No sessions found in primary dir");
     } else {
-      log.info("Copilot strategy 2: skipped (no storageUri)");
+      log.debug("Copilot strategy 2: skipped (no storageUri)");
     }
 
     // 3. Fallback: scan sibling hash directories for the same workspace
     if (ourName && extensionContext.storageUri) {
       const hashDir = path.dirname(extensionContext.storageUri.fsPath);
       const storageRoot = path.dirname(hashDir);
-      log.info(`Copilot strategy 3: scanning sibling dirs under "${storageRoot}"`);
+      log.debug(`Copilot strategy 3: scanning sibling dirs under "${storageRoot}"`);
       const result = await collectFromDirs(
         await scanWorkspaceStorageRoot(storageRoot, ourName),
       );
       for (const s of result) s.scope = "fallback";
-      log.info(`  Found ${result.length} session(s) via sibling scan`);
+      log.debug(`  Found ${result.length} session(s) via sibling scan`);
       return result;
     }
 
-    log.info("Copilot: no sessions found");
+    log.debug("Copilot: no sessions found");
     return [];
   }
 

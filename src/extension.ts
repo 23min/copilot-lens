@@ -32,7 +32,7 @@ async function refresh(
 ): Promise<void> {
   const log = getLogger();
   const start = Date.now();
-  log.info("Refresh started");
+  log.debug("Refresh started");
 
   try {
     const [agents, skills, sessions] = await Promise.all([
@@ -43,6 +43,12 @@ async function refresh(
     cachedAgents = agents;
     cachedSkills = skills;
     cachedSessions = sessions;
+
+    // Tag every session with the current environment so the UI can badge them
+    const environment = vscode.env.remoteName ?? null;
+    for (const s of cachedSessions) {
+      s.environment = environment;
+    }
 
     // Detect remote/container context with no sessions
     const isRemote = !!vscode.env.remoteName;
@@ -65,8 +71,9 @@ async function refresh(
     SessionPanel.updateIfOpen(sessions);
 
     const elapsed = Date.now() - start;
+    const nonEmpty = sessions.filter((s) => s.requests.length > 0).length;
     log.info(
-      `Refresh complete in ${elapsed}ms — ${agents.length} agents, ${skills.length} skills, ${sessions.length} sessions`,
+      `Refresh complete in ${elapsed}ms — ${agents.length} agents, ${skills.length} skills, ${sessions.length} sessions (${nonEmpty} non-empty)`,
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

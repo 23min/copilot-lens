@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.0.15] - 2026-02-18
+
+### Added
+- Copilot `runSubagent` tool call detection: parses `toolInvocationSerialized` entries from the response array to extract subagent descriptions and child tool calls (closes #28)
+- Subagent child tools now counted in Metrics Dashboard tool usage (previously invisible)
+- Session Explorer shows subagent tool calls with description and summarized child tool list
+- MCP tool call detection: parses `source` field from response array to identify MCP server origin per tool call (closes #32)
+- MCP server badges on tool tags in Session Explorer (blue-tinted with server name)
+- MCP tool calls grouped by server in Session Explorer detail view
+- MCP Servers bar chart in Metrics Dashboard (shown only when MCP data exists)
+- Environment badge in Session Explorer: sessions recorded via SSH Remote, Dev Container, or WSL show a subtle `SSH` / `container` / `WSL` badge alongside the provider badge
+- `Session.environment` field propagated from `vscode.env.remoteName` at discovery time
+- Diagnostic report (`Agent Lens: Diagnose Session Discovery`) now shows `X session file(s), Y non-empty` for each Copilot strategy — makes it immediately obvious when VS Code has lazy-written empty files
+- Refresh summary log now includes `(N non-empty)` session count
+
+### Changed
+- Copilot sessions without a `customTitle` now show the first user message as the title (truncated to 80 chars) instead of the raw GUID
+- Reduced output channel noise: demoted per-file discovery and strategy-level logs from `info` to `debug` — only activation and refresh summary remain at `info`
+- Missing session directories (ENOENT) now log at `debug` instead of `warn`
+- `logger.ts`: debug output suppressed by default; enable with `AGENT_LENS_LOG_LEVEL=debug` or `AGENT_LENS_DEBUG=1`
+
 ## [0.0.14] - 2026-02-16
 
 ### Added

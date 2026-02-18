@@ -319,6 +319,46 @@ describe("collectMetrics", () => {
     expect(mainAgent?.count).toBe(1);
   });
 
+  it("counts subagent child tool calls in tool usage", () => {
+    const sessions = [
+      makeSession({
+        requests: [
+          {
+            requestId: "r1",
+            timestamp: Date.now(),
+            agentId: "github.copilot.editsAgent",
+            customAgentName: null,
+            modelId: "copilot/gpt-5",
+            messageText: "analyze",
+            timings: { firstProgress: null, totalElapsed: null },
+            usage: { promptTokens: 2000, completionTokens: 500 },
+            toolCalls: [
+              {
+                id: "sa-1",
+                name: "runSubagent",
+                subagentDescription: "Read files",
+                childToolCalls: [
+                  { id: "c1", name: "copilot_readFile" },
+                  { id: "c2", name: "copilot_readFile" },
+                  { id: "c3", name: "copilot_listDirectory" },
+                ],
+              },
+              { id: "tc-1", name: "read_file" },
+            ],
+            availableSkills: [],
+            loadedSkills: [],
+          },
+        ],
+      }),
+    ];
+
+    const metrics = collectMetrics(sessions, [], []);
+    expect(metrics.toolUsage.find((t) => t.name === "runSubagent")?.count).toBe(1);
+    expect(metrics.toolUsage.find((t) => t.name === "copilot_readFile")?.count).toBe(2);
+    expect(metrics.toolUsage.find((t) => t.name === "copilot_listDirectory")?.count).toBe(1);
+    expect(metrics.toolUsage.find((t) => t.name === "read_file")?.count).toBe(1);
+  });
+
   it("includes subagent tokens in totals", () => {
     const sessions = [
       makeSession({
@@ -365,5 +405,81 @@ describe("collectMetrics", () => {
     expect(metrics.cacheTokens.read).toBe(5000);
     expect(metrics.cacheTokens.creation).toBe(1000);
     expect(metrics.toolUsage.find((t) => t.name === "Bash")?.count).toBe(1);
+  });
+
+  it("aggregates MCP server usage", () => {
+    const sessions = [
+      makeSession({
+        requests: [
+          {
+            requestId: "r1",
+            timestamp: Date.now(),
+            agentId: "github.copilot.editsAgent",
+            customAgentName: null,
+            modelId: "copilot/gpt-5",
+            messageText: "search",
+            timings: { firstProgress: null, totalElapsed: null },
+            usage: { promptTokens: 100, completionTokens: 50 },
+            toolCalls: [
+              { id: "t1", name: "mcp_serena_search", mcpServer: "FastMCP" },
+              { id: "t2", name: "mcp_serena_find", mcpServer: "FastMCP" },
+              { id: "t3", name: "read_file" },
+              { id: "t4", name: "mcp_ado_get_item", mcpServer: "Azure DevOps" },
+            ],
+            availableSkills: [],
+            loadedSkills: [],
+          },
+        ],
+      }),
+    ];
+
+    const metrics = collectMetrics(sessions, [], []);
+    const fastmcp = metrics.mcpServerUsage.find((s) => s.name === "FastMCP");
+    const ado = metrics.mcpServerUsage.find((s) => s.name === "Azure DevOps");
+
+    expect(fastmcp?.count).toBe(2);
+    expect(ado?.count).toBe(1);
+    expect(metrics.mcpServerUsage).toHaveLength(2);
+  });
+
+  it("counts MCP tools in subagent children", () => {
+    const sessions = [
+      makeSession({
+        requests: [
+          {
+            requestId: "r1",
+            timestamp: Date.now(),
+            agentId: "github.copilot.editsAgent",
+            customAgentName: null,
+            modelId: "copilot/gpt-5",
+            messageText: "analyze",
+            timings: { firstProgress: null, totalElapsed: null },
+            usage: { promptTokens: 100, completionTokens: 50 },
+            toolCalls: [
+              {
+                id: "sa-1",
+                name: "runSubagent",
+                childToolCalls: [
+                  { id: "c1", name: "mcp_serena_search", mcpServer: "FastMCP" },
+                  { id: "c2", name: "copilot_readFile" },
+                ],
+              },
+            ],
+            availableSkills: [],
+            loadedSkills: [],
+          },
+        ],
+      }),
+    ];
+
+    const metrics = collectMetrics(sessions, [], []);
+    expect(metrics.mcpServerUsage).toHaveLength(1);
+    expect(metrics.mcpServerUsage[0].name).toBe("FastMCP");
+    expect(metrics.mcpServerUsage[0].count).toBe(1);
+  });
+
+  it("mcpServerUsage is empty when no MCP tools", () => {
+    const metrics = collectMetrics(SESSIONS, [], []);
+    expect(metrics.mcpServerUsage).toEqual([]);
   });
 });

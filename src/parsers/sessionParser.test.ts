@@ -123,6 +123,57 @@ describe("parseSessionJsonl", () => {
     expect(session.requests).toEqual([]);
   });
 
+  it("falls back to first user message as title when customTitle is absent", () => {
+    const lines = [
+      JSON.stringify({
+        kind: 0,
+        v: { sessionId: "no-title", creationDate: 0, requests: [] },
+      }),
+      JSON.stringify({
+        kind: 2,
+        k: ["requests"],
+        v: [
+          {
+            requestId: "req-1",
+            timestamp: 0,
+            agent: { id: "github.copilot.editsAgent" },
+            modelId: "m1",
+            message: { text: "Help me fix the login bug" },
+          },
+        ],
+      }),
+    ].join("\n");
+
+    const session = parseSessionJsonl(lines);
+    expect(session.title).toBe("Help me fix the login bug");
+  });
+
+  it("truncates long fallback titles to 80 chars", () => {
+    const longMsg = "A".repeat(120);
+    const lines = [
+      JSON.stringify({
+        kind: 0,
+        v: { sessionId: "long-title", creationDate: 0, requests: [] },
+      }),
+      JSON.stringify({
+        kind: 2,
+        k: ["requests"],
+        v: [
+          {
+            requestId: "req-1",
+            timestamp: 0,
+            agent: { id: "agent" },
+            modelId: "m1",
+            message: { text: longMsg },
+          },
+        ],
+      }),
+    ].join("\n");
+
+    const session = parseSessionJsonl(lines);
+    expect(session.title).toBe("A".repeat(80) + "\u2026");
+  });
+
   it("detects custom agent from inputState.mode in initial state", () => {
     const lines = [
       JSON.stringify({
@@ -245,6 +296,490 @@ describe("parseSessionJsonl", () => {
     // renderedUserMessage with modeInstructions — should still detect "Planner"
     const session = parseSessionJsonl(JSONL_FIXTURE);
     expect(session.requests[0].customAgentName).toBe("Planner");
+  });
+});
+
+// --- runSubagent fixtures ---
+
+const SUBAGENT_FIXTURE = [
+  JSON.stringify({
+    kind: 0,
+    v: {
+      sessionId: "subagent-session",
+      creationDate: 1770929049693,
+      requests: [],
+    },
+  }),
+  // Append a request with runSubagent in toolCallRounds
+  JSON.stringify({
+    kind: 2,
+    k: ["requests"],
+    v: [
+      {
+        requestId: "req-1",
+        timestamp: 1770929089337,
+        agent: { id: "github.copilot.editsAgent" },
+        modelId: "copilot/gpt-5",
+        message: { text: "Analyze the agent files" },
+        response: [
+          // runSubagent parent (first appearance — no result yet)
+          {
+            kind: "toolInvocationSerialized",
+            invocationMessage: "Read all .github agent files",
+            isConfirmed: { type: 1 },
+            isComplete: true,
+            source: { type: "internal", label: "Built-In" },
+            toolSpecificData: {
+              kind: "subagent",
+              description: "Read all .github agent files",
+              prompt: "Read ALL files in the .github/agents directory",
+            },
+            toolCallId: "sa-1",
+            toolId: "runSubagent",
+          },
+          // Child tool calls
+          {
+            kind: "toolInvocationSerialized",
+            invocationMessage: { value: "Listing directory" },
+            isConfirmed: { type: 1 },
+            isComplete: true,
+            source: { type: "internal", label: "Built-In" },
+            toolCallId: "child-1",
+            toolId: "copilot_listDirectory",
+            subAgentInvocationId: "sa-1",
+          },
+          {
+            kind: "toolInvocationSerialized",
+            invocationMessage: { value: "Reading file" },
+            isConfirmed: { type: 1 },
+            isComplete: true,
+            source: { type: "internal", label: "Built-In" },
+            toolCallId: "child-2",
+            toolId: "copilot_readFile",
+            subAgentInvocationId: "sa-1",
+          },
+          {
+            kind: "toolInvocationSerialized",
+            invocationMessage: { value: "Reading file" },
+            isConfirmed: { type: 1 },
+            isComplete: true,
+            source: { type: "internal", label: "Built-In" },
+            toolCallId: "child-3",
+            toolId: "copilot_readFile",
+            subAgentInvocationId: "sa-1",
+          },
+          // runSubagent parent (second appearance — with result)
+          {
+            kind: "toolInvocationSerialized",
+            invocationMessage: "Read all .github agent files",
+            isConfirmed: { type: 1 },
+            isComplete: true,
+            source: { type: "internal", label: "Built-In" },
+            toolSpecificData: {
+              kind: "subagent",
+              description: "Read all .github agent files",
+              prompt: "Read ALL files in the .github/agents directory",
+              result: "Found 3 agent files...",
+            },
+            toolCallId: "sa-1",
+            toolId: "runSubagent",
+          },
+        ],
+      },
+    ],
+  }),
+  // Add toolCallRounds with runSubagent
+  JSON.stringify({
+    kind: 1,
+    k: ["requests", 0, "result"],
+    v: {
+      timings: { firstProgress: 500, totalElapsed: 8000 },
+      metadata: {
+        toolCallRounds: [
+          {
+            toolCalls: [
+              { id: "sa-1", name: "runSubagent" },
+            ],
+          },
+        ],
+      },
+      usage: { promptTokens: 2000, completionTokens: 500 },
+    },
+  }),
+].join("\n");
+
+const MULTI_SUBAGENT_FIXTURE = [
+  JSON.stringify({
+    kind: 0,
+    v: {
+      sessionId: "multi-subagent-session",
+      creationDate: 1770929049693,
+      requests: [],
+    },
+  }),
+  JSON.stringify({
+    kind: 2,
+    k: ["requests"],
+    v: [
+      {
+        requestId: "req-1",
+        timestamp: 1770929089337,
+        agent: { id: "github.copilot.editsAgent" },
+        modelId: "copilot/gpt-5",
+        message: { text: "Full analysis" },
+        response: [
+          // First subagent
+          {
+            kind: "toolInvocationSerialized",
+            invocationMessage: "Read agent files",
+            toolSpecificData: { kind: "subagent", description: "Read agent files" },
+            toolCallId: "sa-1",
+            toolId: "runSubagent",
+          },
+          {
+            kind: "toolInvocationSerialized",
+            toolCallId: "child-1a",
+            toolId: "copilot_readFile",
+            subAgentInvocationId: "sa-1",
+          },
+          // Second subagent
+          {
+            kind: "toolInvocationSerialized",
+            invocationMessage: "Read skill files",
+            toolSpecificData: { kind: "subagent", description: "Read skill files" },
+            toolCallId: "sa-2",
+            toolId: "runSubagent",
+          },
+          {
+            kind: "toolInvocationSerialized",
+            toolCallId: "child-2a",
+            toolId: "copilot_listDirectory",
+            subAgentInvocationId: "sa-2",
+          },
+          {
+            kind: "toolInvocationSerialized",
+            toolCallId: "child-2b",
+            toolId: "copilot_readFile",
+            subAgentInvocationId: "sa-2",
+          },
+        ],
+      },
+    ],
+  }),
+  JSON.stringify({
+    kind: 1,
+    k: ["requests", 0, "result"],
+    v: {
+      timings: { firstProgress: 500, totalElapsed: 12000 },
+      metadata: {
+        toolCallRounds: [
+          {
+            toolCalls: [
+              { id: "sa-1", name: "runSubagent" },
+              { id: "sa-2", name: "runSubagent" },
+            ],
+          },
+        ],
+      },
+      usage: { promptTokens: 3000, completionTokens: 800 },
+    },
+  }),
+].join("\n");
+
+describe("parseSessionJsonl — runSubagent", () => {
+  it("extracts runSubagent with child tool calls", () => {
+    const session = parseSessionJsonl(SUBAGENT_FIXTURE);
+    const req = session.requests[0];
+
+    expect(req.toolCalls).toHaveLength(1);
+    const sa = req.toolCalls[0];
+    expect(sa.name).toBe("runSubagent");
+    expect(sa.id).toBe("sa-1");
+    expect(sa.childToolCalls).toHaveLength(3);
+    expect(sa.childToolCalls![0].name).toBe("copilot_listDirectory");
+    expect(sa.childToolCalls![1].name).toBe("copilot_readFile");
+    expect(sa.childToolCalls![2].name).toBe("copilot_readFile");
+  });
+
+  it("sets subagentDescription from response metadata", () => {
+    const session = parseSessionJsonl(SUBAGENT_FIXTURE);
+    const sa = session.requests[0].toolCalls[0];
+
+    expect(sa.subagentDescription).toBe("Read all .github agent files");
+  });
+
+  it("groups child tool calls by subAgentInvocationId", () => {
+    const session = parseSessionJsonl(MULTI_SUBAGENT_FIXTURE);
+    const req = session.requests[0];
+
+    expect(req.toolCalls).toHaveLength(2);
+    expect(req.toolCalls[0].childToolCalls).toHaveLength(1);
+    expect(req.toolCalls[0].subagentDescription).toBe("Read agent files");
+    expect(req.toolCalls[1].childToolCalls).toHaveLength(2);
+    expect(req.toolCalls[1].subagentDescription).toBe("Read skill files");
+  });
+
+  it("handles runSubagent with no children gracefully", () => {
+    const fixture = [
+      JSON.stringify({
+        kind: 0,
+        v: { sessionId: "no-children", creationDate: 0, requests: [] },
+      }),
+      JSON.stringify({
+        kind: 2,
+        k: ["requests"],
+        v: [
+          {
+            requestId: "req-1",
+            timestamp: 0,
+            agent: { id: "github.copilot.editsAgent" },
+            modelId: "m1",
+            message: { text: "test" },
+            response: [
+              {
+                kind: "toolInvocationSerialized",
+                invocationMessage: "Quick check",
+                toolSpecificData: { kind: "subagent", description: "Quick check" },
+                toolCallId: "sa-lone",
+                toolId: "runSubagent",
+              },
+            ],
+          },
+        ],
+      }),
+      JSON.stringify({
+        kind: 1,
+        k: ["requests", 0, "result"],
+        v: {
+          metadata: {
+            toolCallRounds: [
+              { toolCalls: [{ id: "sa-lone", name: "runSubagent" }] },
+            ],
+          },
+          usage: { promptTokens: 100, completionTokens: 50 },
+        },
+      }),
+    ].join("\n");
+
+    const session = parseSessionJsonl(fixture);
+    const sa = session.requests[0].toolCalls[0];
+    expect(sa.name).toBe("runSubagent");
+    expect(sa.subagentDescription).toBe("Quick check");
+    expect(sa.childToolCalls).toEqual([]);
+  });
+});
+
+// --- MCP tool fixtures ---
+
+const MCP_FIXTURE = [
+  JSON.stringify({
+    kind: 0,
+    v: {
+      sessionId: "mcp-session",
+      creationDate: 1770929049693,
+      requests: [],
+    },
+  }),
+  JSON.stringify({
+    kind: 2,
+    k: ["requests"],
+    v: [
+      {
+        requestId: "req-1",
+        timestamp: 1770929089337,
+        agent: { id: "github.copilot.editsAgent" },
+        modelId: "copilot/gpt-5",
+        message: { text: "Search for pattern" },
+        response: [
+          // MCP tool from Serena
+          {
+            kind: "toolInvocationSerialized",
+            toolCallId: "tc-1",
+            toolId: "mcp_serena_search_for_pattern",
+            source: {
+              type: "mcp",
+              serverLabel: "FastMCP",
+              label: "serena",
+              collectionId: "mcp.config.ws0",
+              definitionId: "mcp.config.ws0.serena",
+            },
+          },
+          // Another Serena tool
+          {
+            kind: "toolInvocationSerialized",
+            toolCallId: "tc-2",
+            toolId: "mcp_serena_find_symbol",
+            source: {
+              type: "mcp",
+              serverLabel: "FastMCP",
+              label: "serena",
+              collectionId: "mcp.config.ws0",
+              definitionId: "mcp.config.ws0.serena",
+            },
+          },
+          // Built-in tool
+          {
+            kind: "toolInvocationSerialized",
+            toolCallId: "tc-3",
+            toolId: "read_file",
+            source: {
+              type: "internal",
+              label: "Built-In",
+            },
+          },
+          // MCP tool from GitKraken
+          {
+            kind: "toolInvocationSerialized",
+            toolCallId: "tc-4",
+            toolId: "mcp_gitkraken_bun_git_status",
+            source: {
+              type: "mcp",
+              serverLabel: "GitKraken CLI",
+              label: "GitKraken (bundled with GitLens)",
+              collectionId: "eamodio.gitlens/gkMcpProvider",
+              definitionId: "eamodio.gitlens/GitKraken",
+            },
+          },
+        ],
+      },
+    ],
+  }),
+  JSON.stringify({
+    kind: 1,
+    k: ["requests", 0, "result"],
+    v: {
+      timings: { firstProgress: 500, totalElapsed: 3000 },
+      metadata: {
+        toolCallRounds: [
+          {
+            toolCalls: [
+              { id: "round-tc-1", name: "mcp_serena_search_for_pattern" },
+              { id: "round-tc-2", name: "mcp_serena_find_symbol" },
+              { id: "round-tc-3", name: "read_file" },
+              { id: "round-tc-4", name: "mcp_gitkraken_bun_git_status" },
+            ],
+          },
+        ],
+      },
+      usage: { promptTokens: 2000, completionTokens: 500 },
+    },
+  }),
+].join("\n");
+
+const MCP_SUBAGENT_FIXTURE = [
+  JSON.stringify({
+    kind: 0,
+    v: {
+      sessionId: "mcp-subagent-session",
+      creationDate: 1770929049693,
+      requests: [],
+    },
+  }),
+  JSON.stringify({
+    kind: 2,
+    k: ["requests"],
+    v: [
+      {
+        requestId: "req-1",
+        timestamp: 1770929089337,
+        agent: { id: "github.copilot.editsAgent" },
+        modelId: "copilot/gpt-5",
+        message: { text: "Analyze with subagent" },
+        response: [
+          // runSubagent parent
+          {
+            kind: "toolInvocationSerialized",
+            toolCallId: "sa-1",
+            toolId: "runSubagent",
+            toolSpecificData: { kind: "subagent", description: "Search code" },
+          },
+          // MCP child tool inside subagent
+          {
+            kind: "toolInvocationSerialized",
+            toolCallId: "child-1",
+            toolId: "mcp_serena_search_for_pattern",
+            subAgentInvocationId: "sa-1",
+            source: {
+              type: "mcp",
+              serverLabel: "FastMCP",
+              label: "serena",
+            },
+          },
+          // Built-in child tool inside subagent
+          {
+            kind: "toolInvocationSerialized",
+            toolCallId: "child-2",
+            toolId: "copilot_readFile",
+            subAgentInvocationId: "sa-1",
+            source: {
+              type: "internal",
+              label: "Built-In",
+            },
+          },
+        ],
+      },
+    ],
+  }),
+  JSON.stringify({
+    kind: 1,
+    k: ["requests", 0, "result"],
+    v: {
+      metadata: {
+        toolCallRounds: [
+          { toolCalls: [{ id: "round-sa-1", name: "runSubagent" }] },
+        ],
+      },
+      usage: { promptTokens: 1000, completionTokens: 200 },
+    },
+  }),
+].join("\n");
+
+describe("parseSessionJsonl — MCP tools", () => {
+  it("extracts mcpServer from response source field", () => {
+    const session = parseSessionJsonl(MCP_FIXTURE);
+    const req = session.requests[0];
+    const serena = req.toolCalls.find(
+      (t) => t.name === "mcp_serena_search_for_pattern",
+    );
+    expect(serena?.mcpServer).toBe("FastMCP");
+  });
+
+  it("sets mcpServer on all matching tools by name", () => {
+    const session = parseSessionJsonl(MCP_FIXTURE);
+    const req = session.requests[0];
+    const gitkraken = req.toolCalls.find(
+      (t) => t.name === "mcp_gitkraken_bun_git_status",
+    );
+    expect(gitkraken?.mcpServer).toBe("GitKraken CLI");
+
+    const findSymbol = req.toolCalls.find(
+      (t) => t.name === "mcp_serena_find_symbol",
+    );
+    expect(findSymbol?.mcpServer).toBe("FastMCP");
+  });
+
+  it("does not set mcpServer on built-in tools", () => {
+    const session = parseSessionJsonl(MCP_FIXTURE);
+    const req = session.requests[0];
+    const readFile = req.toolCalls.find((t) => t.name === "read_file");
+    expect(readFile?.mcpServer).toBeUndefined();
+  });
+
+  it("sets mcpServer on subagent child tool calls", () => {
+    const session = parseSessionJsonl(MCP_SUBAGENT_FIXTURE);
+    const req = session.requests[0];
+    const sa = req.toolCalls.find((t) => t.name === "runSubagent");
+    expect(sa?.childToolCalls).toHaveLength(2);
+
+    const mcpChild = sa!.childToolCalls!.find(
+      (c) => c.name === "mcp_serena_search_for_pattern",
+    );
+    expect(mcpChild?.mcpServer).toBe("FastMCP");
+
+    const builtinChild = sa!.childToolCalls!.find(
+      (c) => c.name === "copilot_readFile",
+    );
+    expect(builtinChild?.mcpServer).toBeUndefined();
   });
 });
 

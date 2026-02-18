@@ -14,6 +14,9 @@ type SourceFilter = "all" | "copilot" | "claude" | "codex";
 interface ToolCallInfo {
   id: string;
   name: string;
+  subagentDescription?: string;
+  childToolCalls?: ToolCallInfo[];
+  mcpServer?: string;
 }
 
 interface SkillRef {
@@ -49,6 +52,8 @@ interface Session {
   source: string;
   provider: "copilot" | "claude" | "codex";
   scope?: "workspace" | "fallback";
+  matchedWorkspace?: string;
+  environment?: string | null;
 }
 
 @customElement("session-explorer")
@@ -204,6 +209,40 @@ class SessionExplorer extends LitElement {
       border-radius: 3px;
       font-size: 10px;
     }
+    .tool-tag.subagent-call {
+      background: rgba(138, 171, 127, 0.25);
+      color: #8aab7f;
+    }
+    .tool-tag.mcp-tool {
+      background: rgba(130, 170, 196, 0.25);
+      color: #82aac4;
+    }
+    .mcp-server-badge {
+      font-size: 9px;
+      opacity: 0.7;
+      margin-left: 2px;
+    }
+    .subagent-detail {
+      margin-top: 4px;
+      padding: 8px;
+      background: rgba(138, 171, 127, 0.08);
+      border-left: 2px solid #8aab7f;
+      border-radius: 0 4px 4px 0;
+    }
+    .subagent-detail .subagent-desc {
+      font-size: 12px;
+      color: #8aab7f;
+      margin-bottom: 4px;
+    }
+    .subagent-detail .child-tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+    }
+    .subagent-detail .child-tool {
+      font-size: 10px;
+      opacity: 0.7;
+    }
     .entry-stats {
       display: flex;
       gap: 12px;
@@ -321,17 +360,15 @@ class SessionExplorer extends LitElement {
       background: rgba(138, 171, 127, 0.15);
       color: #8aab7f;
     }
-    .scope-badge {
+    .env-badge {
       font-size: 9px;
       padding: 1px 5px;
       border-radius: 3px;
       font-weight: 500;
       margin-right: 6px;
       flex-shrink: 0;
-    }
-    .scope-badge.fallback {
-      background: rgba(201, 184, 124, 0.15);
-      color: #c9b87c;
+      background: rgba(160, 160, 160, 0.1);
+      color: var(--vscode-descriptionForeground, #8b8b8b);
     }
   `;
 
@@ -386,6 +423,127 @@ class SessionExplorer extends LitElement {
     return new Date(ts).toLocaleString();
   }
 
+  private safeDecode(value: string): string {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  }
+
+  private summarizeWorkspaceMatch(workspaceUri?: string): string {
+    if (!workspaceUri) return "workspace match";
+
+    if (workspaceUri.startsWith("file://")) {
+      const pathValue = this.safeDecode(workspaceUri.slice("file://".length));
+      const cleaned = pathValue.replace(/\/+$/, "");
+      const idx = cleaned.lastIndexOf("/");
+      return idx >= 0 ? cleaned.slice(idx + 1) : cleaned;
+    }
+
+    if (workspaceUri.startsWith("vscode-remote://")) {
+      const decoded = this.safeDecode(workspaceUri);
+      const sshPrefix = "vscode-remote://ssh-remote+";
+      if (decoded.startsWith(sshPrefix)) {
+        const rest = decoded.slice(sshPrefix.length);
+        const slash = rest.indexOf("/");
+        return slash >= 0 ? `ssh:${rest.slice(0, slash)}` : `ssh:${rest}`;
+      }
+      if (decoded.includes("dev-container")) {
+        return "dev-container";
+      }
+      return "remote workspace";
+    }
+
+    const cleaned = workspaceUri.replace(/\/+$/, "");
+    const idx = cleaned.lastIndexOf("/");
+    return idx >= 0 ? cleaned.slice(idx + 1) : cleaned;
+  }
+
+  private renderEnvBadge(session: Session) {
+    const env = session.environment;
+    if (!env) return null;
+
+    let label = env;
+    if (env === "ssh-remote") label = "SSH";
+    else if (env === "dev-container") label = "container";
+    else if (env === "wsl") label = "WSL";
+
+    return html`<span class="env-badge" title="Recorded in: ${env}">${label}</span>`;
+  }
+
+  private workspaceMatchIcon(workspaceUri?: string): string {
+    if (!workspaceUri) return "◌";
+    if (workspaceUri.startsWith("file://")) return "⌂";
+
+    if (workspaceUri.startsWith("vscode-remote://")) {
+      const decoded = this.safeDecode(workspaceUri);
+      if (decoded.startsWith("vscode-remote://ssh-remote+")) return "⇄";
+      if (decoded.includes("dev-container")) return "⬢";
+      return "☁";
+    }
+
+    return "◌";
+  }
+
+  private summarizeChildTools(children: ToolCallInfo[]): [string, number][] {
+    const counts = new Map<string, number>();
+    for (const c of children) {
+      counts.set(c.name, (counts.get(c.name) ?? 0) + 1);
+    }
+    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+  }
+
+  private renderDetailToolCalls(toolCalls: ToolCallInfo[]) {
+    // Group tools: subagents first, then by MCP server, then built-in
+    const subagents = toolCalls.filter(
+      (tc) => tc.childToolCalls && tc.childToolCalls.length > 0,
+    );
+    const mcpByServer = new Map<string, ToolCallInfo[]>();
+    const builtIn: ToolCallInfo[] = [];
+
+    for (const tc of toolCalls) {
+      if (tc.childToolCalls && tc.childToolCalls.length > 0) continue;
+      if (tc.mcpServer) {
+        let list = mcpByServer.get(tc.mcpServer);
+        if (!list) {
+          list = [];
+          mcpByServer.set(tc.mcpServer, list);
+        }
+        list.push(tc);
+      } else {
+        builtIn.push(tc);
+      }
+    }
+
+    return html`
+      ${subagents.map(
+        (tc) => html`
+          <div class="detail-text">${tc.name}</div>
+          <div class="subagent-detail">
+            ${tc.subagentDescription
+              ? html`<div class="subagent-desc">${tc.subagentDescription}</div>`
+              : null}
+            <div class="child-tools">
+              ${this.summarizeChildTools(tc.childToolCalls!).map(
+                ([name, count]) => html`
+                  <span class="tool-tag child-tool">${name}${count > 1 ? ` x${count}` : ""}</span>
+                `,
+              )}
+            </div>
+          </div>
+        `,
+      )}
+      ${Array.from(mcpByServer.entries()).map(
+        ([server, tools]) => html`
+          <div class="detail-text" style="margin-top: 4px; color: #82aac4; font-size: 11px;">MCP: ${server}</div>
+          ${tools.map((tc) => html`<div class="detail-text" style="padding-left: 12px;">${tc.name}</div>`)}
+        `,
+      )}
+      ${builtIn.map((tc) => html`<div class="detail-text">${tc.name}</div>`)}
+    `;
+  }
+
   private formatDuration(ms: number | null): string {
     if (ms === null) return "-";
     if (ms < 1000) return `${ms}ms`;
@@ -437,9 +595,7 @@ class SessionExplorer extends LitElement {
                     <span class="provider-badge ${session.provider}">
                       ${session.provider === "copilot" ? "Copilot" : session.provider === "claude" ? "Claude" : "Codex"}
                     </span>
-                    ${session.scope === "fallback"
-                      ? html`<span class="scope-badge fallback">similar workspace</span>`
-                      : null}
+                    ${this.renderEnvBadge(session)}
                     <span class="session-title">
                       ${session.title ?? session.sessionId}
                     </span>
@@ -520,7 +676,11 @@ class SessionExplorer extends LitElement {
                     <div class="entry-tools">
                       ${req.toolCalls.map(
                         (tc) =>
-                          html`<span class="tool-tag">${tc.name}</span>`,
+                          tc.childToolCalls && tc.childToolCalls.length > 0
+                            ? html`<span class="tool-tag subagent-call">${tc.name} (${tc.childToolCalls.length} tools)</span>`
+                            : tc.mcpServer
+                              ? html`<span class="tool-tag mcp-tool">${tc.name}<span class="mcp-server-badge">(${tc.mcpServer})</span></span>`
+                              : html`<span class="tool-tag">${tc.name}</span>`,
                       )}
                     </div>
                   `
@@ -553,9 +713,7 @@ class SessionExplorer extends LitElement {
           ? html`
               <div class="detail-section">
                 <h3>Tool Calls (${req.toolCalls.length})</h3>
-                ${req.toolCalls.map(
-                  (tc) => html`<div class="detail-text">${tc.name}</div>`,
-                )}
+                ${this.renderDetailToolCalls(req.toolCalls)}
               </div>
             `
           : null}

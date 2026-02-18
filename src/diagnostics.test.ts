@@ -66,6 +66,7 @@ describe("collectDiagnostics", () => {
     it("reports configDir when set and accessible", async () => {
       mockAccess.mockResolvedValue(undefined);
       mockReaddir.mockResolvedValue(["s1.jsonl", "s2.jsonl", "readme.txt"] as unknown as never);
+      mockReadFile.mockResolvedValue('{"requests":[{}]}');
 
       const report = await collectDiagnostics(
         baseEnv(),

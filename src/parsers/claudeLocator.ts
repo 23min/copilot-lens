@@ -73,7 +73,7 @@ export async function discoverClaudeSessions(
   const claudeRoot = path.join(os.homedir(), ".claude", "projects");
   const variants = encodedPathVariants(workspacePath);
 
-  log.info(`Claude session discovery: trying ${variants.length} variant(s) in ${claudeRoot}`);
+  log.debug(`Claude session discovery: trying ${variants.length} variant(s) in ${claudeRoot}`);
 
   // Try each encoded-path variant
   let projectDir: string | null = null;
@@ -81,16 +81,16 @@ export async function discoverClaudeSessions(
     const candidate = path.join(claudeRoot, encoded);
     try {
       await fs.access(candidate);
-      log.info(`  Matched project dir: "${encoded}"`);
+      log.debug(`  Matched project dir: "${encoded}"`);
       projectDir = candidate;
       break;
     } catch {
-      log.info(`  No match for "${encoded}"`);
+      log.debug(`  No match for "${encoded}"`);
     }
   }
 
   if (!projectDir) {
-    log.info("  No Claude project directory found");
+    log.debug("  No Claude project directory found");
     return [];
   }
 
@@ -99,7 +99,7 @@ export async function discoverClaudeSessions(
   try {
     const raw = await fs.readFile(indexPath, "utf-8");
     const entries = parseSessionIndex(raw);
-    log.info(`  Found ${entries.length} session(s) in index`);
+    log.debug(`  Found ${entries.length} session(s) in index`);
 
     // Verify each session file exists and discover subagent files
     const verified: ClaudeSessionEntry[] = [];
@@ -116,17 +116,17 @@ export async function discoverClaudeSessions(
       }
     }
 
-    log.info(`  Verified ${verified.length} session file(s)`);
+    log.debug(`  Verified ${verified.length} session file(s)`);
     return verified;
   } catch {
-    log.info("  No sessions-index.json found, scanning directory");
+    log.debug("  No sessions-index.json found, scanning directory");
   }
 
   // Fallback: scan for JSONL files directly
   try {
     const files = await fs.readdir(projectDir);
     const jsonlFiles = files.filter((f) => f.endsWith(".jsonl"));
-    log.info(`  Found ${jsonlFiles.length} JSONL file(s) by scan`);
+    log.debug(`  Found ${jsonlFiles.length} JSONL file(s) by scan`);
 
     const fallbackEntries: ClaudeSessionEntry[] = [];
     for (const f of jsonlFiles) {
@@ -169,7 +169,7 @@ export async function discoverClaudeSessionsInDir(
   try {
     await fs.access(configDir);
   } catch {
-    log.info(`  Configured claudeDir not accessible: "${configDir}"`);
+    log.debug(`  Configured claudeDir not accessible: "${configDir}"`);
     return [];
   }
 
@@ -180,10 +180,10 @@ export async function discoverClaudeSessionsInDir(
       const projectSubDir = path.join(configDir, encoded);
       try {
         await fs.access(projectSubDir);
-        log.info(`  Found project subdir: "${encoded}"`);
+        log.debug(`  Found project subdir: "${encoded}"`);
         return await scanProjectDir(projectSubDir);
       } catch {
-        log.info(`  No match for "${encoded}"`);
+        log.debug(`  No match for "${encoded}"`);
       }
     }
   }
@@ -228,11 +228,11 @@ async function scanSubdirsByFolderName(
   );
 
   if (matching.length === 0) {
-    log.info(`  No project subdirs ending with ${suffixes.map((s) => `"${s}"`).join(" or ")}`);
+    log.debug(`  No project subdirs ending with ${suffixes.map((s) => `"${s}"`).join(" or ")}`);
     return [];
   }
 
-  log.info(`  Found ${matching.length} subdir(s) matching folder name "${folderName}"`);
+  log.debug(`  Found ${matching.length} subdir(s) matching folder name "${folderName}"`);
   const allSessions: ClaudeSessionEntry[] = [];
   for (const entry of matching) {
     const subDir = path.join(projectsRoot, entry);
@@ -246,7 +246,7 @@ async function scanSubdirsByFolderName(
     allSessions.push(...sessions);
   }
 
-  log.info(`  Found ${allSessions.length} session(s) via folder name match`);
+  log.debug(`  Found ${allSessions.length} session(s) via folder name match`);
   return allSessions;
 }
 
@@ -261,7 +261,7 @@ async function scanProjectDir(
     const raw = await fs.readFile(indexPath, "utf-8");
     const entries = parseSessionIndex(raw);
     if (entries.length > 0) {
-      log.info(`  Found ${entries.length} session(s) in index at ${projectDir}`);
+      log.debug(`  Found ${entries.length} session(s) in index at ${projectDir}`);
       const verified: ClaudeSessionEntry[] = [];
       for (const entry of entries) {
         try {
@@ -287,7 +287,7 @@ async function scanProjectDir(
     const jsonlFiles = files.filter((f) => f.endsWith(".jsonl"));
     if (jsonlFiles.length === 0) return [];
 
-    log.info(`  Found ${jsonlFiles.length} JSONL file(s) by scan in ${projectDir}`);
+    log.debug(`  Found ${jsonlFiles.length} JSONL file(s) by scan in ${projectDir}`);
     const entries: ClaudeSessionEntry[] = [];
     for (const f of jsonlFiles) {
       const sessionId = f.replace(/\.jsonl$/, "");

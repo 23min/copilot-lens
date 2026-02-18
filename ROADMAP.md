@@ -4,6 +4,24 @@
 
 ---
 
+## Current Priorities
+
+Open issues, ordered by priority. Issues within the same tier can be worked in any order.
+
+| Priority | Issue | Title | Dependencies | Notes |
+|----------|-------|-------|-------------|-------|
+| 1 | [#26](https://github.com/23min/agent-lens/issues/26) | Copilot: mitigate workspaceStorage hash instability | — | Same project produces multiple hashes (WSL, devcontainer, rebuilds). Needed for #33 dedup. |
+| 1 | [#33](https://github.com/23min/agent-lens/issues/33) | Metrics: cross-workspace analytics with scope toggle | #26 (dedup) | `This Workspace \| All Workspaces` toggle. Focuses on AI token/model/tool usage. |
+| 2 | [#34](https://github.com/23min/agent-lens/issues/34) | Session tracing: waterfall visualization | — | Waterfall/flamechart of request execution. New webview panel. Roadmap M11. |
+| 3 | [#21](https://github.com/23min/agent-lens/issues/21) | Improve graph layout algorithm | — | Visual polish. |
+| 4 | [#31](https://github.com/23min/agent-lens/issues/31) | Copilot: use state.vscdb as session index | — | Combine with whichever issue benefits most (likely #33). |
+
+### Completed Milestones
+
+M0 (Setup), M1 (Parsers), M2 (Graph Model), M3 (Tree View), M4 (Graph Webview), M5 (Session Parser), M6 (Metrics Dashboard), M7 (Session Explorer), M8 (Tool Visibility: subagent + MCP parsing), M9 (Claude Agent Discovery), M10 (Codex Support) — all shipped as of v0.0.15.
+
+---
+
 ## Milestone 0: Project Setup
 
 > Get the extension skeleton running. No features yet — just the build pipeline, test runner, and an empty extension that activates.
