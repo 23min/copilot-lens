@@ -52,6 +52,8 @@ interface Session {
   source: string;
   provider: "copilot" | "claude" | "codex";
   scope?: "workspace" | "fallback";
+  matchedWorkspace?: string;
+  environment?: string | null;
 }
 
 @customElement("session-explorer")
@@ -358,17 +360,15 @@ class SessionExplorer extends LitElement {
       background: rgba(138, 171, 127, 0.15);
       color: #8aab7f;
     }
-    .scope-badge {
+    .env-badge {
       font-size: 9px;
       padding: 1px 5px;
       border-radius: 3px;
       font-weight: 500;
       margin-right: 6px;
       flex-shrink: 0;
-    }
-    .scope-badge.fallback {
-      background: rgba(201, 184, 124, 0.15);
-      color: #c9b87c;
+      background: rgba(160, 160, 160, 0.1);
+      color: var(--vscode-descriptionForeground, #8b8b8b);
     }
   `;
 
@@ -421,6 +421,69 @@ class SessionExplorer extends LitElement {
 
   private formatDate(ts: number): string {
     return new Date(ts).toLocaleString();
+  }
+
+  private safeDecode(value: string): string {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  }
+
+  private summarizeWorkspaceMatch(workspaceUri?: string): string {
+    if (!workspaceUri) return "workspace match";
+
+    if (workspaceUri.startsWith("file://")) {
+      const pathValue = this.safeDecode(workspaceUri.slice("file://".length));
+      const cleaned = pathValue.replace(/\/+$/, "");
+      const idx = cleaned.lastIndexOf("/");
+      return idx >= 0 ? cleaned.slice(idx + 1) : cleaned;
+    }
+
+    if (workspaceUri.startsWith("vscode-remote://")) {
+      const decoded = this.safeDecode(workspaceUri);
+      const sshPrefix = "vscode-remote://ssh-remote+";
+      if (decoded.startsWith(sshPrefix)) {
+        const rest = decoded.slice(sshPrefix.length);
+        const slash = rest.indexOf("/");
+        return slash >= 0 ? `ssh:${rest.slice(0, slash)}` : `ssh:${rest}`;
+      }
+      if (decoded.includes("dev-container")) {
+        return "dev-container";
+      }
+      return "remote workspace";
+    }
+
+    const cleaned = workspaceUri.replace(/\/+$/, "");
+    const idx = cleaned.lastIndexOf("/");
+    return idx >= 0 ? cleaned.slice(idx + 1) : cleaned;
+  }
+
+  private renderEnvBadge(session: Session) {
+    const env = session.environment;
+    if (!env) return null;
+
+    let label = env;
+    if (env === "ssh-remote") label = "SSH";
+    else if (env === "dev-container") label = "container";
+    else if (env === "wsl") label = "WSL";
+
+    return html`<span class="env-badge" title="Recorded in: ${env}">${label}</span>`;
+  }
+
+  private workspaceMatchIcon(workspaceUri?: string): string {
+    if (!workspaceUri) return "◌";
+    if (workspaceUri.startsWith("file://")) return "⌂";
+
+    if (workspaceUri.startsWith("vscode-remote://")) {
+      const decoded = this.safeDecode(workspaceUri);
+      if (decoded.startsWith("vscode-remote://ssh-remote+")) return "⇄";
+      if (decoded.includes("dev-container")) return "⬢";
+      return "☁";
+    }
+
+    return "◌";
   }
 
   private summarizeChildTools(children: ToolCallInfo[]): [string, number][] {
@@ -532,9 +595,7 @@ class SessionExplorer extends LitElement {
                     <span class="provider-badge ${session.provider}">
                       ${session.provider === "copilot" ? "Copilot" : session.provider === "claude" ? "Claude" : "Codex"}
                     </span>
-                    ${session.scope === "fallback"
-                      ? html`<span class="scope-badge fallback">similar workspace</span>`
-                      : null}
+                    ${this.renderEnvBadge(session)}
                     <span class="session-title">
                       ${session.title ?? session.sessionId}
                     </span>

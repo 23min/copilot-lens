@@ -29,17 +29,24 @@ async function readSessionsFromDir(dir: string): Promise<Session[]> {
   }
 
   const sessions: Session[] = [];
+  let emptyCount = 0;
   for (const entry of entries) {
     if (!entry.endsWith(".jsonl") && !entry.endsWith(".json")) continue;
     const filePath = path.join(dir, entry);
     try {
       const content = await fs.readFile(filePath, "utf-8");
       const session = parseSessionJsonl(content);
+      if (session.requests.length === 0) {
+        emptyCount++;
+      }
       sessions.push(session);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       getLogger().warn(`  Skipping session file "${filePath}": ${msg}`);
     }
+  }
+  if (emptyCount > 0) {
+    getLogger().debug(`  Found ${sessions.length} session(s), ${emptyCount} empty (no requests)`);
   }
   return sessions;
 }

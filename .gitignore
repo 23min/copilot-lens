@@ -6,3 +6,4 @@ dist/
 data/
 assets/unused/
 .DS_Store
+.vscode/settings.json

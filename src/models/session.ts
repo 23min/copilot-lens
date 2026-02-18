@@ -46,4 +46,7 @@ export interface Session {
   source: string;
   provider: SessionProviderType;
   scope?: SessionScope;
+  matchedWorkspace?: string;
+  /** vscode.env.remoteName at the time of discovery, e.g. "ssh-remote", "dev-container", null for local */
+  environment?: string | null;
 }

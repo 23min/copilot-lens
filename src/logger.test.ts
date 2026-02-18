@@ -19,6 +19,8 @@ describe("logger", () => {
     };
 
     beforeEach(() => {
+      delete process.env.AGENT_LENS_LOG_LEVEL;
+      delete process.env.AGENT_LENS_DEBUG;
       channel.debug.mockClear();
       channel.info.mockClear();
       channel.warn.mockClear();
@@ -26,7 +28,15 @@ describe("logger", () => {
       initLogger(channel as any);
     });
 
-    it("delegates debug to channel.debug", () => {
+    it("suppresses debug by default", () => {
+      getLogger().debug("verbose");
+      expect(channel.debug).not.toHaveBeenCalled();
+    });
+
+    it("delegates debug when AGENT_LENS_LOG_LEVEL=debug", () => {
+      process.env.AGENT_LENS_LOG_LEVEL = "debug";
+      initLogger(channel as any);
+
       getLogger().debug("verbose");
       expect(channel.debug).toHaveBeenCalledWith("verbose");
     });

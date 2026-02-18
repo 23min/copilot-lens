@@ -15,8 +15,13 @@ let instance: Logger = {
 };
 
 export function initLogger(channel: vscode.LogOutputChannel): void {
+  const envLevel = (process.env.AGENT_LENS_LOG_LEVEL ?? "").toLowerCase();
+  const envDebug = process.env.AGENT_LENS_DEBUG === "1";
+  const debugEnabled = envDebug || envLevel === "debug" || envLevel === "trace";
+
   instance = {
     debug(message: string) {
+      if (!debugEnabled) return;
       channel.debug(message);
     },
     info(message: string) {

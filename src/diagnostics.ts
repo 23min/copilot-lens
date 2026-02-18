@@ -67,6 +67,33 @@ async function countJsonlFiles(dir: string): Promise<number> {
   }
 }
 
+/**
+ * Count session files and how many have actual content (requests.length > 0).
+ */
+async function countSessionsWithContent(dir: string): Promise<{ total: number; nonEmpty: number }> {
+  try {
+    const entries = await fs.readdir(dir);
+    const jsonlFiles = entries.filter((e) => e.endsWith(".jsonl") || e.endsWith(".json"));
+    let nonEmpty = 0;
+    
+    for (const file of jsonlFiles) {
+      try {
+        const content = await fs.readFile(path.join(dir, file), "utf-8");
+        // Simple check: does the file contain `"requests":[{` pattern?
+        // This is faster than full parse but may have false positives
+        const hasRequests = content.includes('"requests":[{') || content.includes('"kind":2,"k":["requests"]');
+        if (hasRequests) nonEmpty++;
+      } catch {
+        // Skip files we can't read
+      }
+    }
+    
+    return { total: jsonlFiles.length, nonEmpty };
+  } catch {
+    return { total: 0, nonEmpty: 0 };
+  }
+}
+
 async function countJsonlFilesRecursive(dir: string): Promise<number> {
   try {
     const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -157,7 +184,9 @@ async function diagnoseCopilot(
     const hashDir = path.dirname(env.storageUri);
     const chatDir = path.join(hashDir, "chatSessions");
     const accessible = await isAccessible(chatDir);
-    const fileCount = accessible ? await countJsonlFiles(chatDir) : 0;
+    const { total: fileCount, nonEmpty } = accessible
+      ? await countSessionsWithContent(chatDir)
+      : { total: 0, nonEmpty: 0 };
 
     if (accessible && fileCount > 0) totalFiles += fileCount;
 
@@ -166,7 +195,7 @@ async function diagnoseCopilot(
       path: chatDir,
       accessible,
       details: accessible
-        ? `${fileCount} session file(s)`
+        ? `${fileCount} session file(s), ${nonEmpty} non-empty`
         : "chatSessions/ not found in current hash dir",
     });
   } else {
@@ -186,11 +215,14 @@ async function diagnoseCopilot(
 
     if (wsName) {
       const { matched, total } = await scanStorageRootSummary(storageRoot, wsName);
-      let siblingFiles = 0;
+      let siblingTotal = 0;
+      let siblingNonEmpty = 0;
       if (matched > 0) {
         const dirs = await findMatchingChatSessionsDirs(storageRoot, wsName);
         for (const d of dirs) {
-          siblingFiles += await countJsonlFiles(d);
+          const counts = await countSessionsWithContent(d);
+          siblingTotal += counts.total;
+          siblingNonEmpty += counts.nonEmpty;
         }
       }
 
@@ -198,7 +230,7 @@ async function diagnoseCopilot(
         name: "siblingScan",
         path: storageRoot,
         accessible: true,
-        details: `${total} hash dir(s), ${matched} matched "${wsName}" — ${siblingFiles} session file(s)`,
+        details: `${total} hash dir(s), ${matched} matched "${wsName}" — ${siblingTotal} session file(s), ${siblingNonEmpty} non-empty`,
       });
     } else {
       strategies.push({

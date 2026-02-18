@@ -44,6 +44,12 @@ async function refresh(
     cachedSkills = skills;
     cachedSessions = sessions;
 
+    // Tag every session with the current environment so the UI can badge them
+    const environment = vscode.env.remoteName ?? null;
+    for (const s of cachedSessions) {
+      s.environment = environment;
+    }
+
     // Detect remote/container context with no sessions
     const isRemote = !!vscode.env.remoteName;
     const remoteNoSessions = isRemote && sessions.length === 0;
@@ -65,8 +71,9 @@ async function refresh(
     SessionPanel.updateIfOpen(sessions);
 
     const elapsed = Date.now() - start;
+    const nonEmpty = sessions.filter((s) => s.requests.length > 0).length;
     log.info(
-      `Refresh complete in ${elapsed}ms — ${agents.length} agents, ${skills.length} skills, ${sessions.length} sessions`,
+      `Refresh complete in ${elapsed}ms — ${agents.length} agents, ${skills.length} skills, ${sessions.length} sessions (${nonEmpty} non-empty)`,
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
