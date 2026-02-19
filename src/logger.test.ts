@@ -41,6 +41,14 @@ describe("logger", () => {
       expect(channel.debug).toHaveBeenCalledWith("verbose");
     });
 
+    it("delegates debug when AGENT_LENS_DEBUG=1", () => {
+      process.env.AGENT_LENS_DEBUG = "1";
+      initLogger(channel as any);
+
+      getLogger().debug("verbose");
+      expect(channel.debug).toHaveBeenCalledWith("verbose");
+    });
+
     it("delegates info to channel.info", () => {
       getLogger().info("hello");
       expect(channel.info).toHaveBeenCalledWith("hello");
