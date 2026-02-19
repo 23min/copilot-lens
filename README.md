@@ -24,7 +24,7 @@ Agent Lens answers these questions by parsing your local session data and presen
 
 ### Metrics Dashboard
 
-See token usage, model distribution, agent activity, tool calls, and skill usage at a glance. Filter by provider (Copilot, Claude, Codex, or all). Spot unused agents and skills that might need attention.
+See token usage, model distribution, agent activity, tool calls, and skill usage at a glance. Filter by provider (Copilot, Claude, Codex, or all), narrow by time scope (All time, Today, Last hour), or drill into a single session with the session picker. Spot unused agents and skills that might need attention.
 
 ### Agent & Skill Explorer
 
@@ -36,7 +36,7 @@ Interactive DAG visualization of your agents, skills, and handoff connections. Z
 
 ### Session Explorer
 
-Replay individual sessions as a timeline. See each request's agent, model, tokens, tool calls, and timing. Spot agent switches and model changes.
+Replay individual sessions as a timeline. See each request's agent, model, tokens, tool calls, and timing. Spot agent switches and model changes. Sessions that used a custom agent or Copilot skills show compact badges at a glance.
 
 ### Cache Token Metrics
 

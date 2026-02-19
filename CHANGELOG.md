@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.17] - 2026-02-19
+
+### Added
+- Metrics Dashboard: time-scope toggle — filter metrics to All time, Today, or Last hour based on most recent request activity per session (closes #40)
+- Metrics Dashboard: session picker — select a specific session to scope all metrics to that one session; provider and time-scope toggles dim automatically when a session is selected (closes #40)
+- Session Explorer: custom agent badge — shows the agent name (or count) when any request in a session used a custom agent (closes #42)
+- Session Explorer: Copilot skills badge — shows the number of Copilot skills available when a session had skills injected into its system prompt (closes #42)
+
+### Fixed
+- Suppressed frequent "Found N Copilot Chat session(s) from a previous workspace hash" info notification; stale-hash session recovery now logs silently at debug level (closes #41)
+
+### Changed
+- Debug extension host launch config now opens the workspace folder automatically, preventing the window-reload debugger disconnect
+
 ## [0.0.16] - 2026-02-18
 
 ### Added
