@@ -259,15 +259,7 @@ export class CopilotSessionProvider implements SessionProvider {
       const matches = await scanWorkspaceStorageRoot(storageRoot, ourName);
       const result = await collectFromMatches(matches, "fallback");
       const added = mergeInto(pool, seen, result);
-      if (added > 0) {
-        log.debug(`  Found ${added} new session(s) via sibling scan (stale hash)`);
-        void vscode.window.showInformationMessage(
-          `Agent Lens: Found ${added} Copilot Chat session${added === 1 ? "" : "s"} from a previous workspace hash. ` +
-          `These may not appear in Copilot Chat's own history.`,
-        );
-      } else {
-        log.debug(`  Found 0 new session(s) via sibling scan`);
-      }
+      log.debug(`  Found ${added} new session(s) via sibling scan (stale hash)`);
     }
 
     // ── Strategy 4: platform app storage root ──

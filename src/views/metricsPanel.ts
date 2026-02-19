@@ -4,6 +4,7 @@ import { collectMetrics } from "../analyzers/metricsCollector.js";
 import type { DefinedItem } from "../analyzers/metricsCollector.js";
 
 type SourceFilter = SessionProviderType | "all";
+type TimeScope = "all" | "today" | "last-hour";
 
 export class MetricsPanel {
   private static instance: MetricsPanel | undefined;
@@ -11,6 +12,8 @@ export class MetricsPanel {
   private disposed = false;
 
   private currentFilter: SourceFilter = "all";
+  private currentScope: TimeScope = "all";
+  private currentSessionId: string | null = null;
   private cachedSessions: Session[] = [];
   private cachedAgents: DefinedItem[] = [];
   private cachedSkills: DefinedItem[] = [];
@@ -29,6 +32,12 @@ export class MetricsPanel {
     this.panel.webview.onDidReceiveMessage((msg) => {
       if (msg.type === "filter-change") {
         this.currentFilter = msg.provider;
+        this.pushFilteredMetrics();
+      } else if (msg.type === "scope-change") {
+        this.currentScope = msg.scope as TimeScope;
+        this.pushFilteredMetrics();
+      } else if (msg.type === "session-change") {
+        this.currentSessionId = msg.sessionId ?? null;
         this.pushFilteredMetrics();
       }
     });
@@ -80,6 +89,11 @@ export class MetricsPanel {
     this.pushFilteredMetrics();
   }
 
+  private sessionLastActivity(session: Session): number {
+    if (session.requests.length === 0) return session.creationDate;
+    return Math.max(...session.requests.map((r) => r.timestamp));
+  }
+
   private pushFilteredMetrics(): void {
     const byProvider =
       this.currentFilter === "all"
@@ -87,8 +101,31 @@ export class MetricsPanel {
         : this.cachedSessions.filter(
             (s) => s.provider === this.currentFilter,
           );
-    const nonEmpty = byProvider.filter((s) => s.requests.length > 0);
-    const emptyCount = byProvider.length - nonEmpty.length;
+
+    const now = Date.now();
+    const byScope =
+      this.currentScope === "today"
+        ? (() => {
+            const startOfDay = new Date(now);
+            startOfDay.setHours(0, 0, 0, 0);
+            return byProvider.filter(
+              (s) => this.sessionLastActivity(s) >= startOfDay.getTime(),
+            );
+          })()
+        : this.currentScope === "last-hour"
+          ? byProvider.filter(
+              (s) => this.sessionLastActivity(s) >= now - 3_600_000,
+            )
+          : byProvider;
+
+    const bySession =
+      this.currentSessionId !== null
+        ? byScope.filter((s) => s.sessionId === this.currentSessionId)
+        : byScope;
+
+    const nonEmpty = bySession.filter((s) => s.requests.length > 0);
+    const emptyCount = bySession.length - nonEmpty.length;
+
     const filteredAgents =
       this.currentFilter === "all"
         ? this.cachedAgents
@@ -101,15 +138,24 @@ export class MetricsPanel {
         : this.cachedSkills.filter(
             (s) => (s.provider ?? "copilot") === this.currentFilter,
           );
-    const metrics = collectMetrics(
-      nonEmpty,
-      filteredAgents,
-      filteredSkills,
-    );
+
+    const metrics = collectMetrics(nonEmpty, filteredAgents, filteredSkills);
+
+    const sessionMeta = this.cachedSessions.map((s) => ({
+      sessionId: s.sessionId,
+      title: s.title,
+      creationDate: s.creationDate,
+      lastActivity: this.sessionLastActivity(s),
+      provider: s.provider,
+    }));
+
     this.panel.webview.postMessage({
       type: "update-metrics",
       metrics,
       activeFilter: this.currentFilter,
+      activeScope: this.currentScope,
+      activeSession: this.currentSessionId,
+      sessions: sessionMeta,
       emptyCount,
     });
   }

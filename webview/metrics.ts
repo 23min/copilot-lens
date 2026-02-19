@@ -12,6 +12,15 @@ declare function acquireVsCodeApi(): {
 const vscode = acquireVsCodeApi();
 
 type SourceFilter = "all" | "copilot" | "claude" | "codex";
+type TimeScope = "all" | "today" | "last-hour";
+
+interface SessionMeta {
+  sessionId: string;
+  title: string | null;
+  creationDate: number;
+  lastActivity: number;
+  provider: string;
+}
 
 interface CountEntry {
   name: string;
@@ -298,6 +307,26 @@ class MetricsDashboard extends LitElement {
       background: var(--vscode-button-background, #0e639c);
       color: var(--vscode-button-foreground, #fff);
     }
+    .session-select {
+      background: none;
+      border: 1px solid var(--vscode-editorWidget-border, #454545);
+      color: var(--vscode-editor-foreground);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+      opacity: 0.7;
+      max-width: 220px;
+    }
+    .session-select:hover, .session-select:focus {
+      opacity: 1;
+      outline: none;
+    }
+    .filter-toggle.inactive {
+      opacity: 0.3;
+      pointer-events: none;
+    }
     .tooltip {
       position: fixed;
       background: var(--vscode-editorHoverWidget-background, #252526);
@@ -375,6 +404,9 @@ class MetricsDashboard extends LitElement {
   @state() private metrics: AggregatedMetrics | null = null;
   @state() private emptyCount = 0;
   @state() private activeFilter: SourceFilter = "all";
+  @state() private activeScope: TimeScope = "all";
+  @state() private activeSession: string | null = null;
+  @state() private sessions: SessionMeta[] = [];
   @state() private guideOpen = false;
   @state() private tooltip: {
     x: number;
@@ -397,15 +429,28 @@ class MetricsDashboard extends LitElement {
     if (e.data.type === "update-metrics") {
       this.metrics = e.data.metrics;
       this.emptyCount = e.data.emptyCount ?? 0;
-      if (e.data.activeFilter) {
-        this.activeFilter = e.data.activeFilter;
-      }
+      if (e.data.activeFilter) this.activeFilter = e.data.activeFilter;
+      if (e.data.activeScope) this.activeScope = e.data.activeScope;
+      if ("activeSession" in e.data) this.activeSession = e.data.activeSession;
+      if (e.data.sessions) this.sessions = e.data.sessions;
     }
   };
 
   private onFilterChange(filter: SourceFilter): void {
     this.activeFilter = filter;
     vscode.postMessage({ type: "filter-change", provider: filter });
+  }
+
+  private onScopeChange(scope: TimeScope): void {
+    this.activeScope = scope;
+    vscode.postMessage({ type: "scope-change", scope });
+  }
+
+  private onSessionChange(e: Event): void {
+    const value = (e.target as HTMLSelectElement).value;
+    const sessionId = value === "" ? null : value;
+    this.activeSession = sessionId;
+    vscode.postMessage({ type: "session-change", sessionId });
   }
 
   private renderBarChart(
@@ -715,9 +760,22 @@ class MetricsDashboard extends LitElement {
       { value: "codex", label: "Codex" },
     ];
 
+    const scopeOptions: { value: TimeScope; label: string }[] = [
+      { value: "all", label: "All time" },
+      { value: "today", label: "Today" },
+      { value: "last-hour", label: "Last hour" },
+    ];
+
+    const sessionActive = this.activeSession !== null;
+    const providerLabel = (p: string) =>
+      p === "copilot" ? "Copilot" : p === "claude" ? "Claude" : "Codex";
+    const sortedSessions = [...this.sessions].sort(
+      (a, b) => b.lastActivity - a.lastActivity,
+    );
+
     return html`
       <div class="toolbar">
-        <div class="filter-toggle">
+        <div class="filter-toggle ${sessionActive ? "inactive" : ""}">
           ${filterOptions.map(
             (opt) => html`
               <button
@@ -729,6 +787,30 @@ class MetricsDashboard extends LitElement {
             `,
           )}
         </div>
+        <div class="filter-toggle ${sessionActive ? "inactive" : ""}">
+          ${scopeOptions.map(
+            (opt) => html`
+              <button
+                class="filter-btn ${this.activeScope === opt.value ? "active" : ""}"
+                @click="${() => this.onScopeChange(opt.value)}"
+              >
+                ${opt.label}
+              </button>
+            `,
+          )}
+        </div>
+        <select
+          class="session-select"
+          .value="${this.activeSession ?? ""}"
+          @change="${this.onSessionChange}"
+        >
+          <option value="">All sessions</option>
+          ${sortedSessions.map((s) => html`
+            <option value="${s.sessionId}">
+              ${providerLabel(s.provider)} — ${s.title ?? new Date(s.creationDate).toLocaleString()}
+            </option>
+          `)}
+        </select>
         <div class="token-guide">
           <button
             class="guide-toggle"

@@ -158,7 +158,7 @@ describe("CopilotSessionProvider — stale hash fallback (strategy 3)", () => {
     expect(sessions[0].sessionId).toBe("session-xyz");
   });
 
-  it("shows an info notification when stale-hash sessions are found", async () => {
+  it("does not show a notification when stale-hash sessions are found", async () => {
     const staleHashDir = path.join(STORAGE_ROOT, STALE_HASH);
     const staleChatDir = path.join(staleHashDir, "chatSessions");
     const currentChatDir = path.join(STORAGE_ROOT, CURRENT_HASH, "chatSessions");
@@ -178,12 +178,11 @@ describe("CopilotSessionProvider — stale hash fallback (strategy 3)", () => {
     });
 
     const provider = new CopilotSessionProvider();
-    await provider.discoverSessions(makeCtx());
+    const sessions = await provider.discoverSessions(makeCtx());
 
-    expect(vscode.window.showInformationMessage).toHaveBeenCalledOnce();
-    const msg = vi.mocked(vscode.window.showInformationMessage).mock.calls[0][0];
-    expect(msg).toContain("1 Copilot Chat session");
-    expect(msg).toContain("previous workspace hash");
+    expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].scope).toBe("fallback");
   });
 
   it("deduplicates sessions found in multiple stale hashes", async () => {

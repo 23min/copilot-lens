@@ -380,6 +380,26 @@ class SessionExplorer extends LitElement {
       background: rgba(201, 184, 124, 0.12);
       color: var(--vscode-descriptionForeground, #8b8b8b);
     }
+    .agent-badge {
+      font-size: 9px;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-weight: 500;
+      margin-right: 6px;
+      flex-shrink: 0;
+      background: rgba(176, 144, 144, 0.12);
+      color: var(--vscode-descriptionForeground, #8b8b8b);
+    }
+    .skills-badge {
+      font-size: 9px;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-weight: 500;
+      margin-right: 6px;
+      flex-shrink: 0;
+      background: rgba(138, 171, 127, 0.12);
+      color: var(--vscode-descriptionForeground, #8b8b8b);
+    }
   `;
 
   @state() private sessions: Session[] = [];
@@ -488,6 +508,28 @@ class SessionExplorer extends LitElement {
       ? `Recovered from stale hash: ${session.matchedWorkspace}`
       : "Recovered from a previous workspace hash — may not appear in Copilot Chat history";
     return html`<span class="recovered-badge" title="${tip}">recovered</span>`;
+  }
+
+  private renderAgentBadge(session: Session) {
+    const names = new Set(
+      session.requests
+        .map((r) => r.customAgentName)
+        .filter((n): n is string => n !== null),
+    );
+    if (names.size === 0) return null;
+    const list = [...names];
+    const label = names.size === 1 ? `@${list[0]}` : `${names.size} agents`;
+    const tip =
+      names.size === 1
+        ? `Custom agent: ${list[0]}`
+        : `Custom agents: ${list.join(", ")}`;
+    return html`<span class="agent-badge" title="${tip}">${label}</span>`;
+  }
+
+  private renderSkillsBadge(session: Session) {
+    const max = Math.max(0, ...session.requests.map((r) => r.availableSkills.length));
+    if (max === 0) return null;
+    return html`<span class="skills-badge" title="${max} Copilot skill${max === 1 ? "" : "s"} available">${max} copilot skill${max === 1 ? "" : "s"}</span>`;
   }
 
   private workspaceMatchIcon(workspaceUri?: string): string {
@@ -615,6 +657,8 @@ class SessionExplorer extends LitElement {
                     </span>
                     ${this.renderEnvBadge(session)}
                     ${this.renderRecoveredBadge(session)}
+                    ${this.renderAgentBadge(session)}
+                    ${this.renderSkillsBadge(session)}
                     <span class="session-title">
                       ${session.title ?? session.sessionId}
                     </span>
