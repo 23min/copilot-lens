@@ -73,6 +73,8 @@ If your sessions live on a mounted host path, configure the directory manually:
 
 Use the **Agent Lens: Container Setup Guide** command for step-by-step instructions.
 
+For a detailed breakdown of what Agent Lens can and cannot see in each environment — including how agent and skill detection works, common pitfalls, and data freshness — see the [session discovery guide](docs/session-discovery.md).
+
 ## Contributing
 
 Found a bug or have an idea? Open an [issue](https://github.com/23min/agent-lens/issues) or submit a pull request.
