@@ -37,13 +37,17 @@ A skill being *available* does not mean it was used. A skill is only *loaded* wh
 
 ### Claude: Agent Detection
 
-Claude Code uses a subagent system. When Claude spawns a subagent to handle part of a task, Agent Lens reads the subagent JSONL files (stored alongside the main session file) and maps them to project agents defined in `.claude/agents/*.md`.
+Claude Code uses a subagent system. When Claude spawns a subagent via the `Task` tool, the subagent type (e.g., `Explore`, `Bash`, `Plan`, or a custom agent name like `Implementer`) is recorded in the session JSONL. Agent Lens reads the subagent JSONL files (stored under `{sessionId}/subagents/`) and correlates them with the `Task` tool call that spawned them.
 
-Claude's agent detection relies on the subagent file name matching the agent definition file — it is not a UI mode switch.
+Custom project agents from `.claude/agents/*.md` appear as subagent types when Claude decides to delegate to them. For example, if you define `.claude/agents/implementer.md` with `name: Implementer`, sessions where Claude delegates to it will show `Implementer` as the agent name.
+
+Unlike Copilot, there is no mode picker — the main session is always "Claude Code" itself, and custom agents only appear as subagents.
 
 ### Claude: Skill Detection
 
-Claude skill detection works the same way as Copilot: Agent Lens looks for tool calls that read a `SKILL.md` file matching `.github/skills/<name>/SKILL.md` or `.claude/skills/<name>/SKILL.md`.
+**Not currently detectable.** Claude Code injects skill content (from `.claude/skills/`) into the system prompt sent to the API, but this system prompt is not written to the JSONL session files. Agent Lens cannot determine which skills were active or used in a Claude session from the session data alone.
+
+Skills defined in `.claude/skills/` will appear in the sidebar tree and Agent Graph, but they will not show usage data in the Metrics Dashboard or badges in the Session Explorer.
 
 ---
 
@@ -51,20 +55,22 @@ Claude skill detection works the same way as Copilot: Agent Lens looks for tool 
 
 This table shows what Agent Lens can discover in each common setup.
 
-| Scenario | Copilot sessions | Copilot agents/skills | Claude sessions | Claude agents/skills |
-|----------|-----------------|----------------------|-----------------|----------------------|
-| **Local VS Code (macOS/Linux/Windows)** | ✅ Auto | ✅ If mode picker used | ✅ Auto | ✅ Auto |
-| **SSH Remote** | ❌ On local machine | ❌ | ✅ Auto (remote `~/.claude`) | ✅ Auto |
-| **WSL (no container)** | ⚠️ Manual config | ⚠️ If configured | ✅ Auto | ✅ Auto |
-| **Dev Container (macOS host)** | ⚠️ Needs mount | ⚠️ If mounted | ✅ Auto | ✅ Auto |
-| **Dev Container (Linux host)** | ⚠️ Needs mount | ⚠️ If mounted | ✅ Auto | ✅ Auto |
-| **Dev Container (WSL host)** | ⚠️ Needs mount | ⚠️ If mounted | ✅ Auto | ✅ Auto |
-| **SSH + Dev Container** | ❌ Two hops away | ❌ | ✅ Auto | ✅ Auto |
+| Scenario | Copilot sessions | Copilot agents/skills | Claude sessions | Claude agents | Claude skills |
+|----------|-----------------|----------------------|-----------------|---------------|---------------|
+| **Local VS Code (macOS/Linux/Windows)** | ✅ Auto | ✅ If mode picker used | ✅ Auto | ✅ Subagents | — Not in JSONL |
+| **SSH Remote** | ❌ On local machine | ❌ | ✅ Auto (remote `~/.claude`) | ✅ Subagents | — Not in JSONL |
+| **WSL (no container)** | ⚠️ Manual config | ⚠️ If configured | ✅ Auto | ✅ Subagents | — Not in JSONL |
+| **Dev Container (macOS host)** | ⚠️ Needs mount | ⚠️ If mounted | ✅ Auto | ✅ Subagents | — Not in JSONL |
+| **Dev Container (Linux host)** | ⚠️ Needs mount | ⚠️ If mounted | ✅ Auto | ✅ Subagents | — Not in JSONL |
+| **Dev Container (WSL host)** | ⚠️ Needs mount | ⚠️ If mounted | ✅ Auto | ✅ Subagents | — Not in JSONL |
+| **SSH + Dev Container** | ❌ Two hops away | ❌ | ✅ Auto | ✅ Subagents | — Not in JSONL |
 
 **Legend:**
 - ✅ Auto — works out of the box, no configuration needed
+- ✅ Subagents — custom agents are detected when Claude delegates via the Task tool
 - ⚠️ Manual config — works with the right `agentLens.sessionDir` setting and/or bind mount
 - ❌ — not supported; the session data is inaccessible from where the extension host runs
+- — Not in JSONL — Claude skill usage is not recorded in session files (see [Claude: Skill Detection](#claude-skill-detection) above)
 
 For configuration instructions for the ⚠️ cases, see [container-setup.md](container-setup.md).
 
@@ -108,6 +114,7 @@ If Agent Lens does not show recent activity after clicking Refresh, wait a few s
 | Copilot shows 0 sessions in Dev Container | `agentLens.sessionDir` not configured or bind mount not added |
 | Data present in file but not shown in Agent Lens | Session not yet flushed to disk — close and reopen the chat panel |
 | Agent Lens shows sessions but no agent/skill data | Sessions predate the `.github/agents/` and `.github/skills/` setup, or the mode picker was never used |
+| Claude skills show as "unused" in Metrics Dashboard | Expected — Claude skill usage is not recorded in session files, so all defined skills appear unused |
 
 ---
 
