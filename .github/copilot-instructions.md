@@ -12,3 +12,4 @@ This is a VS Code extension project called Agent Lens. It visualizes AI coding a
 - Follow TDD: red-green-refactor
 - Keep webview code separate from extension host code
 - Parse agent/skill files from `.github/agents/` and `.github/skills/`
+- Never push directly to `main` — always create a PR via `gh pr create` and merge via GitHub
