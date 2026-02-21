@@ -4,7 +4,7 @@
 
 Feature branches off `main`. Branch naming: `feature/<short-description>`, `fix/<short-description>`, `chore/<short-description>`.
 
-No direct commits to `main` — always branch and merge.
+No direct commits to `main` — always branch and PR. Never push directly to `main`; always use `gh pr create` and merge via GitHub.
 
 ### Integration branches
 
@@ -71,9 +71,10 @@ Before pushing a release, complete this checklist in order:
 5. **Update CHANGELOG.md** — add entries under `[Unreleased]` describing what changed
 6. **Update README.md** — if features, structure, or usage changed
 7. **Commit** with message `chore: release vX.Y.Z`
-8. **Merge to main** — `git checkout main && git merge <branch> --no-ff`
-9. **Push** — `git push origin main`
-10. **Tag** — `git tag vX.Y.Z && git push origin vX.Y.Z`
-11. **GitHub Actions** builds the `.vsix` and attaches it to the GitHub Release automatically
+8. **Push branch** — `git push -u origin <branch>`
+9. **Create PR** — `gh pr create` targeting `main`
+10. **Merge PR** — merge via GitHub (or `gh pr merge --merge`)
+11. **Tag** — `git checkout main && git pull && git tag vX.Y.Z && git push origin vX.Y.Z`
+12. **GitHub Actions** builds the `.vsix` and attaches it to the GitHub Release automatically
 
 To build a `.vsix` locally: `npx @vscode/vsce package`
