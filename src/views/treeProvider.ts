@@ -35,7 +35,7 @@ export class AgentLensTreeProvider
       case "category": {
         const item = new vscode.TreeItem(
           element.label,
-          vscode.TreeItemCollapsibleState.Expanded,
+          vscode.TreeItemCollapsibleState.Collapsed,
         );
         item.contextValue = "category";
         return item;

@@ -1,26 +1,10 @@
 import { LitElement, html, css, svg } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import * as d3 from "d3";
+import { layoutGraph } from "./layout.js";
+import type { GraphNode, GraphEdge } from "./layout.js";
 
 type ProviderFilter = "copilot" | "claude";
-
-interface GraphNode {
-  id: string;
-  label: string;
-  kind: "agent" | "skill" | "builtin-agent" | "claude-agent";
-  description: string;
-  provider?: string;
-  x?: number;
-  y?: number;
-}
-
-interface GraphEdge {
-  source: string;
-  target: string;
-  label: string;
-  kind: "handoff" | "skill-link";
-  send: boolean;
-}
 
 interface Graph {
   nodes: GraphNode[];
@@ -34,120 +18,21 @@ declare function acquireVsCodeApi(): {
 };
 
 const NODE_COLORS: Record<string, string> = {
-  agent: "#4fc1ff",
-  skill: "#4ec9b0",
-  "builtin-agent": "#9cdcfe",
-  "claude-agent": "#b392f0",
+  agent: "#3b82f6",
+  skill: "#10b981",
+  "builtin-agent": "#f59e0b",
+  "claude-agent": "#a855f7",
 };
 
-const NODE_RADIUS = 28;
-const LAYER_GAP = 240;
-const NODE_GAP = 90;
-const PADDING = 80;
+const NODE_LABELS: Record<string, string> = {
+  agent: "Agent",
+  skill: "Skill",
+  "builtin-agent": "Built-in",
+  "claude-agent": "Agent",
+};
 
-/**
- * Assign each node to a layer using longest-path from roots (nodes with no
- * incoming edges). This produces a left-to-right DAG ordering.
- */
-function assignLayers(
-  nodes: GraphNode[],
-  edges: GraphEdge[],
-): Map<string, number> {
-  const inDegree = new Map<string, number>();
-  const outEdges = new Map<string, string[]>();
-  for (const n of nodes) {
-    inDegree.set(n.id, 0);
-    outEdges.set(n.id, []);
-  }
-  for (const e of edges) {
-    inDegree.set(e.target, (inDegree.get(e.target) ?? 0) + 1);
-    outEdges.get(e.source)?.push(e.target);
-  }
-
-  // BFS from roots using longest path
-  const layer = new Map<string, number>();
-  const queue: string[] = [];
-  for (const [id, deg] of inDegree) {
-    if (deg === 0) {
-      queue.push(id);
-      layer.set(id, 0);
-    }
-  }
-
-  // If no roots (cycle), just start from first node
-  if (queue.length === 0 && nodes.length > 0) {
-    queue.push(nodes[0].id);
-    layer.set(nodes[0].id, 0);
-  }
-
-  let idx = 0;
-  while (idx < queue.length) {
-    const id = queue[idx++];
-    const currentLayer = layer.get(id) ?? 0;
-    for (const target of outEdges.get(id) ?? []) {
-      const prev = layer.get(target);
-      const next = currentLayer + 1;
-      if (prev === undefined || next > prev) {
-        layer.set(target, next);
-      }
-      // Only queue if all incoming edges have been visited
-      // (simplified: always queue but we use max layer)
-      if (!queue.includes(target)) {
-        queue.push(target);
-      }
-    }
-  }
-
-  // Any disconnected nodes get layer 0
-  for (const n of nodes) {
-    if (!layer.has(n.id)) {
-      layer.set(n.id, 0);
-    }
-  }
-
-  return layer;
-}
-
-function layoutGraph(nodes: GraphNode[], edges: GraphEdge[]): GraphNode[] {
-  const layers = assignLayers(nodes, edges);
-
-  // Group by layer
-  const byLayer = new Map<number, GraphNode[]>();
-  for (const n of nodes) {
-    const l = layers.get(n.id) ?? 0;
-    if (!byLayer.has(l)) byLayer.set(l, []);
-    byLayer.get(l)!.push(n);
-  }
-
-  const maxLayer = Math.max(...byLayer.keys(), 0);
-  const positioned: GraphNode[] = [];
-
-  for (let l = 0; l <= maxLayer; l++) {
-    const group = byLayer.get(l) ?? [];
-    // Sort within layer: agents first, then builtin, then skills
-    const kindOrder: Record<string, number> = {
-      agent: 0,
-      "claude-agent": 1,
-      "builtin-agent": 2,
-      skill: 3,
-    };
-    group.sort((a, b) => (kindOrder[a.kind] ?? 9) - (kindOrder[b.kind] ?? 9));
-
-    const x = PADDING + l * LAYER_GAP;
-    const groupHeight = (group.length - 1) * NODE_GAP;
-    const startY = PADDING + Math.max(0, (400 - groupHeight) / 2);
-
-    for (let row = 0; row < group.length; row++) {
-      positioned.push({
-        ...group[row],
-        x,
-        y: startY + row * NODE_GAP,
-      });
-    }
-  }
-
-  return positioned;
-}
+const NODE_RADIUS = 14;
+const RING_RADIUS = 19;
 
 @customElement("graph-view")
 class GraphView extends LitElement {
@@ -161,24 +46,25 @@ class GraphView extends LitElement {
       width: 100%;
       height: 100%;
     }
-    .node-circle {
-      stroke-width: 2;
+    .node-dot {
+      cursor: pointer;
     }
-    .node-circle:hover {
-      stroke-width: 3;
-      filter: brightness(1.2);
+    .node-dot:hover {
+      filter: brightness(1.3);
     }
     .node-label {
       fill: var(--vscode-editor-foreground, #ccc);
       font-size: 11px;
-      text-anchor: middle;
+      text-anchor: start;
       pointer-events: none;
       font-family: var(--vscode-font-family, sans-serif);
+      font-weight: 500;
     }
     .edge-path {
       fill: none;
       stroke: var(--vscode-editorWidget-border, #555);
-      stroke-width: 1.5;
+      stroke-width: 2;
+      stroke-opacity: 0.6;
     }
     .edge-path.dashed {
       stroke-dasharray: 6 3;
@@ -192,6 +78,7 @@ class GraphView extends LitElement {
     }
     .arrowhead {
       fill: var(--vscode-editorWidget-border, #555);
+      fill-opacity: 0.6;
     }
     .tooltip {
       position: absolute;
@@ -205,13 +92,6 @@ class GraphView extends LitElement {
       max-width: 300px;
       z-index: 100;
       font-family: var(--vscode-font-family, sans-serif);
-    }
-    .kind-badge {
-      font-size: 9px;
-      opacity: 0.7;
-      fill: var(--vscode-editor-foreground, #ccc);
-      text-anchor: middle;
-      pointer-events: none;
     }
     .empty-state {
       display: flex;
@@ -279,10 +159,53 @@ class GraphView extends LitElement {
       background: var(--vscode-button-background, #0e639c);
       color: var(--vscode-button-foreground, #fff);
     }
+    .legend {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: var(--vscode-editorWidget-background, #1e1e1e);
+      border: 1px solid var(--vscode-editorWidget-border, #454545);
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-family: var(--vscode-font-family, sans-serif);
+      font-size: 11px;
+      color: var(--vscode-editor-foreground, #ccc);
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .legend-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .legend-line-sample {
+      width: 20px;
+      height: 0;
+      border-top: 2px solid var(--vscode-editorWidget-border, #555);
+    }
+    .legend-line-sample.dashed {
+      border-top-style: dashed;
+    }
   `;
 
   @state() private nodes: GraphNode[] = [];
   @state() private edges: GraphEdge[] = [];
+  @state() private edgePaths: Map<string, [number, number][]> = new Map();
+  @state() private reversedEdges: Set<string> = new Set();
+  @state() private selfLoops: GraphEdge[] = [];
   @state() private tooltip: { x: number; y: number; text: string } | null =
     null;
   @state() private transform = d3.zoomIdentity;
@@ -329,8 +252,12 @@ class GraphView extends LitElement {
     const filteredEdges = this.allEdges.filter(
       (e) => nodeIds.has(e.source) && nodeIds.has(e.target),
     );
-    this.nodes = layoutGraph(filteredNodes, filteredEdges);
+    const result = layoutGraph(filteredNodes, filteredEdges);
+    this.nodes = result.nodes;
     this.edges = filteredEdges;
+    this.edgePaths = result.edgePaths;
+    this.reversedEdges = result.reversedEdges;
+    this.selfLoops = result.selfLoops;
     this.updateComplete.then(() => this.fitToView());
   }
 
@@ -343,15 +270,14 @@ class GraphView extends LitElement {
     const vh = this.clientHeight || 600;
     const margin = 60;
 
-    // Compute bounding box of all nodes (accounting for radius + badge)
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const n of this.nodes) {
       const nx = n.x ?? 0;
       const ny = n.y ?? 0;
-      minX = Math.min(minX, nx - NODE_RADIUS - 10);
-      minY = Math.min(minY, ny - NODE_RADIUS - 10);
-      maxX = Math.max(maxX, nx + NODE_RADIUS + 10);
-      maxY = Math.max(maxY, ny + NODE_RADIUS + 20); // extra for kind badge
+      minX = Math.min(minX, nx - RING_RADIUS - 10);
+      minY = Math.min(minY, ny - RING_RADIUS - 10);
+      maxX = Math.max(maxX, nx + RING_RADIUS + 100); // extra for side label
+      maxY = Math.max(maxY, ny + RING_RADIUS + 10);
     }
 
     const graphW = maxX - minX;
@@ -365,7 +291,6 @@ class GraphView extends LitElement {
     const t = d3.zoomIdentity.translate(tx, ty).scale(scale);
     this.transform = t;
 
-    // Sync zoom state so further pan/zoom works from this position
     if (this.zoom) {
       d3.select(svgEl).call(this.zoom.transform, t);
     }
@@ -434,6 +359,45 @@ class GraphView extends LitElement {
     `;
   }
 
+  private renderLegend() {
+    // Collect which kinds are present in the current view
+    const kinds = new Set(this.nodes.map((n) => n.kind));
+    const hasSendEdge = this.edges.some((e) => e.send);
+    const hasReceiveEdge = this.edges.some((e) => !e.send);
+
+    return html`
+      <div class="legend">
+        ${[...kinds].map(
+          (kind) => html`
+            <div class="legend-item">
+              <div
+                class="legend-dot"
+                style="background: ${NODE_COLORS[kind] ?? "#888"}"
+              ></div>
+              <span>${NODE_LABELS[kind] ?? kind}</span>
+            </div>
+          `,
+        )}
+        ${hasSendEdge
+          ? html`
+              <div class="legend-line">
+                <div class="legend-line-sample"></div>
+                <span>Handoff</span>
+              </div>
+            `
+          : null}
+        ${hasReceiveEdge
+          ? html`
+              <div class="legend-line">
+                <div class="legend-line-sample dashed"></div>
+                <span>Receive</span>
+              </div>
+            `
+          : null}
+      </div>
+    `;
+  }
+
   protected render() {
     if (this.allNodes.length === 0) {
       return html`
@@ -468,8 +432,8 @@ class GraphView extends LitElement {
             viewBox="0 0 10 6"
             refX="10"
             refY="3"
-            markerWidth="10"
-            markerHeight="6"
+            markerWidth="8"
+            markerHeight="5"
             orient="auto-start-reverse"
           >
             <path d="M 0 0 L 10 3 L 0 6 z" class="arrowhead" />
@@ -479,6 +443,7 @@ class GraphView extends LitElement {
           ${this.renderEdges()} ${this.renderNodes()}
         </g>
       </svg>
+      ${this.nodes.length > 0 ? this.renderLegend() : null}
       ${this.tooltip
         ? html`<div
             class="tooltip"
@@ -490,28 +455,30 @@ class GraphView extends LitElement {
     `;
   }
 
+  private readonly pathGen = d3.line<[number, number]>()
+    .x((d) => d[0])
+    .y((d) => d[1])
+    .curve(d3.curveBasis);
+
   private renderEdges() {
-    return this.edges.map((edge) => {
-      const s = this.nodeById(edge.source);
-      const t = this.nodeById(edge.target);
-      if (!s?.x || !t?.x || !s?.y || !t?.y) return null;
+    const edgeSvg = this.edges.map((edge) => {
+      const key = `${edge.source}->${edge.target}`;
+      const points = this.edgePaths.get(key);
+      if (!points || points.length < 2) return null;
 
-      // Bezier curve: exit right of source, enter left of target
-      const sx = s.x + NODE_RADIUS;
-      const sy = s.y;
-      const tx = t.x - NODE_RADIUS;
-      const ty = t.y;
-      const cpOffset = Math.min(Math.abs(tx - sx) * 0.5, 120);
-      const path = `M ${sx} ${sy} C ${sx + cpOffset} ${sy}, ${tx - cpOffset} ${ty}, ${tx} ${ty}`;
+      const pathD = this.pathGen(points);
+      if (!pathD) return null;
 
-      // Place label at midpoint of the curve
-      const midX = (sx + tx) / 2;
-      const midY = (sy + ty) / 2;
+      const isReversed = this.reversedEdges.has(key);
+      const isDashed = !edge.send || isReversed;
+
+      const midIdx = Math.floor(points.length / 2);
+      const [midX, midY] = points[midIdx];
 
       return svg`
         <path
-          class="edge-path ${edge.send ? "" : "dashed"}"
-          d="${path}"
+          class="edge-path ${isDashed ? "dashed" : ""}"
+          d="${pathD}"
           marker-end="url(#arrowhead)"
         />
         <text
@@ -521,27 +488,49 @@ class GraphView extends LitElement {
         >${edge.label}</text>
       `;
     });
+
+    const loopSvg = this.selfLoops.map((edge) => {
+      const node = this.nodeById(edge.source);
+      if (!node?.x || !node?.y) return null;
+      const x = node.x + NODE_RADIUS;
+      const y = node.y - 8;
+      const r = 14;
+      return svg`
+        <path
+          class="edge-path dashed"
+          d="M ${x} ${y} A ${r} ${r} 0 1 1 ${x} ${y + 16}"
+          marker-end="url(#arrowhead)"
+        />
+      `;
+    });
+
+    return [...edgeSvg, ...loopSvg];
   }
 
   private renderNodes() {
-    return this.nodes.map(
-      (node) => svg`
+    return this.nodes.map((node) => {
+      const color = NODE_COLORS[node.kind] ?? "#888";
+      return svg`
         <g
+          class="node-dot"
           transform="translate(${node.x ?? 0}, ${node.y ?? 0})"
           @mouseenter="${(e: MouseEvent) => this.onNodeHover(e, node)}"
           @mouseleave="${() => this.onNodeLeave()}"
         >
           <circle
-            class="node-circle"
-            r="${NODE_RADIUS}"
-            fill="${NODE_COLORS[node.kind] ?? "#888"}"
-            stroke="${NODE_COLORS[node.kind] ?? "#888"}"
-            fill-opacity="0.15"
+            r="${RING_RADIUS}"
+            fill="none"
+            stroke="${color}"
+            stroke-width="3"
+            stroke-opacity="0.25"
           />
-          <text class="node-label" dy="2">${node.label}</text>
-          <text class="kind-badge" dy="${NODE_RADIUS + 14}">${node.kind === "builtin-agent" ? "builtin" : `${node.kind === "skill" ? "skill" : "agent"} (${node.provider ?? "copilot"})`}</text>
+          <circle
+            r="${NODE_RADIUS}"
+            fill="${color}"
+          />
+          <text class="node-label" x="${RING_RADIUS + 6}" dy="4">${node.label}</text>
         </g>
-      `,
-    );
+      `;
+    });
   }
 }

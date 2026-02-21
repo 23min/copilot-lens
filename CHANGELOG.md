@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.18] - 2026-02-21
+
+### Changed
+- Agent Graph: replaced manual longest-path layout with d3-dag Sugiyama algorithm for proper crossing reduction, optimal layer assignment, and smooth coordinate placement (closes #21)
+- Agent Graph: redesigned node visuals — smaller solid-fill dots with outer ring, labels to the right, vibrant color palette
+- Agent Graph: edge routing now uses d3-dag control points with smooth cubic basis curves instead of hand-computed bezier offsets
+- Agent Graph: graphs with cycles are handled via DFS back-edge detection; reversed edges render as dashed lines
+- Tree view categories start collapsed on first load instead of expanded
+
+### Added
+- Agent Graph: legend overlay showing node types and edge styles
+- `webview/layout.ts`: extracted graph layout into a dedicated module with cycle-breaking and d3-dag integration
+- `webview/layout.test.ts`: 15 unit tests for layout and cycle-breaking logic
+
 ## [0.0.17] - 2026-02-19
 
 ### Added
