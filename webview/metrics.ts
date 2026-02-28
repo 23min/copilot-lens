@@ -308,9 +308,9 @@ class MetricsDashboard extends LitElement {
       color: var(--vscode-button-foreground, #fff);
     }
     .session-select {
-      background: none;
-      border: 1px solid var(--vscode-editorWidget-border, #454545);
-      color: var(--vscode-editor-foreground);
+      background: var(--vscode-dropdown-background, #3c3c3c);
+      border: 1px solid var(--vscode-dropdown-border, #454545);
+      color: var(--vscode-dropdown-foreground, var(--vscode-editor-foreground));
       padding: 4px 8px;
       border-radius: 4px;
       font-size: 12px;
@@ -319,9 +319,14 @@ class MetricsDashboard extends LitElement {
       opacity: 0.7;
       max-width: 220px;
     }
+    .session-select option {
+      background: var(--vscode-dropdown-background, #3c3c3c);
+      color: var(--vscode-dropdown-foreground, var(--vscode-editor-foreground));
+    }
     .session-select:hover, .session-select:focus {
       opacity: 1;
       outline: none;
+      border-color: var(--vscode-focusBorder, #007fd4);
     }
     .filter-toggle.inactive {
       opacity: 0.3;
