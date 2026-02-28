@@ -233,13 +233,64 @@ describe("parseClaudeSessionJsonl", () => {
     expect(session.requests[1].messageText).toBe("second question");
   });
 
-  it("sets empty skills/agent fields (Claude has no Copilot skills)", () => {
+  it("sets empty skills when no Skill tool is used", () => {
     const session = parseClaudeSessionJsonl(BASIC_SESSION, null);
     const req = session.requests[0];
 
     expect(req.customAgentName).toBeNull();
     expect(req.availableSkills).toEqual([]);
     expect(req.loadedSkills).toEqual([]);
+  });
+
+  it("detects loaded skills from Skill tool_use blocks", () => {
+    const lines = [
+      userLine("fix bug 48", "u1"),
+      assistantLine({
+        uuid: "a1",
+        parentUuid: "u1",
+        content: [
+          { type: "text", text: "Let me invoke the bugfix skill." },
+          { type: "tool_use", id: "toolu_skill_1", name: "Skill", input: { skill: "bugfix", args: "48" } },
+        ],
+      }),
+    ].join("\n");
+
+    const session = parseClaudeSessionJsonl(lines, null);
+    expect(session.requests[0].loadedSkills).toEqual(["bugfix"]);
+  });
+
+  it("detects multiple skills in a single request", () => {
+    const lines = [
+      userLine("help me test", "u1"),
+      assistantLine({
+        uuid: "a1",
+        parentUuid: "u1",
+        content: [
+          { type: "tool_use", id: "s1", name: "Skill", input: { skill: "testing" } },
+          { type: "tool_use", id: "s2", name: "Skill", input: { skill: "vscode-extensions" } },
+        ],
+      }),
+    ].join("\n");
+
+    const session = parseClaudeSessionJsonl(lines, null);
+    expect(session.requests[0].loadedSkills).toEqual(["testing", "vscode-extensions"]);
+  });
+
+  it("does not count non-Skill tool_use blocks as skills", () => {
+    const lines = [
+      userLine("read a file", "u1"),
+      assistantLine({
+        uuid: "a1",
+        parentUuid: "u1",
+        content: [
+          { type: "tool_use", id: "t1", name: "Read", input: { file_path: "/foo.ts" } },
+          { type: "tool_use", id: "t2", name: "Bash", input: { command: "ls" } },
+        ],
+      }),
+    ].join("\n");
+
+    const session = parseClaudeSessionJsonl(lines, null);
+    expect(session.requests[0].loadedSkills).toEqual([]);
   });
 
   it("sets timings to null (not available in Claude format)", () => {
