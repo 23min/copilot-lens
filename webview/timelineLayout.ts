@@ -265,12 +265,12 @@ export function computeTimelineLayout(
   // Helper: get color for a request by its agent type
   const colorForRequest = (r: SessionRequestLike): string => {
     const label = r.customAgentName ?? r.agentId;
-    // Check known agent types first (compact → coral, built-ins → turquoise)
+    // Check known agent types first (compact → coral, subagents → teal)
     const knownColor = AGENT_TYPE_COLORS[label];
     if (knownColor) return knownColor;
     // Non-subagent: use main color
     if (!(r.isSubagent === true && r.subagentId !== undefined)) return MAIN_COLOR;
-    // Subagent with unknown type: use assigned amber fallback
+    // Unknown subagent type: use assigned teal fallback
     return agentTypeToColor.get(label) ?? MAIN_COLOR;
   };
 

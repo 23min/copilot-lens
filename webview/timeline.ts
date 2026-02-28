@@ -271,13 +271,14 @@ export class SessionTimeline extends LitElement {
     if (!req) return;
     const hostRect = this.getBoundingClientRect();
     let x = e.clientX - hostRect.left + 16;
-    const y = e.clientY - hostRect.top - 50;
+    let y = e.clientY - hostRect.top - 50;
     // Flip tooltip to left side if it would overflow the right edge
-    // Position so the right edge of tooltip is 16px left of cursor
     if (x + 220 > hostRect.width) {
       x = e.clientX - hostRect.left - 16 - 220;
     }
     if (x < 0) x = 4;
+    // Keep tooltip within the component vertically
+    if (y < 4) y = 4;
     this.tooltip = { x, y, bar, request: req };
   }
 
@@ -444,9 +445,10 @@ export class SessionTimeline extends LitElement {
     if (!this.layout || this.layout.bars.length === 0) return null;
 
     const layout = this.layout;
+    const LABEL_SPACE = 16; // room for time/day labels below tracks
     const svgH = Math.max(
       SVG_HEIGHT,
-      PADDING * 2 + layout.trackCount * TRACK_HEIGHT,
+      PADDING * 2 + layout.trackCount * TRACK_HEIGHT + LABEL_SPACE,
     );
 
     const vp = computeMinimapViewport(
