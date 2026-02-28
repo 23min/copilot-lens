@@ -41,13 +41,21 @@ Map the bug to the right layer:
 - Keep parsers as pure functions
 - Follow existing patterns in the file
 
-## 5. Verify
+## 5. Verify (automated)
 
 - `npm test` — all tests pass
 - `npm run build` — no type errors
-- Manually confirm the fix addresses the original issue
 
-## 6. Commit
+## 6. STOP — Wait for human testing
+
+**Do NOT commit, push, or create a PR yet.**
+
+Tell the user:
+- What was changed and why
+- How to test it manually (e.g., reload the extension, open a panel, check behavior)
+- Wait for the user to confirm the fix works before proceeding
+
+## 7. Commit (only after user approval)
 
 Use conventional commit format:
 
@@ -58,3 +66,9 @@ Closes #<issue-number>
 ```
 
 Scope should match the affected area: `parser`, `graph`, `webview`, `metrics`, `tree`, `session`.
+
+## 8. Push and PR (only when user says to)
+
+- `git push -u origin <branch>`
+- `gh pr create` targeting `main`
+- Do NOT merge — let the user review the PR first
