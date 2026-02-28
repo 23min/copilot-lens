@@ -223,14 +223,14 @@ describe("computeTimelineLayout", () => {
   });
 
   it("uses main color for main requests and subagent colors by agent type", () => {
-    const MAIN_COLOR = "#c4a882";
+    const MAIN_COLOR = "#e2c87f";
     const SUBAGENT_COLORS = [
-      "#82b4c4",
-      "#c482a8",
-      "#a8c482",
-      "#c4a082",
-      "#8282c4",
-      "#c4c482",
+      "#7dd3fc",
+      "#c084fc",
+      "#4ade80",
+      "#fbbf24",
+      "#f87171",
+      "#2dd4bf",
     ];
 
     const result = computeTimelineLayout({

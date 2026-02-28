@@ -85,14 +85,14 @@ export interface MinimapViewport {
 // ---------------------------------------------------------------------------
 
 const SUBAGENT_COLORS = [
-  "#82b4c4",
-  "#c482a8",
-  "#a8c482",
-  "#c4a082",
-  "#8282c4",
-  "#c4c482",
+  "#7dd3fc",  // sky blue
+  "#c084fc",  // purple
+  "#4ade80",  // green
+  "#fbbf24",  // amber
+  "#f87171",  // coral
+  "#2dd4bf",  // teal
 ];
-const MAIN_COLOR = "#c4a882";
+const MAIN_COLOR = "#e2c87f";
 const DEFAULT_MIN_BAR_WIDTH = 6;
 const DEFAULT_MAX_BAR_WIDTH = 40;
 const DEFAULT_BAR_HEIGHT = 8;

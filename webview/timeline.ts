@@ -120,22 +120,22 @@ export class SessionTimeline extends LitElement {
       background: var(--vscode-editorHoverWidget-background, #252526);
       border: 1px solid var(--vscode-editorHoverWidget-border, #454545);
       color: var(--vscode-editorHoverWidget-foreground, #ccc);
-      padding: 6px 10px;
+      padding: 8px 12px;
       border-radius: 4px;
-      font-size: 11px;
+      font-size: 12px;
       pointer-events: none;
-      max-width: 260px;
+      max-width: 300px;
       z-index: 100;
       font-family: var(--vscode-font-family, sans-serif);
       white-space: nowrap;
     }
     .tooltip-label {
       font-weight: 600;
-      margin-bottom: 2px;
+      margin-bottom: 3px;
     }
     .tooltip-detail {
       opacity: 0.7;
-      font-size: 10px;
+      font-size: 11px;
     }
   `;
 
