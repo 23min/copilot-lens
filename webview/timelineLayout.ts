@@ -86,28 +86,28 @@ export interface MinimapViewport {
 // Constants
 // ---------------------------------------------------------------------------
 
-// Color palette: built-in agents → turquoise, compact → coral, custom → amber
+// Color palette: built-in agents → amber, compact → coral, custom → teal
 const AGENT_TYPE_COLORS: Record<string, string> = {
-  // Claude Code built-in subagent types (turquoise shades)
-  "Explore": "#5eead4",          // teal-300
-  "Plan": "#5eead4",             // teal-300
-  "Planner": "#5eead4",          // teal-300
-  "Researcher": "#2dd4bf",       // teal-400
-  "Reviewer": "#14b8a6",         // teal-500
-  "Implementer": "#0d9488",      // teal-600
-  "Releaser": "#0d9488",         // teal-600
-  "claude-code-guide": "#2dd4bf", // teal-400
+  // Claude Code built-in subagent types (amber shades)
+  "Explore": "#fbbf24",          // amber-400
+  "Plan": "#fbbf24",             // amber-400
+  "Planner": "#fbbf24",          // amber-400
+  "Researcher": "#f59e0b",       // amber-500
+  "Reviewer": "#d97706",         // amber-600
+  "Implementer": "#b45309",      // amber-700
+  "Releaser": "#b45309",         // amber-700
+  "claude-code-guide": "#f59e0b", // amber-500
   // compact → coral
   "compact": "#fb7185",          // rose-400
 };
-// Fallback cycle for unknown agent types (amber shades)
+// Fallback cycle for custom/unknown agent types (teal shades)
 const FALLBACK_COLORS = [
-  "#fbbf24",  // amber-400
-  "#f59e0b",  // amber-500
-  "#d97706",  // amber-600
-  "#fcd34d",  // amber-300
+  "#5eead4",  // teal-300
+  "#2dd4bf",  // teal-400
+  "#14b8a6",  // teal-500
+  "#0d9488",  // teal-600
 ];
-const MAIN_COLOR = "#5eead4";
+const MAIN_COLOR = "#fbbf24";
 const DEFAULT_MIN_BAR_WIDTH = 6;
 const DEFAULT_MAX_BAR_WIDTH = 40;
 const DEFAULT_BAR_HEIGHT = 8;

@@ -62,11 +62,17 @@ export class SessionTimeline extends LitElement {
       pointer-events: none;
       font-family: var(--vscode-font-family, sans-serif);
     }
+    .time-line {
+      stroke: var(--vscode-editorWidget-border, #666);
+      stroke-width: 1;
+      stroke-dasharray: 4 3;
+      stroke-opacity: 0.5;
+    }
     .day-line {
-      stroke: var(--vscode-editorWidget-border, #888);
-      stroke-width: 1.5;
-      stroke-dasharray: 6 4;
-      stroke-opacity: 0.8;
+      stroke: var(--vscode-editorWidget-border, #aaa);
+      stroke-width: 2;
+      stroke-dasharray: 8 4;
+      stroke-opacity: 0.9;
     }
     .track-line {
       stroke: var(--vscode-editorWidget-border, #555);
@@ -267,9 +273,11 @@ export class SessionTimeline extends LitElement {
     let x = e.clientX - hostRect.left + 16;
     const y = e.clientY - hostRect.top - 50;
     // Flip tooltip to left side if it would overflow the right edge
+    // Position so the right edge of tooltip is 16px left of cursor
     if (x + 220 > hostRect.width) {
-      x = e.clientX - hostRect.left - 230;
+      x = e.clientX - hostRect.left - 16 - 220;
     }
+    if (x < 0) x = 4;
     this.tooltip = { x, y, bar, request: req };
   }
 
@@ -308,7 +316,7 @@ export class SessionTimeline extends LitElement {
 
   // ---- SVG rendering ----
 
-  private renderDayMarkers(layout: TimelineLayoutResult) {
+  private renderTimeAndDayMarkers(layout: TimelineLayoutResult) {
     const [minTs, maxTs] = layout.timeRange;
     if (minTs === maxTs) return null;
 
@@ -316,8 +324,21 @@ export class SessionTimeline extends LitElement {
       .domain([new Date(minTs), new Date(maxTs)])
       .range([PADDING, layout.totalWidth - PADDING]);
 
-    // Find midnight boundaries within the time range
-    const days: Date[] = [];
+    const contentHeight = PADDING * 2 + layout.trackCount * TRACK_HEIGHT;
+    const result: unknown[] = [];
+
+    // Time ticks (always shown)
+    const ticks = scale.ticks(6);
+    for (const tick of ticks) {
+      const x = scale(tick);
+      const label = tick.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      result.push(svg`
+        <line class="time-line" x1="${x}" y1="4" x2="${x}" y2="${contentHeight - 4}" />
+        <text class="time-label" x="${x}" y="${contentHeight + 10}">${label}</text>
+      `);
+    }
+
+    // Day boundary lines (midnight markers for multi-day sessions)
     const start = new Date(minTs);
     const nextMidnight = new Date(start);
     nextMidnight.setHours(0, 0, 0, 0);
@@ -325,29 +346,17 @@ export class SessionTimeline extends LitElement {
 
     let current = nextMidnight;
     while (current.getTime() <= maxTs) {
-      days.push(new Date(current));
+      const x = scale(current);
+      const label = current.toLocaleDateString([], { month: "short", day: "numeric" });
+      result.push(svg`
+        <line class="day-line" x1="${x}" y1="2" x2="${x}" y2="${contentHeight - 2}" />
+        <text class="time-label" x="${x}" y="${contentHeight + 10}" style="font-weight:600">${label}</text>
+      `);
       current = new Date(current);
       current.setDate(current.getDate() + 1);
     }
 
-    if (days.length === 0) return null; // single-day session
-
-    const contentHeight = PADDING * 2 + layout.trackCount * TRACK_HEIGHT;
-
-    return days.map((day) => {
-      const x = scale(day);
-      const label = day.toLocaleDateString([], { month: "short", day: "numeric" });
-      return svg`
-        <line
-          class="day-line"
-          x1="${x}" y1="4"
-          x2="${x}" y2="${contentHeight - 4}"
-        />
-        <text class="time-label" x="${x}" y="${contentHeight + 10}">
-          ${label}
-        </text>
-      `;
-    });
+    return result;
   }
 
   private renderTrackLines(layout: TimelineLayoutResult) {
@@ -458,7 +467,7 @@ export class SessionTimeline extends LitElement {
           height="${svgH}"
           style="transform: translateX(${-this.scrollX}px)"
         >
-          ${this.renderDayMarkers(layout)} ${this.renderTrackLines(layout)}
+          ${this.renderTimeAndDayMarkers(layout)} ${this.renderTrackLines(layout)}
           ${this.renderConnectors(layout.connectors)}
           ${this.renderBars(layout.bars)}
         </svg>

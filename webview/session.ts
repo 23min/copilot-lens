@@ -114,11 +114,14 @@ class SessionExplorer extends LitElement {
       margin-left: 12px;
       white-space: nowrap;
     }
-    .back-btn-sticky {
+    .back-header {
       position: sticky;
       top: 0;
       z-index: 12;
       background: var(--vscode-editor-background, #1e1e1e);
+      display: flex;
+      align-items: center;
+      gap: 12px;
       padding: 8px 0;
     }
     .back-btn {
@@ -130,20 +133,24 @@ class SessionExplorer extends LitElement {
       cursor: pointer;
       font-size: 12px;
       font-family: inherit;
+      flex-shrink: 0;
     }
     .back-btn:hover {
       background: var(--vscode-button-hoverBackground, #333);
     }
-    .session-detail-title {
-      font-size: 14px;
-      margin: 4px 0 8px;
+    .back-header-title {
+      font-size: 13px;
       font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      opacity: 0.7;
     }
 
     /* Sticky timeline chart */
     .timeline-sticky {
       position: sticky;
-      top: 38px;
+      top: 34px;
       z-index: 10;
       background: var(--vscode-editor-background, #1e1e1e);
       padding-bottom: 8px;
@@ -297,27 +304,32 @@ class SessionExplorer extends LitElement {
 
     /* Detail view */
     .detail-overlay {
-      margin-top: 16px;
-      padding: 16px;
+      margin-top: 8px;
+      padding: 8px 10px;
       background: var(--vscode-editorWidget-background, #252526);
       border: 1px solid var(--vscode-editorWidget-border, #454545);
-      border-radius: 6px;
+      border-radius: 4px;
     }
     .detail-section {
-      margin-bottom: 16px;
+      margin-bottom: 6px;
+    }
+    .detail-section:last-child {
+      margin-bottom: 0;
     }
     .detail-section h3 {
-      font-size: 12px;
+      font-size: 10px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      opacity: 0.6;
-      margin: 0 0 6px;
+      opacity: 0.5;
+      margin: 0 0 2px;
     }
     .detail-text {
-      font-size: 13px;
-      line-height: 1.5;
-      white-space: pre-wrap;
+      font-size: 12px;
+      line-height: 1.4;
       word-break: break-word;
+    }
+    .detail-text.pre {
+      white-space: pre-wrap;
     }
     .empty-state {
       opacity: 0.5;
@@ -706,7 +718,7 @@ class SessionExplorer extends LitElement {
 
   private renderTimeline(session: Session) {
     return html`
-      <div class="back-btn-sticky">
+      <div class="back-header">
         <button
           class="back-btn"
           @click="${() => {
@@ -716,8 +728,8 @@ class SessionExplorer extends LitElement {
         >
           Back to sessions
         </button>
+        <span class="back-header-title">${session.title ?? session.sessionId}</span>
       </div>
-      <div class="session-detail-title">${session.title ?? session.sessionId}</div>
 
       <div class="timeline-sticky">
         <session-timeline
@@ -731,7 +743,7 @@ class SessionExplorer extends LitElement {
             // Scroll to the corresponding entry in the list
             requestAnimationFrame(() => {
               const el = this.renderRoot.querySelector(`#req-${CSS.escape(reqId)}`);
-              if (el) el.scrollIntoView({ behavior: "instant", block: "nearest" });
+              if (el) el.scrollIntoView({ behavior: "instant", block: "start" });
             });
           }}"
         ></session-timeline>
@@ -809,47 +821,22 @@ class SessionExplorer extends LitElement {
   }
 
   private renderRequestDetail(req: SessionRequest) {
+    const cacheRead = req.usage.cacheReadTokens ?? 0;
+    const cacheCreate = req.usage.cacheCreationTokens ?? 0;
+    const hasCache = cacheRead > 0 || cacheCreate > 0;
+    const tokenLine = `Prompt: ${req.usage.promptTokens.toLocaleString()} | Completion: ${req.usage.completionTokens.toLocaleString()}`;
+    const cacheParts: string[] = [];
+    if (cacheCreate > 0) cacheParts.push(`Cache create: ${cacheCreate.toLocaleString()}`);
+    if (cacheRead > 0) cacheParts.push(`Cache read: ${cacheRead.toLocaleString()}`);
+    const timingLine = `First token: ${this.formatDuration(req.timings.firstProgress)} | Total: ${this.formatDuration(req.timings.totalElapsed)}`;
+
     return html`
       <div class="detail-overlay" @click="${(e: Event) => e.stopPropagation()}">
-        <div class="detail-section">
-          <h3>Prompt</h3>
-          <div class="detail-text">${req.messageText}</div>
-        </div>
-        ${req.toolCalls.length > 0
-          ? html`
-              <div class="detail-section">
-                <h3>Tool Calls (${req.toolCalls.length})</h3>
-                ${this.renderDetailToolCalls(req.toolCalls)}
-              </div>
-            `
-          : null}
-        ${req.loadedSkills.length > 0
-          ? html`
-              <div class="detail-section">
-                <h3>Loaded Skills</h3>
-                ${req.loadedSkills.map(
-                  (s) => html`<div class="detail-text">${s}</div>`,
-                )}
-              </div>
-            `
-          : null}
-        <div class="detail-section">
-          <h3>Timing</h3>
-          <div class="detail-text">
-            First token: ${this.formatDuration(req.timings.firstProgress)} |
-            Total: ${this.formatDuration(req.timings.totalElapsed)}
-          </div>
-        </div>
-        <div class="detail-section">
-          <h3>Tokens</h3>
-          <div class="detail-text">
-            Prompt: ${req.usage.promptTokens.toLocaleString()} | Completion:
-            ${req.usage.completionTokens.toLocaleString()}
-            ${(req.usage.cacheReadTokens ?? 0) > 0 || (req.usage.cacheCreationTokens ?? 0) > 0
-              ? html`<br>Cache Read: ${(req.usage.cacheReadTokens ?? 0).toLocaleString()} | Cache Creation: ${(req.usage.cacheCreationTokens ?? 0).toLocaleString()}`
-              : null}
-          </div>
-        </div>
+        ${req.messageText ? html`<div class="detail-section"><h3>Prompt</h3><div class="detail-text pre">${req.messageText}</div></div>` : null}
+        ${req.toolCalls.length > 0 ? html`<div class="detail-section"><h3>Tool Calls (${req.toolCalls.length})</h3>${this.renderDetailToolCalls(req.toolCalls)}</div>` : null}
+        ${req.loadedSkills.length > 0 ? html`<div class="detail-section"><h3>Loaded Skills</h3>${req.loadedSkills.map((s) => html`<div class="detail-text">${s}</div>`)}</div>` : null}
+        <div class="detail-section"><h3>Timing</h3><div class="detail-text">${timingLine}</div></div>
+        <div class="detail-section"><h3>Tokens</h3><div class="detail-text">${tokenLine}${hasCache ? html`<br>${cacheParts.join(" | ")}` : null}</div></div>
       </div>
     `;
   }
