@@ -1,0 +1,482 @@
+import { describe, it, expect } from "vitest";
+import {
+  computeTimelineLayout,
+  computeMinimapViewport,
+  type SessionRequestLike,
+} from "./timelineLayout.js";
+
+// ---------------------------------------------------------------------------
+// Test helper
+// ---------------------------------------------------------------------------
+
+function makeReq(
+  overrides: Partial<SessionRequestLike> & {
+    requestId: string;
+    timestamp: number;
+  },
+): SessionRequestLike {
+  return {
+    agentId: "claude-code",
+    customAgentName: null,
+    usage: { promptTokens: 100, completionTokens: 50 },
+    ...overrides,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Tests — computeTimelineLayout
+// ---------------------------------------------------------------------------
+
+describe("computeTimelineLayout", () => {
+  it("returns empty layout for no requests", () => {
+    const result = computeTimelineLayout({ requests: [], viewWidth: 800 });
+
+    expect(result.bars).toHaveLength(0);
+    expect(result.connectors).toHaveLength(0);
+    expect(result.trackCount).toBe(0);
+  });
+
+  it("positions a single request at the center of the range", () => {
+    const result = computeTimelineLayout({
+      requests: [makeReq({ requestId: "r1", timestamp: 1000 })],
+      viewWidth: 800,
+      padding: 40,
+    });
+
+    expect(result.bars).toHaveLength(1);
+    const bar = result.bars[0];
+    // Single request: min === max, so linearScale returns midpoint of [padding, totalWidth-padding]
+    expect(bar.track).toBe(0);
+    expect(typeof bar.x).toBe("number");
+    expect(typeof bar.y).toBe("number");
+    expect(bar.width).toBeGreaterThanOrEqual(6);
+    expect(bar.height).toBeGreaterThan(0);
+  });
+
+  it("orders multiple main requests left to right by timestamp", () => {
+    const result = computeTimelineLayout({
+      requests: [
+        makeReq({ requestId: "r1", timestamp: 1000 }),
+        makeReq({ requestId: "r2", timestamp: 2000 }),
+        makeReq({ requestId: "r3", timestamp: 3000 }),
+      ],
+      viewWidth: 800,
+    });
+
+    const byId = new Map(result.bars.map((b) => [b.requestId, b]));
+    expect(byId.get("r1")!.x).toBeLessThan(byId.get("r2")!.x);
+    expect(byId.get("r2")!.x).toBeLessThan(byId.get("r3")!.x);
+  });
+
+  it("assigns subagent requests to track 1", () => {
+    const result = computeTimelineLayout({
+      requests: [
+        makeReq({ requestId: "main1", timestamp: 1000 }),
+        makeReq({
+          requestId: "sub1",
+          timestamp: 1500,
+          isSubagent: true,
+          subagentId: "agent-A",
+          parentRequestId: "main1",
+        }),
+      ],
+      viewWidth: 800,
+    });
+
+    const byId = new Map(result.bars.map((b) => [b.requestId, b]));
+    expect(byId.get("main1")!.track).toBe(0);
+    expect(byId.get("sub1")!.track).toBe(1);
+  });
+
+  it("groups subagent requests by subagentId onto different tracks", () => {
+    // Group A: ts 1100–1500, Group B: ts 1200–1600 — overlapping, forcing different tracks
+    const result = computeTimelineLayout({
+      requests: [
+        makeReq({ requestId: "main1", timestamp: 1000 }),
+        makeReq({
+          requestId: "subA1",
+          timestamp: 1100,
+          isSubagent: true,
+          subagentId: "agent-A",
+          parentRequestId: "main1",
+        }),
+        makeReq({
+          requestId: "subA2",
+          timestamp: 1500,
+          isSubagent: true,
+          subagentId: "agent-A",
+          parentRequestId: "main1",
+        }),
+        makeReq({
+          requestId: "subB1",
+          timestamp: 1200,
+          isSubagent: true,
+          subagentId: "agent-B",
+          parentRequestId: "main1",
+        }),
+        makeReq({
+          requestId: "subB2",
+          timestamp: 1600,
+          isSubagent: true,
+          subagentId: "agent-B",
+          parentRequestId: "main1",
+        }),
+      ],
+      viewWidth: 800,
+    });
+
+    const byId = new Map(result.bars.map((b) => [b.requestId, b]));
+    const trackA = byId.get("subA1")!.track;
+    const trackB = byId.get("subB1")!.track;
+
+    // Both subagents should be on subagent tracks (>= 1)
+    expect(trackA).toBeGreaterThanOrEqual(1);
+    expect(trackB).toBeGreaterThanOrEqual(1);
+    // Because they overlap they must be on different tracks
+    expect(trackA).not.toBe(trackB);
+
+    // Within the same group, track should match
+    expect(byId.get("subA2")!.track).toBe(trackA);
+    expect(byId.get("subB2")!.track).toBe(trackB);
+  });
+
+  it("reuses tracks for non-overlapping subagent groups", () => {
+    // Group A spans ts 1100–1200, group B starts at 2000 — no overlap
+    const result = computeTimelineLayout({
+      requests: [
+        makeReq({ requestId: "main1", timestamp: 1000 }),
+        makeReq({
+          requestId: "subA1",
+          timestamp: 1100,
+          isSubagent: true,
+          subagentId: "agent-A",
+          parentRequestId: "main1",
+        }),
+        makeReq({
+          requestId: "subA2",
+          timestamp: 1200,
+          isSubagent: true,
+          subagentId: "agent-A",
+          parentRequestId: "main1",
+        }),
+        makeReq({
+          requestId: "subB1",
+          timestamp: 2000,
+          isSubagent: true,
+          subagentId: "agent-B",
+          parentRequestId: "main1",
+        }),
+      ],
+      viewWidth: 800,
+    });
+
+    const byId = new Map(result.bars.map((b) => [b.requestId, b]));
+    const trackA = byId.get("subA1")!.track;
+    const trackB = byId.get("subB1")!.track;
+
+    // Non-overlapping groups should share a track
+    expect(trackA).toBe(trackB);
+  });
+
+  it("uses separate tracks for overlapping subagent groups", () => {
+    // Group A: 1100–1500, Group B: 1300–1800 — overlapping
+    const result = computeTimelineLayout({
+      requests: [
+        makeReq({ requestId: "main1", timestamp: 1000 }),
+        makeReq({
+          requestId: "subA1",
+          timestamp: 1100,
+          isSubagent: true,
+          subagentId: "agent-A",
+          parentRequestId: "main1",
+        }),
+        makeReq({
+          requestId: "subA2",
+          timestamp: 1500,
+          isSubagent: true,
+          subagentId: "agent-A",
+          parentRequestId: "main1",
+        }),
+        makeReq({
+          requestId: "subB1",
+          timestamp: 1300,
+          isSubagent: true,
+          subagentId: "agent-B",
+          parentRequestId: "main1",
+        }),
+        makeReq({
+          requestId: "subB2",
+          timestamp: 1800,
+          isSubagent: true,
+          subagentId: "agent-B",
+          parentRequestId: "main1",
+        }),
+      ],
+      viewWidth: 800,
+    });
+
+    const byId = new Map(result.bars.map((b) => [b.requestId, b]));
+    const trackA = byId.get("subA1")!.track;
+    const trackB = byId.get("subB1")!.track;
+
+    expect(trackA).not.toBe(trackB);
+  });
+
+  it("uses main color for main requests and subagent colors for branches", () => {
+    const MAIN_COLOR = "#c4a882";
+    const SUBAGENT_COLORS = [
+      "#82b4c4",
+      "#c482a8",
+      "#a8c482",
+      "#c4a082",
+      "#8282c4",
+      "#c4c482",
+    ];
+
+    const result = computeTimelineLayout({
+      requests: [
+        makeReq({ requestId: "main1", timestamp: 1000 }),
+        makeReq({
+          requestId: "sub1",
+          timestamp: 2000,
+          isSubagent: true,
+          subagentId: "agent-A",
+          parentRequestId: "main1",
+        }),
+      ],
+      viewWidth: 800,
+    });
+
+    const byId = new Map(result.bars.map((b) => [b.requestId, b]));
+    expect(byId.get("main1")!.color).toBe(MAIN_COLOR);
+
+    const subColor = byId.get("sub1")!.color;
+    expect(SUBAGENT_COLORS).toContain(subColor);
+
+    const connector = result.connectors.find(
+      (c) => c.toRequestId === "sub1",
+    );
+    expect(connector!.color).toBe(subColor);
+  });
+
+  it("respects minimum bar spacing for content width", () => {
+    const requests = Array.from({ length: 100 }, (_, i) =>
+      makeReq({ requestId: `r${i}`, timestamp: i * 1000 }),
+    );
+
+    const result = computeTimelineLayout({
+      requests,
+      viewWidth: 500,
+      minBarSpacing: 20,
+    });
+
+    // 100 requests * 20px spacing = 2000, which exceeds viewWidth 500
+    expect(result.totalWidth).toBeGreaterThanOrEqual(2000);
+  });
+
+  it("handles requests with the same timestamp without crashing", () => {
+    const result = computeTimelineLayout({
+      requests: [
+        makeReq({ requestId: "r1", timestamp: 5000 }),
+        makeReq({ requestId: "r2", timestamp: 5000 }),
+        makeReq({ requestId: "r3", timestamp: 5000 }),
+      ],
+      viewWidth: 800,
+    });
+
+    expect(result.bars).toHaveLength(3);
+    // All at the same timestamp — all get the same x (midpoint)
+    const xs = result.bars.map((b) => b.x);
+    for (const x of xs) {
+      expect(typeof x).toBe("number");
+      expect(Number.isFinite(x)).toBe(true);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests — bar width calculation
+// ---------------------------------------------------------------------------
+
+describe("bar width calculation", () => {
+  it("uses totalElapsed for bar width when available", () => {
+    const result = computeTimelineLayout({
+      requests: [
+        makeReq({
+          requestId: "r1",
+          timestamp: 1000,
+          timings: { totalElapsed: 5000 },
+        }),
+        makeReq({
+          requestId: "r2",
+          timestamp: 10000,
+          timings: { totalElapsed: 2000 },
+        }),
+      ],
+      viewWidth: 800,
+    });
+
+    const byId = new Map(result.bars.map((b) => [b.requestId, b]));
+    // r1 has longer duration, so wider bar
+    expect(byId.get("r1")!.width).toBeGreaterThan(byId.get("r2")!.width);
+  });
+
+  it("falls back to gap-based width when totalElapsed is null", () => {
+    const result = computeTimelineLayout({
+      requests: [
+        makeReq({ requestId: "r1", timestamp: 1000 }),
+        makeReq({ requestId: "r2", timestamp: 5000 }),
+        makeReq({ requestId: "r3", timestamp: 6000 }),
+      ],
+      viewWidth: 800,
+    });
+
+    const byId = new Map(result.bars.map((b) => [b.requestId, b]));
+    // r1 has a bigger gap to r2 than r2 to r3, so r1 should be wider
+    expect(byId.get("r1")!.width).toBeGreaterThan(byId.get("r2")!.width);
+  });
+
+  it("enforces minimum bar width", () => {
+    const result = computeTimelineLayout({
+      requests: [
+        makeReq({
+          requestId: "r1",
+          timestamp: 1000,
+          timings: { totalElapsed: 1 },
+        }),
+      ],
+      viewWidth: 800,
+      minBarWidth: 10,
+    });
+
+    expect(result.bars[0].width).toBeGreaterThanOrEqual(10);
+  });
+
+  it("last request on track gets minimum width", () => {
+    const result = computeTimelineLayout({
+      requests: [makeReq({ requestId: "r1", timestamp: 1000 })],
+      viewWidth: 800,
+    });
+
+    // Single request = last on its track, gets minimum width
+    expect(result.bars[0].width).toBeGreaterThanOrEqual(6);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests — connector geometry
+// ---------------------------------------------------------------------------
+
+describe("connector geometry", () => {
+  it("produces no connectors when there are no subagents", () => {
+    const result = computeTimelineLayout({
+      requests: [
+        makeReq({ requestId: "r1", timestamp: 1000 }),
+        makeReq({ requestId: "r2", timestamp: 2000 }),
+      ],
+      viewWidth: 800,
+    });
+
+    expect(result.connectors).toHaveLength(0);
+  });
+
+  it("produces one connector per subagent group", () => {
+    const result = computeTimelineLayout({
+      requests: [
+        makeReq({ requestId: "main1", timestamp: 1000 }),
+        makeReq({
+          requestId: "subA1",
+          timestamp: 1500,
+          isSubagent: true,
+          subagentId: "agent-A",
+          parentRequestId: "main1",
+        }),
+        makeReq({
+          requestId: "subA2",
+          timestamp: 2000,
+          isSubagent: true,
+          subagentId: "agent-A",
+          parentRequestId: "main1",
+        }),
+        makeReq({
+          requestId: "subB1",
+          timestamp: 3000,
+          isSubagent: true,
+          subagentId: "agent-B",
+          parentRequestId: "main1",
+        }),
+      ],
+      viewWidth: 800,
+    });
+
+    expect(result.connectors).toHaveLength(2);
+  });
+
+  it("connector goes from parent right-edge to child left-edge", () => {
+    const result = computeTimelineLayout({
+      requests: [
+        makeReq({
+          requestId: "main1",
+          timestamp: 1000,
+          timings: { totalElapsed: 500 },
+        }),
+        makeReq({
+          requestId: "sub1",
+          timestamp: 2000,
+          isSubagent: true,
+          subagentId: "agent-A",
+          parentRequestId: "main1",
+        }),
+      ],
+      viewWidth: 800,
+    });
+
+    const c = result.connectors[0];
+    const parentBar = result.bars.find((b) => b.requestId === "main1")!;
+    const childBar = result.bars.find((b) => b.requestId === "sub1")!;
+    expect(c.fromX).toBeCloseTo(parentBar.x + parentBar.width);
+    expect(c.toX).toBeCloseTo(childBar.x);
+    expect(c.fromY).toBe(parentBar.y);
+    expect(c.toY).toBe(childBar.y);
+  });
+
+  it("skips connector when parent request is missing", () => {
+    const result = computeTimelineLayout({
+      requests: [
+        makeReq({
+          requestId: "sub1",
+          timestamp: 2000,
+          isSubagent: true,
+          subagentId: "agent-A",
+          parentRequestId: "nonexistent",
+        }),
+      ],
+      viewWidth: 800,
+    });
+
+    expect(result.connectors).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests — computeMinimapViewport
+// ---------------------------------------------------------------------------
+
+describe("computeMinimapViewport", () => {
+  it("computes scale as container / total", () => {
+    const vp = computeMinimapViewport(2000, 800, 0);
+    expect(vp.scale).toBeCloseTo(0.4);
+  });
+
+  it("positions indicator based on scrollX", () => {
+    const vp = computeMinimapViewport(2000, 800, 500);
+    expect(vp.indicatorX).toBeCloseTo(200);
+    expect(vp.indicatorWidth).toBeCloseTo(320);
+  });
+
+  it("indicator fills full width when totalWidth equals containerWidth", () => {
+    const vp = computeMinimapViewport(800, 800, 0);
+    expect(vp.scale).toBeCloseTo(1);
+    expect(vp.indicatorWidth).toBeCloseTo(800);
+  });
+});
