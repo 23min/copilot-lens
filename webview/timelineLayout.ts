@@ -47,12 +47,13 @@ export interface TimelineLayoutResult {
 export interface TimelineLayoutInput {
   requests: SessionRequestLike[];
   viewWidth: number;
-  minBarSpacing?: number; // default 20
-  minBarWidth?: number;   // default 6
-  maxBarWidth?: number;   // default 40
-  barHeight?: number;     // default 8
-  trackHeight?: number;   // default 30
-  padding?: number;       // default 40
+  minBarSpacing?: number;      // default 20
+  minBarWidth?: number;        // default 6
+  maxBarWidth?: number;        // default 40
+  barHeight?: number;          // default 8
+  trackHeight?: number;        // default 30
+  padding?: number;            // default 40
+  customAgentNames?: string[]; // agent names from .claude/agents/ & .github/agents/
 }
 
 /** Minimal interface so we don't import from session.ts */
@@ -87,32 +88,28 @@ export interface MinimapViewport {
 // ---------------------------------------------------------------------------
 
 // Color palette:
-//   Custom agents (.claude/agents/) → teal shades
-//   Built-in agents (Explore, Plan, etc.) → amber shades
+//   Custom agents (.claude/agents/, .github/agents/) → teal shades
+//   Built-in agents → amber shades
 //   compact → coral
 //   Main track → amber
-const AGENT_TYPE_COLORS: Record<string, string> = {
-  // Custom agents defined in .claude/agents/ (teal shades)
-  "Researcher": "#5eead4",       // teal-300
-  "Planner": "#2dd4bf",          // teal-400
-  "Reviewer": "#14b8a6",         // teal-500
-  "Implementer": "#0d9488",      // teal-600
-  "Releaser": "#0f766e",         // teal-700
-  // Built-in Claude Code agents (amber shades)
-  "Explore": "#fbbf24",          // amber-400
-  "Plan": "#f59e0b",             // amber-500
-  "claude-code-guide": "#d97706", // amber-600
-  // compact → coral
-  "compact": "#fb7185",          // rose-400
-};
-// Fallback for unknown subagent types (teal — assume custom)
-const FALLBACK_COLORS = [
-  "#99f6e4",  // teal-200
+const COMPACT_COLOR = "#fb7185";  // rose-400 (coral)
+const MAIN_COLOR = "#fbbf24";     // amber-400
+
+// Teal cycle for custom agents (discovered from .claude/agents/ etc.)
+const CUSTOM_COLORS = [
   "#5eead4",  // teal-300
   "#2dd4bf",  // teal-400
   "#14b8a6",  // teal-500
+  "#0d9488",  // teal-600
+  "#0f766e",  // teal-700
 ];
-const MAIN_COLOR = "#fbbf24";
+// Amber cycle for built-in agents (not in custom agent dirs)
+const BUILTIN_COLORS = [
+  "#fbbf24",  // amber-400
+  "#f59e0b",  // amber-500
+  "#d97706",  // amber-600
+  "#b45309",  // amber-700
+];
 const DEFAULT_MIN_BAR_WIDTH = 6;
 const DEFAULT_MAX_BAR_WIDTH = 40;
 const DEFAULT_BAR_HEIGHT = 8;
@@ -216,20 +213,24 @@ export function computeTimelineLayout(
   }
 
   // 5. Assign colors by agent type (label), not per-instance
+  //    Custom agents (from .claude/agents/ etc.) → teal cycle
+  //    Built-in agents → amber cycle
+  //    compact → coral
+  const customNameSet = new Set(input.customAgentNames ?? []);
   const agentTypeToColor = new Map<string, string>();
-  let fallbackColorIndex = 0;
+  let customColorIdx = 0;
+  let builtinColorIdx = 0;
   for (const [, group] of subagentGroups) {
     const label = group[0].customAgentName ?? group[0].agentId;
     if (!agentTypeToColor.has(label)) {
-      const knownColor = AGENT_TYPE_COLORS[label];
-      if (knownColor) {
-        agentTypeToColor.set(label, knownColor);
+      if (label === "compact") {
+        agentTypeToColor.set(label, COMPACT_COLOR);
+      } else if (customNameSet.has(label)) {
+        agentTypeToColor.set(label, CUSTOM_COLORS[customColorIdx % CUSTOM_COLORS.length]);
+        customColorIdx++;
       } else {
-        agentTypeToColor.set(
-          label,
-          FALLBACK_COLORS[fallbackColorIndex % FALLBACK_COLORS.length],
-        );
-        fallbackColorIndex++;
+        agentTypeToColor.set(label, BUILTIN_COLORS[builtinColorIdx % BUILTIN_COLORS.length]);
+        builtinColorIdx++;
       }
     }
   }
@@ -270,13 +271,14 @@ export function computeTimelineLayout(
   // Helper: get color for a request by its agent type
   const colorForRequest = (r: SessionRequestLike): string => {
     const label = r.customAgentName ?? r.agentId;
-    // Check known agent types first (compact → coral, subagents → teal)
-    const knownColor = AGENT_TYPE_COLORS[label];
-    if (knownColor) return knownColor;
-    // Non-subagent: use main color
-    if (!(r.isSubagent === true && r.subagentId !== undefined)) return MAIN_COLOR;
-    // Unknown subagent type: use assigned teal fallback
-    return agentTypeToColor.get(label) ?? MAIN_COLOR;
+    // compact → coral regardless of track
+    if (label === "compact") return COMPACT_COLOR;
+    // Subagent: use assigned color from step 5
+    if (r.isSubagent === true && r.subagentId !== undefined) {
+      return agentTypeToColor.get(label) ?? MAIN_COLOR;
+    }
+    // Non-subagent: main color
+    return MAIN_COLOR;
   };
 
   // 6. Sort requests per track (by timestamp) for gap-based width calculation

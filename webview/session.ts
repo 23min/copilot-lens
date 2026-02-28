@@ -442,6 +442,7 @@ class SessionExplorer extends LitElement {
   @state() private activeFilter: SourceFilter = "all";
   @state() private selectedSession: Session | null = null;
   @state() private selectedRequest: SessionRequest | null = null;
+  @state() private customAgentNames: string[] = [];
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -459,6 +460,9 @@ class SessionExplorer extends LitElement {
       this.emptyCount = e.data.emptyCount ?? 0;
       if (e.data.activeFilter) {
         this.activeFilter = e.data.activeFilter;
+      }
+      if (e.data.customAgentNames) {
+        this.customAgentNames = e.data.customAgentNames;
       }
 
       // Keep the selected session/request in sync with fresh data
@@ -734,6 +738,7 @@ class SessionExplorer extends LitElement {
       <div class="timeline-sticky">
         <session-timeline
           .requests="${session.requests}"
+          .customAgentNames="${this.customAgentNames}"
           .selectedRequestId="${this.selectedRequest?.requestId ?? null}"
           @request-select="${(e: CustomEvent) => {
             const reqId = e.detail;

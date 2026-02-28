@@ -146,6 +146,7 @@ export class SessionTimeline extends LitElement {
   `;
 
   @property({ type: Array }) requests: SessionRequestLike[] = [];
+  @property({ type: Array }) customAgentNames: string[] = [];
   @property({ type: String }) selectedRequestId: string | null = null;
 
   @state() private layout: TimelineLayoutResult | null = null;
@@ -177,7 +178,7 @@ export class SessionTimeline extends LitElement {
   }
 
   protected willUpdate(changed: Map<string, unknown>): void {
-    if (changed.has("requests")) {
+    if (changed.has("requests") || changed.has("customAgentNames")) {
       this.recomputeLayout();
     }
   }
@@ -194,6 +195,7 @@ export class SessionTimeline extends LitElement {
       minBarSpacing: 12,
       trackHeight: TRACK_HEIGHT,
       padding: PADDING,
+      customAgentNames: this.customAgentNames,
     });
     // Clamp scrollX if layout shrank
     const maxScroll = Math.max(0, this.layout.totalWidth - this.viewportWidth);

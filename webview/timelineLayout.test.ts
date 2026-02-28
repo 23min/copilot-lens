@@ -224,7 +224,7 @@ describe("computeTimelineLayout", () => {
 
   it("uses main color for main requests and subagent colors by agent type", () => {
     const MAIN_COLOR = "#fbbf24";
-    // Explore is a built-in agent → gets amber color
+    // Explore with no customAgentNames → built-in → amber cycle
     const EXPLORE_COLOR = "#fbbf24";
 
     const result = computeTimelineLayout({
