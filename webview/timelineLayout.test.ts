@@ -393,18 +393,25 @@ describe("bar width calculation", () => {
     expect(byId.get("r1")!.width).toBeGreaterThan(byId.get("r2")!.width);
   });
 
-  it("falls back to gap-based width when totalElapsed is null", () => {
+  it("falls back to token-proportional width when totalElapsed is null", () => {
     const result = computeTimelineLayout({
       requests: [
-        makeReq({ requestId: "r1", timestamp: 1000 }),
-        makeReq({ requestId: "r2", timestamp: 5000 }),
-        makeReq({ requestId: "r3", timestamp: 6000 }),
+        makeReq({
+          requestId: "r1",
+          timestamp: 1000,
+          usage: { promptTokens: 500, completionTokens: 500 },
+        }),
+        makeReq({
+          requestId: "r2",
+          timestamp: 5000,
+          usage: { promptTokens: 50, completionTokens: 50 },
+        }),
       ],
       viewWidth: 800,
     });
 
     const byId = new Map(result.bars.map((b) => [b.requestId, b]));
-    // r1 has a bigger gap to r2 than r2 to r3, so r1 should be wider
+    // r1 has more tokens, so wider bar
     expect(byId.get("r1")!.width).toBeGreaterThan(byId.get("r2")!.width);
   });
 

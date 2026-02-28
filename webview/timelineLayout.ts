@@ -49,6 +49,7 @@ export interface TimelineLayoutInput {
   viewWidth: number;
   minBarSpacing?: number; // default 20
   minBarWidth?: number;   // default 6
+  maxBarWidth?: number;   // default 40
   barHeight?: number;     // default 8
   trackHeight?: number;   // default 30
   padding?: number;       // default 40
@@ -93,6 +94,7 @@ const SUBAGENT_COLORS = [
 ];
 const MAIN_COLOR = "#c4a882";
 const DEFAULT_MIN_BAR_WIDTH = 6;
+const DEFAULT_MAX_BAR_WIDTH = 40;
 const DEFAULT_BAR_HEIGHT = 8;
 
 // ---------------------------------------------------------------------------
@@ -140,6 +142,7 @@ export function computeTimelineLayout(
     viewWidth,
     minBarSpacing = 20,
     minBarWidth = DEFAULT_MIN_BAR_WIDTH,
+    maxBarWidth = DEFAULT_MAX_BAR_WIDTH,
     barHeight = DEFAULT_BAR_HEIGHT,
     trackHeight = 30,
     padding = 40,
@@ -264,7 +267,14 @@ export function computeTimelineLayout(
     list.sort((a, b) => a.timestamp - b.timestamp);
   }
 
-  // 7. Build bars
+  // 7. Compute max token count for proportional bar widths
+  let maxTokens = 0;
+  for (const r of requests) {
+    const tokens = r.usage.promptTokens + r.usage.completionTokens;
+    if (tokens > maxTokens) maxTokens = tokens;
+  }
+
+  // 8. Build bars
   const bars: TimelineBar[] = requests.map((r) => {
     const isSubagent = r.isSubagent === true && r.subagentId !== undefined;
     const track = isSubagent
@@ -275,7 +285,7 @@ export function computeTimelineLayout(
     const y = padding + track * trackHeight;
     const label = r.customAgentName ?? r.agentId;
 
-    // Find next request on same track for gap-based width
+    // Find next request on same track to clamp width
     const trackList = requestsByTrack.get(track) ?? [];
     const idx = trackList.indexOf(r);
     const nextOnTrack =
@@ -288,13 +298,11 @@ export function computeTimelineLayout(
     if (r.timings?.totalElapsed != null && r.timings.totalElapsed > 0) {
       const endX = tsToX(r.timestamp + r.timings.totalElapsed);
       width = Math.max(endX - x, minBarWidth);
-    } else if (nextOnTrack) {
-      // Priority 2: 80% of gap to next request on same track
-      const nextX = tsToX(nextOnTrack.timestamp);
-      width = Math.max((nextX - x) * 0.8, minBarWidth);
     } else {
-      // Priority 3: last request on track — minimum width
-      width = minBarWidth;
+      // Priority 2: token-proportional width
+      const tokens = r.usage.promptTokens + r.usage.completionTokens;
+      const ratio = maxTokens > 0 ? tokens / maxTokens : 0;
+      width = minBarWidth + ratio * (maxBarWidth - minBarWidth);
     }
 
     // Clamp: bar must not extend past next bar's x on same track
