@@ -68,7 +68,7 @@ export function buildSubagentTypeMap(content: string): Map<string, string> {
       for (const block of blocks) {
         if (
           block.type === "tool_use" &&
-          block.name === "Task" &&
+          (block.name === "Task" || block.name === "Agent") &&
           block.id &&
           block.input?.subagent_type
         ) {
@@ -155,6 +155,7 @@ export function parseClaudeSessionJsonl(
   let sessionId = "unknown";
   let firstTimestamp = 0;
   let lastUserText = "";
+  let firstUserText: string | null = null;
   const requests: SessionRequest[] = [];
 
   for (const line of lines) {
@@ -176,7 +177,7 @@ export function parseClaudeSessionJsonl(
     }
 
     // Track latest user message text
-    if (parsed.type === "user" && parsed.message?.content) {
+    if (parsed.type === "user" && !parsed.isSidechain && parsed.message?.content) {
       const content = parsed.message.content;
       if (typeof content === "string") {
         lastUserText = content;
@@ -186,6 +187,29 @@ export function parseClaudeSessionJsonl(
         );
         if (textBlocks.length > 0) {
           lastUserText = textBlocks.map((b) => b.text).join("\n");
+        }
+      }
+      if (firstUserText === null) {
+        // For title derivation, filter out system-injected text blocks
+        // (e.g. <ide_opened_file>, <ide_selection>, <system-reminder>)
+        let titleCandidate: string | undefined;
+        if (typeof content === "string") {
+          if (!content.trimStart().startsWith("<")) {
+            titleCandidate = content;
+          }
+        } else if (Array.isArray(content)) {
+          const userBlocks = content.filter(
+            (b) =>
+              b.type === "text" &&
+              b.text &&
+              !b.text.trimStart().startsWith("<"),
+          );
+          if (userBlocks.length > 0) {
+            titleCandidate = userBlocks[0].text;
+          }
+        }
+        if (titleCandidate) {
+          firstUserText = titleCandidate;
         }
       }
     }
@@ -247,14 +271,46 @@ export function parseClaudeSessionJsonl(
     requests.sort((a, b) => a.timestamp - b.timestamp);
   }
 
+  // Derive title: prefer summary from index, fall back to first user message
+  let title: string | null = summary;
+  if (!title && firstUserText) {
+    title =
+      firstUserText.length > 80
+        ? firstUserText.slice(0, 80) + "\u2026"
+        : firstUserText;
+  }
+
   return {
     sessionId,
-    title: summary,
+    title,
     creationDate: firstTimestamp,
     requests,
     source: "claude",
     provider: "claude",
   };
+}
+
+function detectPreloadedSkills(lines: ClaudeLine[]): string[] {
+  const skills: string[] = [];
+  for (const parsed of lines) {
+    if (parsed.type !== "user") continue;
+    const blocks = Array.isArray(parsed.message?.content)
+      ? parsed.message!.content
+      : [];
+    for (const block of blocks) {
+      if (
+        block.type === "text" &&
+        block.text &&
+        block.text.includes("<skill-format>true</skill-format>")
+      ) {
+        const match = block.text.match(/<command-name>(.+?)<\/command-name>/);
+        if (match) {
+          skills.push(match[1]);
+        }
+      }
+    }
+  }
+  return skills;
 }
 
 function parseSubagentContent(sub: SubagentInput): SessionRequest[] {
@@ -266,14 +322,19 @@ function parseSubagentContent(sub: SubagentInput): SessionRequest[] {
     (sub.agentId.startsWith("acompact-") ? "compact" : "subagent");
   const requests: SessionRequest[] = [];
 
+  // Parse all lines first for preloaded skill detection
+  const parsedLines: ClaudeLine[] = [];
   for (const line of lines) {
-    let parsed: ClaudeLine;
     try {
-      parsed = JSON.parse(line);
+      parsedLines.push(JSON.parse(line));
     } catch {
       continue;
     }
+  }
 
+  const preloadedSkills = detectPreloadedSkills(parsedLines);
+
+  for (const parsed of parsedLines) {
     // In subagent files, all lines have isSidechain: true
     // We still only want assistant messages
     if (parsed.type === "assistant") {
@@ -290,6 +351,11 @@ function parseSubagentContent(sub: SubagentInput): SessionRequest[] {
             loadedSkills.push(block.input.skill);
           }
         }
+      }
+
+      // Attach preloaded skills to the first assistant request
+      if (requests.length === 0 && preloadedSkills.length > 0) {
+        loadedSkills.push(...preloadedSkills);
       }
 
       requests.push({

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.19] - 2026-02-28
+
+### Fixed
+- Metrics Dashboard: built-in Claude Code subagent types (Explore, Plan, general-purpose, Bash, compact) are no longer highlighted as custom agents (closes #56)
+- Session Explorer: Claude sessions now show the first user message as the title instead of raw session GUIDs; system-injected tags (`<ide_opened_file>`, etc.) are filtered out (closes #58)
+- Metrics Dashboard: skills preloaded via agent `skills:` frontmatter field are now detected from `<skill-format>` markers in subagent JSONL (closes #57)
+- Parser: `buildSubagentTypeMap` now recognises both `Task` and `Agent` tool names, fixing subagent type resolution for recent Claude Code versions (closes #54)
+
 ## [0.0.18] - 2026-02-21
 
 ### Changed

@@ -13,6 +13,17 @@ function countMap(map: Map<string, number>): CountEntry[] {
     .sort((a, b) => b.count - a.count);
 }
 
+/** Built-in Claude Code subagent types that should not be marked as custom */
+const BUILTIN_SUBAGENT_TYPES = new Set([
+  "Explore",
+  "Plan",
+  "general-purpose",
+  "Bash",
+  "compact",
+  "statusline-setup",
+  "claude-code-guide",
+]);
+
 function countMapWithCustom(
   map: Map<string, number>,
   customNames: Set<string>,
@@ -75,7 +86,9 @@ export function collectMetrics(
       // Agent usage — prefer custom agent name
       const agentName = req.customAgentName ?? req.agentId;
       agentCounts.set(agentName, (agentCounts.get(agentName) ?? 0) + 1);
-      if (req.customAgentName) usedAgents.add(req.customAgentName);
+      if (req.customAgentName && !BUILTIN_SUBAGENT_TYPES.has(req.customAgentName)) {
+        usedAgents.add(req.customAgentName);
+      }
 
       // Model usage
       modelCounts.set(req.modelId, (modelCounts.get(req.modelId) ?? 0) + 1);
