@@ -1,5 +1,6 @@
 import { LitElement, html, css } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import "./timeline.js";
 
 declare function acquireVsCodeApi(): {
   postMessage(msg: unknown): void;
@@ -42,6 +43,8 @@ interface SessionRequest {
   availableSkills: SkillRef[];
   loadedSkills: string[];
   isSubagent?: boolean;
+  parentRequestId?: string;
+  subagentId?: string;
 }
 
 interface Session {
@@ -693,6 +696,17 @@ class SessionExplorer extends LitElement {
         Back to sessions
       </button>
       <h2>${session.title ?? session.sessionId}</h2>
+
+      <session-timeline
+        .requests="${session.requests}"
+        .selectedRequestId="${this.selectedRequest?.requestId ?? null}"
+        @request-select="${(e: CustomEvent) => {
+          const reqId = e.detail;
+          const req = session.requests.find((r) => r.requestId === reqId);
+          this.selectedRequest =
+            this.selectedRequest?.requestId === reqId ? null : (req ?? null);
+        }}"
+      ></session-timeline>
 
       <div class="timeline">
         ${session.requests.map((req, i) => {

@@ -113,6 +113,74 @@ export function buildSubagentTypeMap(content: string): Map<string, string> {
   return result;
 }
 
+/**
+ * Build a map of agentId -> parentRequestUuid by scanning Task/Agent tool_use
+ * blocks and their tool_result responses. The parent is the assistant message
+ * UUID that made the tool call.
+ */
+function buildParentMap(content: string): Map<string, string> {
+  const lines = content.split("\n").filter((l) => l.trim());
+
+  // toolUseId -> assistant message UUID that made the call
+  const toolIdToParentUuid = new Map<string, string>();
+  // toolUseId -> agentId from tool_result
+  const toolIdToAgentId = new Map<string, string>();
+
+  for (const line of lines) {
+    let parsed: ClaudeLine;
+    try {
+      parsed = JSON.parse(line);
+    } catch {
+      continue;
+    }
+
+    if (parsed.type === "assistant" && !parsed.isSidechain) {
+      const blocks = Array.isArray(parsed.message?.content)
+        ? parsed.message!.content
+        : [];
+      for (const block of blocks) {
+        if (
+          block.type === "tool_use" &&
+          (block.name === "Task" || block.name === "Agent") &&
+          block.id &&
+          block.input?.subagent_type
+        ) {
+          toolIdToParentUuid.set(block.id, String(parsed.uuid ?? ""));
+        }
+      }
+    }
+
+    if (parsed.type === "user" && !parsed.isSidechain) {
+      const blocks = Array.isArray(parsed.message?.content)
+        ? parsed.message!.content
+        : [];
+      for (const block of blocks) {
+        if (block.type === "tool_result" && block.tool_use_id) {
+          const text = extractToolResultText(block);
+          let lastAgentId: string | null = null;
+          for (const m of text.matchAll(
+            /agentId: ([\w-]+) \(for resuming/g,
+          )) {
+            lastAgentId = m[1];
+          }
+          if (lastAgentId) {
+            toolIdToAgentId.set(block.tool_use_id, lastAgentId);
+          }
+        }
+      }
+    }
+  }
+
+  const result = new Map<string, string>();
+  for (const [toolId, agentId] of toolIdToAgentId) {
+    const parentUuid = toolIdToParentUuid.get(toolId);
+    if (parentUuid) {
+      result.set(agentId, parentUuid);
+    }
+  }
+  return result;
+}
+
 function extractToolResultText(block: ContentBlock): string {
   if (typeof block.content === "string") return block.content;
   if (Array.isArray(block.content)) {
@@ -176,14 +244,14 @@ export function parseClaudeSessionJsonl(
       firstTimestamp = new Date(parsed.timestamp).getTime();
     }
 
-    // Track latest user message text
+    // Track latest user message text (filter out system-injected tags)
     if (parsed.type === "user" && !parsed.isSidechain && parsed.message?.content) {
       const content = parsed.message.content;
       if (typeof content === "string") {
-        lastUserText = content;
+        lastUserText = content.trimStart().startsWith("<") ? "" : content;
       } else if (Array.isArray(content)) {
         const textBlocks = content.filter(
-          (b) => b.type === "text" && b.text,
+          (b) => b.type === "text" && b.text && !b.text.trimStart().startsWith("<"),
         );
         if (textBlocks.length > 0) {
           lastUserText = textBlocks.map((b) => b.text).join("\n");
@@ -262,8 +330,17 @@ export function parseClaudeSessionJsonl(
 
   // Parse subagent content and merge into requests
   if (subagents) {
+    const parentMap = buildParentMap(content);
+
     for (const sub of subagents) {
       const subRequests = parseSubagentContent(sub);
+      // Apply parent links from the parent map
+      const parentId = parentMap.get(sub.agentId);
+      if (parentId) {
+        for (const req of subRequests) {
+          req.parentRequestId = parentId;
+        }
+      }
       requests.push(...subRequests);
     }
 
@@ -381,6 +458,7 @@ function parseSubagentContent(sub: SubagentInput): SessionRequest[] {
         availableSkills: [],
         loadedSkills,
         isSubagent: true,
+        subagentId: sub.agentId,
       });
     }
   }
