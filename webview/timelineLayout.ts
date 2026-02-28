@@ -60,6 +60,7 @@ export interface SessionRequestLike {
   timestamp: number;
   agentId: string;
   customAgentName: string | null;
+  modelId?: string;
   isSubagent?: boolean;
   subagentId?: string;
   parentRequestId?: string;

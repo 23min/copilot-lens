@@ -95,9 +95,10 @@ export class SessionTimeline extends LitElement {
     }
     .legend {
       display: flex;
-      gap: 12px;
-      padding: 4px 10px;
-      font-size: 10px;
+      flex-wrap: wrap;
+      gap: 6px 14px;
+      padding: 6px 10px;
+      font-size: 12px;
       font-family: var(--vscode-font-family, sans-serif);
       color: var(--vscode-descriptionForeground, #999);
       border-bottom: 1px solid var(--vscode-editorWidget-border, #454545);
@@ -105,12 +106,13 @@ export class SessionTimeline extends LitElement {
     .legend-item {
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 5px;
     }
     .legend-swatch {
-      width: 10px;
-      height: 6px;
+      width: 12px;
+      height: 8px;
       border-radius: 2px;
+      flex-shrink: 0;
       display: inline-block;
     }
     .tooltip {
@@ -466,6 +468,9 @@ export class SessionTimeline extends LitElement {
             <div class="tooltip-detail">
               ${this.formatTime(this.tooltip.request.timestamp)} &middot;
               ${this.formatTokens(this.tooltip.request)}
+              ${this.tooltip.request.modelId
+                ? html`&middot; ${this.tooltip.request.modelId}`
+                : null}
             </div>
           </div>`
         : null}

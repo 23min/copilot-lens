@@ -129,6 +129,15 @@ class SessionExplorer extends LitElement {
       background: var(--vscode-button-hoverBackground, #333);
     }
 
+    /* Sticky timeline chart */
+    .timeline-sticky {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: var(--vscode-editor-background, #1e1e1e);
+      padding-bottom: 8px;
+    }
+
     /* Timeline */
     .timeline {
       position: relative;
@@ -697,21 +706,23 @@ class SessionExplorer extends LitElement {
       </button>
       <h2>${session.title ?? session.sessionId}</h2>
 
-      <session-timeline
-        .requests="${session.requests}"
-        .selectedRequestId="${this.selectedRequest?.requestId ?? null}"
-        @request-select="${(e: CustomEvent) => {
-          const reqId = e.detail;
-          const req = session.requests.find((r) => r.requestId === reqId);
-          this.selectedRequest =
-            this.selectedRequest?.requestId === reqId ? null : (req ?? null);
-          // Scroll to the corresponding entry in the list
-          requestAnimationFrame(() => {
-            const el = this.renderRoot.querySelector(`#req-${CSS.escape(reqId)}`);
-            if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
-          });
-        }}"
-      ></session-timeline>
+      <div class="timeline-sticky">
+        <session-timeline
+          .requests="${session.requests}"
+          .selectedRequestId="${this.selectedRequest?.requestId ?? null}"
+          @request-select="${(e: CustomEvent) => {
+            const reqId = e.detail;
+            const req = session.requests.find((r) => r.requestId === reqId);
+            this.selectedRequest =
+              this.selectedRequest?.requestId === reqId ? null : (req ?? null);
+            // Scroll to the corresponding entry in the list
+            requestAnimationFrame(() => {
+              const el = this.renderRoot.querySelector(`#req-${CSS.escape(reqId)}`);
+              if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            });
+          }}"
+        ></session-timeline>
+      </div>
 
       <div class="timeline">
         ${session.requests.map((req, i) => {
