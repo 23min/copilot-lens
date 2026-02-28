@@ -86,21 +86,26 @@ export interface MinimapViewport {
 // Constants
 // ---------------------------------------------------------------------------
 
-// Color palette: main → amber, subagent types → teal, compact → coral
+// Color palette:
+//   Custom agents (.claude/agents/) → teal shades
+//   Built-in agents (Explore, Plan, etc.) → amber shades
+//   compact → coral
+//   Main track → amber
 const AGENT_TYPE_COLORS: Record<string, string> = {
-  // Claude subagent types (teal shades)
-  "Explore": "#5eead4",          // teal-300
-  "Plan": "#5eead4",             // teal-300
-  "Planner": "#5eead4",          // teal-300
-  "Researcher": "#2dd4bf",       // teal-400
+  // Custom agents defined in .claude/agents/ (teal shades)
+  "Researcher": "#5eead4",       // teal-300
+  "Planner": "#2dd4bf",          // teal-400
   "Reviewer": "#14b8a6",         // teal-500
   "Implementer": "#0d9488",      // teal-600
-  "Releaser": "#0d9488",         // teal-600
-  "claude-code-guide": "#2dd4bf", // teal-400
+  "Releaser": "#0f766e",         // teal-700
+  // Built-in Claude Code agents (amber shades)
+  "Explore": "#fbbf24",          // amber-400
+  "Plan": "#f59e0b",             // amber-500
+  "claude-code-guide": "#d97706", // amber-600
   // compact → coral
   "compact": "#fb7185",          // rose-400
 };
-// Fallback cycle for unknown subagent types (also teal)
+// Fallback for unknown subagent types (teal — assume custom)
 const FALLBACK_COLORS = [
   "#99f6e4",  // teal-200
   "#5eead4",  // teal-300
