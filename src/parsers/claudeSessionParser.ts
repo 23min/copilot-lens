@@ -29,7 +29,7 @@ interface ContentBlock {
   text?: string;
   id?: string;
   name?: string;
-  input?: { subagent_type?: string };
+  input?: { subagent_type?: string; skill?: string };
   tool_use_id?: string;
   content?: ContentBlock[] | string;
 }
@@ -196,10 +196,14 @@ export function parseClaudeSessionJsonl(
       if (!msg) continue;
 
       const toolCalls: ToolCallInfo[] = [];
+      const loadedSkills: string[] = [];
       const blocks = Array.isArray(msg.content) ? msg.content : [];
       for (const block of blocks) {
         if (block.type === "tool_use" && block.id && block.name) {
           toolCalls.push({ id: block.id, name: block.name });
+          if (block.name === "Skill" && block.input?.skill) {
+            loadedSkills.push(block.input.skill);
+          }
         }
       }
 
@@ -227,7 +231,7 @@ export function parseClaudeSessionJsonl(
         },
         toolCalls,
         availableSkills: [],
-        loadedSkills: [],
+        loadedSkills,
       });
     }
   }
@@ -277,10 +281,14 @@ function parseSubagentContent(sub: SubagentInput): SessionRequest[] {
       if (!msg) continue;
 
       const toolCalls: ToolCallInfo[] = [];
+      const loadedSkills: string[] = [];
       const blocks = Array.isArray(msg.content) ? msg.content : [];
       for (const block of blocks) {
         if (block.type === "tool_use" && block.id && block.name) {
           toolCalls.push({ id: block.id, name: block.name });
+          if (block.name === "Skill" && block.input?.skill) {
+            loadedSkills.push(block.input.skill);
+          }
         }
       }
 
@@ -305,7 +313,7 @@ function parseSubagentContent(sub: SubagentInput): SessionRequest[] {
         },
         toolCalls,
         availableSkills: [],
-        loadedSkills: [],
+        loadedSkills,
         isSubagent: true,
       });
     }
