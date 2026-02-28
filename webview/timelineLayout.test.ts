@@ -223,15 +223,9 @@ describe("computeTimelineLayout", () => {
   });
 
   it("uses main color for main requests and subagent colors by agent type", () => {
-    const MAIN_COLOR = "#e2c87f";
-    const SUBAGENT_COLORS = [
-      "#7dd3fc",
-      "#c084fc",
-      "#4ade80",
-      "#fbbf24",
-      "#f87171",
-      "#2dd4bf",
-    ];
+    const MAIN_COLOR = "#5eead4";
+    // Explore is a known type → gets its specific teal color
+    const EXPLORE_COLOR = "#5eead4";
 
     const result = computeTimelineLayout({
       requests: [
@@ -261,7 +255,7 @@ describe("computeTimelineLayout", () => {
 
     const subColor1 = byId.get("sub1")!.color;
     const subColor2 = byId.get("sub2")!.color;
-    expect(SUBAGENT_COLORS).toContain(subColor1);
+    expect(subColor1).toBe(EXPLORE_COLOR);
     // Same agent type → same color
     expect(subColor1).toBe(subColor2);
 
@@ -289,7 +283,7 @@ describe("computeTimelineLayout", () => {
           isSubagent: true,
           subagentId: "agent-B",
           parentRequestId: "main1",
-          customAgentName: "Plan",
+          customAgentName: "compact",
         }),
       ],
       viewWidth: 800,
@@ -318,17 +312,17 @@ describe("computeTimelineLayout", () => {
           isSubagent: true,
           subagentId: "agent-B",
           parentRequestId: "main1",
-          customAgentName: "Plan",
+          customAgentName: "compact",
         }),
       ],
       viewWidth: 800,
     });
 
-    expect(result.legend).toHaveLength(3); // main + Explore + Plan
+    expect(result.legend).toHaveLength(3); // main + Explore + compact
     expect(result.legend[0].label).toBe("main");
     const labels = result.legend.map((l) => l.label);
     expect(labels).toContain("Explore");
-    expect(labels).toContain("Plan");
+    expect(labels).toContain("compact");
   });
 
   it("respects minimum bar spacing for content width", () => {

@@ -265,8 +265,8 @@ export class SessionTimeline extends LitElement {
     if (!req) return;
     const hostRect = this.getBoundingClientRect();
     this.tooltip = {
-      x: e.clientX - hostRect.left + 12,
-      y: e.clientY - hostRect.top - 30,
+      x: e.clientX - hostRect.left + 16,
+      y: e.clientY - hostRect.top - 50,
       bar,
       request: req,
     };
@@ -465,13 +465,11 @@ export class SessionTimeline extends LitElement {
             style="left: ${this.tooltip.x}px; top: ${this.tooltip.y}px"
           >
             <div class="tooltip-label">${this.tooltip.bar.label}</div>
-            <div class="tooltip-detail">
-              ${this.formatTime(this.tooltip.request.timestamp)} &middot;
-              ${this.formatTokens(this.tooltip.request)}
-              ${this.tooltip.request.modelId
-                ? html`&middot; ${this.tooltip.request.modelId}`
-                : null}
-            </div>
+            <div class="tooltip-detail">${this.formatTime(this.tooltip.request.timestamp)}</div>
+            <div class="tooltip-detail">${this.formatTokens(this.tooltip.request)}</div>
+            ${this.tooltip.request.modelId
+              ? html`<div class="tooltip-detail">${this.tooltip.request.modelId}</div>`
+              : null}
           </div>`
         : null}
     `;

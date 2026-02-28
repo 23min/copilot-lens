@@ -154,8 +154,8 @@ class SessionExplorer extends LitElement {
     }
     .timeline-entry {
       position: relative;
-      margin-bottom: 16px;
-      padding: 12px;
+      margin-bottom: 8px;
+      padding: 10px 12px;
       background: var(--vscode-editorWidget-background, #252526);
       border: 1px solid var(--vscode-editorWidget-border, #454545);
       border-radius: 6px;
@@ -185,7 +185,7 @@ class SessionExplorer extends LitElement {
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
       font-size: 12px;
     }
     .entry-agent {
@@ -212,7 +212,7 @@ class SessionExplorer extends LitElement {
       display: flex;
       flex-wrap: wrap;
       gap: 4px;
-      margin-top: 8px;
+      margin-top: 6px;
     }
     .tool-tag {
       background: var(--vscode-badge-background, #4d4d4d);
@@ -258,7 +258,7 @@ class SessionExplorer extends LitElement {
     .entry-stats {
       display: flex;
       gap: 12px;
-      margin-top: 8px;
+      margin-top: 6px;
       font-size: 11px;
       opacity: 0.5;
     }
@@ -718,7 +718,7 @@ class SessionExplorer extends LitElement {
             // Scroll to the corresponding entry in the list
             requestAnimationFrame(() => {
               const el = this.renderRoot.querySelector(`#req-${CSS.escape(reqId)}`);
-              if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+              if (el) el.scrollIntoView({ behavior: "instant", block: "nearest" });
             });
           }}"
         ></session-timeline>
@@ -764,7 +764,9 @@ class SessionExplorer extends LitElement {
                   >${this.formatDate(req.timestamp)}</span
                 >
               </div>
-              <div class="entry-prompt">${req.messageText}</div>
+              ${req.messageText
+                ? html`<div class="entry-prompt">${req.messageText}</div>`
+                : null}
               ${req.toolCalls.length > 0
                 ? html`
                     <div class="entry-tools">
@@ -781,10 +783,7 @@ class SessionExplorer extends LitElement {
                 : null}
               <div class="entry-stats">
                 <span>${this.formatDuration(req.timings.totalElapsed)}</span>
-                <span
-                  >${(req.usage.promptTokens + req.usage.completionTokens + (req.usage.cacheReadTokens ?? 0) + (req.usage.cacheCreationTokens ?? 0)).toLocaleString()}
-                  tokens</span
-                >
+                <span>${(req.usage.promptTokens + req.usage.completionTokens + (req.usage.cacheReadTokens ?? 0) + (req.usage.cacheCreationTokens ?? 0)).toLocaleString()} tokens</span>
               </div>
               ${this.selectedRequest?.requestId === req.requestId
                 ? this.renderRequestDetail(req)

@@ -84,15 +84,24 @@ export interface MinimapViewport {
 // Constants
 // ---------------------------------------------------------------------------
 
-const SUBAGENT_COLORS = [
-  "#7dd3fc",  // sky blue
-  "#c084fc",  // purple
-  "#4ade80",  // green
-  "#fbbf24",  // amber
-  "#f87171",  // coral
-  "#2dd4bf",  // teal
+// Color palette: main agent gets teal shades, known types get specific colors
+const AGENT_TYPE_COLORS: Record<string, string> = {
+  "Explore": "#5eead4",     // teal-300
+  "Researcher": "#2dd4bf",  // teal-400
+  "Plan": "#5eead4",        // teal-300
+  "Planner": "#5eead4",     // teal-300
+  "Reviewer": "#14b8a6",    // teal-500
+  "Implementer": "#0d9488", // teal-600
+  "compact": "#fb7185",     // rose-400 (coral)
+};
+// Fallback cycle for unknown agent types (amber shades)
+const FALLBACK_COLORS = [
+  "#fbbf24",  // amber-400
+  "#f59e0b",  // amber-500
+  "#d97706",  // amber-600
+  "#fcd34d",  // amber-300
 ];
-const MAIN_COLOR = "#e2c87f";
+const MAIN_COLOR = "#5eead4";
 const DEFAULT_MIN_BAR_WIDTH = 6;
 const DEFAULT_MAX_BAR_WIDTH = 40;
 const DEFAULT_BAR_HEIGHT = 8;
@@ -197,15 +206,20 @@ export function computeTimelineLayout(
 
   // 5. Assign colors by agent type (label), not per-instance
   const agentTypeToColor = new Map<string, string>();
-  let colorIndex = 0;
+  let fallbackColorIndex = 0;
   for (const [, group] of subagentGroups) {
     const label = group[0].customAgentName ?? group[0].agentId;
     if (!agentTypeToColor.has(label)) {
-      agentTypeToColor.set(
-        label,
-        SUBAGENT_COLORS[colorIndex % SUBAGENT_COLORS.length],
-      );
-      colorIndex++;
+      const knownColor = AGENT_TYPE_COLORS[label];
+      if (knownColor) {
+        agentTypeToColor.set(label, knownColor);
+      } else {
+        agentTypeToColor.set(
+          label,
+          FALLBACK_COLORS[fallbackColorIndex % FALLBACK_COLORS.length],
+        );
+        fallbackColorIndex++;
+      }
     }
   }
 
