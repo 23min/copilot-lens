@@ -350,7 +350,7 @@ export class SessionTimeline extends LitElement {
       const label = current.toLocaleDateString([], { month: "short", day: "numeric" });
       result.push(svg`
         <line class="day-line" x1="${x}" y1="2" x2="${x}" y2="${contentHeight - 2}" />
-        <text class="time-label" x="${x}" y="${contentHeight + 10}" style="font-weight:600">${label}</text>
+        <text class="time-label" x="${x + 4}" y="${contentHeight + 10}" text-anchor="start" style="font-weight:600">${label}</text>
       `);
       current = new Date(current);
       current.setDate(current.getDate() + 1);
