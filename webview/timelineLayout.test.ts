@@ -318,9 +318,9 @@ describe("computeTimelineLayout", () => {
       viewWidth: 800,
     });
 
-    expect(result.legend).toHaveLength(3); // main + Explore + compact
-    expect(result.legend[0].label).toBe("main");
+    expect(result.legend).toHaveLength(3); // claude-code + Explore + compact
     const labels = result.legend.map((l) => l.label);
+    expect(labels).toContain("claude-code");
     expect(labels).toContain("Explore");
     expect(labels).toContain("compact");
   });

@@ -114,6 +114,13 @@ class SessionExplorer extends LitElement {
       margin-left: 12px;
       white-space: nowrap;
     }
+    .back-btn-sticky {
+      position: sticky;
+      top: 0;
+      z-index: 12;
+      background: var(--vscode-editor-background, #1e1e1e);
+      padding: 8px 0;
+    }
     .back-btn {
       background: none;
       border: 1px solid var(--vscode-button-border, #555);
@@ -122,17 +129,21 @@ class SessionExplorer extends LitElement {
       border-radius: 4px;
       cursor: pointer;
       font-size: 12px;
-      margin-bottom: 12px;
       font-family: inherit;
     }
     .back-btn:hover {
       background: var(--vscode-button-hoverBackground, #333);
     }
+    .session-detail-title {
+      font-size: 14px;
+      margin: 4px 0 8px;
+      font-weight: 500;
+    }
 
     /* Sticky timeline chart */
     .timeline-sticky {
       position: sticky;
-      top: 0;
+      top: 38px;
       z-index: 10;
       background: var(--vscode-editor-background, #1e1e1e);
       padding-bottom: 8px;
@@ -695,16 +706,18 @@ class SessionExplorer extends LitElement {
 
   private renderTimeline(session: Session) {
     return html`
-      <button
-        class="back-btn"
-        @click="${() => {
-          this.selectedSession = null;
-          this.selectedRequest = null;
-        }}"
-      >
-        Back to sessions
-      </button>
-      <h2>${session.title ?? session.sessionId}</h2>
+      <div class="back-btn-sticky">
+        <button
+          class="back-btn"
+          @click="${() => {
+            this.selectedSession = null;
+            this.selectedRequest = null;
+          }}"
+        >
+          Back to sessions
+        </button>
+      </div>
+      <div class="session-detail-title">${session.title ?? session.sessionId}</div>
 
       <div class="timeline-sticky">
         <session-timeline

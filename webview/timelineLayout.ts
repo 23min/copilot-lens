@@ -68,6 +68,8 @@ export interface SessionRequestLike {
   usage: {
     promptTokens: number;
     completionTokens: number;
+    cacheReadTokens?: number;
+    cacheCreationTokens?: number;
   };
   timings?: {
     totalElapsed: number | null;
@@ -84,15 +86,19 @@ export interface MinimapViewport {
 // Constants
 // ---------------------------------------------------------------------------
 
-// Color palette: main agent gets teal shades, known types get specific colors
+// Color palette: built-in agents → turquoise, compact → coral, custom → amber
 const AGENT_TYPE_COLORS: Record<string, string> = {
-  "Explore": "#5eead4",     // teal-300
-  "Researcher": "#2dd4bf",  // teal-400
-  "Plan": "#5eead4",        // teal-300
-  "Planner": "#5eead4",     // teal-300
-  "Reviewer": "#14b8a6",    // teal-500
-  "Implementer": "#0d9488", // teal-600
-  "compact": "#fb7185",     // rose-400 (coral)
+  // Claude Code built-in subagent types (turquoise shades)
+  "Explore": "#5eead4",          // teal-300
+  "Plan": "#5eead4",             // teal-300
+  "Planner": "#5eead4",          // teal-300
+  "Researcher": "#2dd4bf",       // teal-400
+  "Reviewer": "#14b8a6",         // teal-500
+  "Implementer": "#0d9488",      // teal-600
+  "Releaser": "#0d9488",         // teal-600
+  "claude-code-guide": "#2dd4bf", // teal-400
+  // compact → coral
+  "compact": "#fb7185",          // rose-400
 };
 // Fallback cycle for unknown agent types (amber shades)
 const FALLBACK_COLORS = [
@@ -258,8 +264,13 @@ export function computeTimelineLayout(
 
   // Helper: get color for a request by its agent type
   const colorForRequest = (r: SessionRequestLike): string => {
-    if (!(r.isSubagent === true && r.subagentId !== undefined)) return MAIN_COLOR;
     const label = r.customAgentName ?? r.agentId;
+    // Check known agent types first (compact → coral, built-ins → turquoise)
+    const knownColor = AGENT_TYPE_COLORS[label];
+    if (knownColor) return knownColor;
+    // Non-subagent: use main color
+    if (!(r.isSubagent === true && r.subagentId !== undefined)) return MAIN_COLOR;
+    // Subagent with unknown type: use assigned amber fallback
     return agentTypeToColor.get(label) ?? MAIN_COLOR;
   };
 
@@ -373,9 +384,15 @@ export function computeTimelineLayout(
     }
   }
 
-  // 9. Build legend entries
-  const legend: LegendEntry[] = [{ label: "main", color: MAIN_COLOR }];
-  for (const [label, color] of agentTypeToColor) {
+  // 9. Build legend from actual bars (deduplicated by label)
+  const legendMap = new Map<string, string>();
+  for (const b of bars) {
+    if (!legendMap.has(b.label)) {
+      legendMap.set(b.label, b.color);
+    }
+  }
+  const legend: LegendEntry[] = [];
+  for (const [label, color] of legendMap) {
     legend.push({ label, color });
   }
 

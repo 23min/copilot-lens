@@ -62,11 +62,11 @@ export class SessionTimeline extends LitElement {
       pointer-events: none;
       font-family: var(--vscode-font-family, sans-serif);
     }
-    .time-line {
-      stroke: var(--vscode-editorWidget-border, #555);
-      stroke-width: 1;
-      stroke-dasharray: 4 3;
-      stroke-opacity: 0.6;
+    .day-line {
+      stroke: var(--vscode-editorWidget-border, #888);
+      stroke-width: 1.5;
+      stroke-dasharray: 6 4;
+      stroke-opacity: 0.8;
     }
     .track-line {
       stroke: var(--vscode-editorWidget-border, #555);
@@ -264,12 +264,13 @@ export class SessionTimeline extends LitElement {
     const req = this.requestById.get(bar.requestId);
     if (!req) return;
     const hostRect = this.getBoundingClientRect();
-    this.tooltip = {
-      x: e.clientX - hostRect.left + 16,
-      y: e.clientY - hostRect.top - 50,
-      bar,
-      request: req,
-    };
+    let x = e.clientX - hostRect.left + 16;
+    const y = e.clientY - hostRect.top - 50;
+    // Flip tooltip to left side if it would overflow the right edge
+    if (x + 220 > hostRect.width) {
+      x = e.clientX - hostRect.left - 230;
+    }
+    this.tooltip = { x, y, bar, request: req };
   }
 
   private onBarLeave(): void {
@@ -287,8 +288,17 @@ export class SessionTimeline extends LitElement {
   }
 
   private formatTokens(req: SessionRequestLike): string {
-    const total = req.usage.promptTokens + req.usage.completionTokens;
-    return total.toLocaleString() + " tokens";
+    return `Prompt: ${req.usage.promptTokens.toLocaleString()} | Completion: ${req.usage.completionTokens.toLocaleString()}`;
+  }
+
+  private formatCacheTokens(req: SessionRequestLike): string | null {
+    const creation = req.usage.cacheCreationTokens ?? 0;
+    const read = req.usage.cacheReadTokens ?? 0;
+    if (creation === 0 && read === 0) return null;
+    const parts: string[] = [];
+    if (creation > 0) parts.push(`Cache create: ${creation.toLocaleString()}`);
+    if (read > 0) parts.push(`Cache read: ${read.toLocaleString()}`);
+    return parts.join(" | ");
   }
 
   private formatTime(ts: number): string {
@@ -298,7 +308,7 @@ export class SessionTimeline extends LitElement {
 
   // ---- SVG rendering ----
 
-  private renderTimeMarkers(layout: TimelineLayoutResult) {
+  private renderDayMarkers(layout: TimelineLayoutResult) {
     const [minTs, maxTs] = layout.timeRange;
     if (minTs === maxTs) return null;
 
@@ -306,31 +316,38 @@ export class SessionTimeline extends LitElement {
       .domain([new Date(minTs), new Date(maxTs)])
       .range([PADDING, layout.totalWidth - PADDING]);
 
-    const ticks = scale.ticks(6);
+    // Find midnight boundaries within the time range
+    const days: Date[] = [];
+    const start = new Date(minTs);
+    const nextMidnight = new Date(start);
+    nextMidnight.setHours(0, 0, 0, 0);
+    nextMidnight.setDate(nextMidnight.getDate() + 1);
+
+    let current = nextMidnight;
+    while (current.getTime() <= maxTs) {
+      days.push(new Date(current));
+      current = new Date(current);
+      current.setDate(current.getDate() + 1);
+    }
+
+    if (days.length === 0) return null; // single-day session
+
     const contentHeight = PADDING * 2 + layout.trackCount * TRACK_HEIGHT;
 
-    return ticks.map((tick) => {
-      const x = scale(tick);
+    return days.map((day) => {
+      const x = scale(day);
+      const label = day.toLocaleDateString([], { month: "short", day: "numeric" });
       return svg`
         <line
-          class="time-line"
+          class="day-line"
           x1="${x}" y1="4"
           x2="${x}" y2="${contentHeight - 4}"
         />
         <text class="time-label" x="${x}" y="${contentHeight + 10}">
-          ${this.formatTimeTick(tick)}
+          ${label}
         </text>
       `;
     });
-  }
-
-  private formatTimeTick(d: Date): string {
-    const hours = d.getHours();
-    const mins = d.getMinutes();
-    if (hours === 0 && mins === 0) {
-      return d.toLocaleDateString([], { month: "short", day: "numeric" });
-    }
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   }
 
   private renderTrackLines(layout: TimelineLayoutResult) {
@@ -441,7 +458,7 @@ export class SessionTimeline extends LitElement {
           height="${svgH}"
           style="transform: translateX(${-this.scrollX}px)"
         >
-          ${this.renderTimeMarkers(layout)} ${this.renderTrackLines(layout)}
+          ${this.renderDayMarkers(layout)} ${this.renderTrackLines(layout)}
           ${this.renderConnectors(layout.connectors)}
           ${this.renderBars(layout.bars)}
         </svg>
@@ -467,6 +484,9 @@ export class SessionTimeline extends LitElement {
             <div class="tooltip-label">${this.tooltip.bar.label}</div>
             <div class="tooltip-detail">${this.formatTime(this.tooltip.request.timestamp)}</div>
             <div class="tooltip-detail">${this.formatTokens(this.tooltip.request)}</div>
+            ${this.formatCacheTokens(this.tooltip.request)
+              ? html`<div class="tooltip-detail">${this.formatCacheTokens(this.tooltip.request)}</div>`
+              : null}
             ${this.tooltip.request.modelId
               ? html`<div class="tooltip-detail">${this.tooltip.request.modelId}</div>`
               : null}
