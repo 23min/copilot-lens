@@ -28,13 +28,6 @@ interface CountEntry {
   isCustom?: boolean;
 }
 
-const BUILTIN_AGENT_PREFIXES = ['github.copilot.'];
-const BUILTIN_AGENT_NAMES = new Set(['codex-cli', 'claude-code', 'claude-code:subagent']);
-
-function isCustomAgent(name: string): boolean {
-  if (BUILTIN_AGENT_NAMES.has(name)) return false;
-  return !BUILTIN_AGENT_PREFIXES.some((p) => name.startsWith(p));
-}
 
 interface TokenEntry {
   name: string;
@@ -466,7 +459,6 @@ class MetricsDashboard extends LitElement {
       string,
       { totalTokens: number; avgPrompt: number; avgCompletion: number }
     >,
-    labelClass?: (name: string) => boolean,
   ) {
     const items = entries.slice(0, maxItems);
     const maxCount = Math.max(...items.map((e) => e.count), 1);
@@ -481,7 +473,7 @@ class MetricsDashboard extends LitElement {
                 if (!tooltipData) return;
                 const data = tooltipData.get(entry.name);
                 if (!data) return;
-                const customTag = labelClass?.(entry.name) ? ' (custom agent)' : '';
+                const customTag = entry.isCustom ? ' (custom agent)' : '';
                 this.tooltip = {
                   x: e.clientX + 12,
                   y: e.clientY - 10,
@@ -502,7 +494,7 @@ class MetricsDashboard extends LitElement {
                 }
               }}"
             >
-              <span class=${classMap({ 'bar-label': true, 'bar-label--custom': !!labelClass?.(entry.name) })} title="${tooltipData ? '' : entry.name}">${entry.name}</span>
+              <span class=${classMap({ 'bar-label': true, 'bar-label--custom': !!entry.isCustom })} title="${tooltipData ? '' : entry.name}">${entry.name}</span>
               <div class="bar-track">
                 <div
                   class="bar-fill"
@@ -915,7 +907,7 @@ class MetricsDashboard extends LitElement {
       </div>
 
       <h2>Agent Usage</h2>
-      ${this.renderBarChart(m.agentUsage, "#c4a882", 10, agentTooltipData, isCustomAgent)}
+      ${this.renderBarChart(m.agentUsage, "#c4a882", 10, agentTooltipData)}
 
       <h2>Model Usage</h2>
       ${this.renderBarChart(m.modelUsage, "#b09090")}
