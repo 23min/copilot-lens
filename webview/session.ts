@@ -705,6 +705,11 @@ class SessionExplorer extends LitElement {
           const req = session.requests.find((r) => r.requestId === reqId);
           this.selectedRequest =
             this.selectedRequest?.requestId === reqId ? null : (req ?? null);
+          // Scroll to the corresponding entry in the list
+          requestAnimationFrame(() => {
+            const el = this.renderRoot.querySelector(`#req-${CSS.escape(reqId)}`);
+            if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          });
         }}"
       ></session-timeline>
 
@@ -723,6 +728,7 @@ class SessionExplorer extends LitElement {
 
           return html`
             <div
+              id="req-${req.requestId}"
               class="timeline-entry ${isSubagent ? "subagent" : ""} ${agentSwitch ? "agent-switch" : ""} ${modelSwitch ? "model-switch" : ""}"
               @click="${() => {
                 this.selectedRequest =

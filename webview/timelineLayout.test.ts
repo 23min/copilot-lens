@@ -222,7 +222,7 @@ describe("computeTimelineLayout", () => {
     expect(trackA).not.toBe(trackB);
   });
 
-  it("uses main color for main requests and subagent colors for branches", () => {
+  it("uses main color for main requests and subagent colors by agent type", () => {
     const MAIN_COLOR = "#c4a882";
     const SUBAGENT_COLORS = [
       "#82b4c4",
@@ -242,6 +242,15 @@ describe("computeTimelineLayout", () => {
           isSubagent: true,
           subagentId: "agent-A",
           parentRequestId: "main1",
+          customAgentName: "Explore",
+        }),
+        makeReq({
+          requestId: "sub2",
+          timestamp: 3000,
+          isSubagent: true,
+          subagentId: "agent-B",
+          parentRequestId: "main1",
+          customAgentName: "Explore",
         }),
       ],
       viewWidth: 800,
@@ -250,13 +259,76 @@ describe("computeTimelineLayout", () => {
     const byId = new Map(result.bars.map((b) => [b.requestId, b]));
     expect(byId.get("main1")!.color).toBe(MAIN_COLOR);
 
-    const subColor = byId.get("sub1")!.color;
-    expect(SUBAGENT_COLORS).toContain(subColor);
+    const subColor1 = byId.get("sub1")!.color;
+    const subColor2 = byId.get("sub2")!.color;
+    expect(SUBAGENT_COLORS).toContain(subColor1);
+    // Same agent type → same color
+    expect(subColor1).toBe(subColor2);
 
     const connector = result.connectors.find(
       (c) => c.toRequestId === "sub1",
     );
-    expect(connector!.color).toBe(subColor);
+    expect(connector!.color).toBe(subColor1);
+  });
+
+  it("assigns different colors to different agent types", () => {
+    const result = computeTimelineLayout({
+      requests: [
+        makeReq({ requestId: "main1", timestamp: 1000 }),
+        makeReq({
+          requestId: "sub1",
+          timestamp: 2000,
+          isSubagent: true,
+          subagentId: "agent-A",
+          parentRequestId: "main1",
+          customAgentName: "Explore",
+        }),
+        makeReq({
+          requestId: "sub2",
+          timestamp: 3000,
+          isSubagent: true,
+          subagentId: "agent-B",
+          parentRequestId: "main1",
+          customAgentName: "Plan",
+        }),
+      ],
+      viewWidth: 800,
+    });
+
+    const byId = new Map(result.bars.map((b) => [b.requestId, b]));
+    // Different agent types → different colors
+    expect(byId.get("sub1")!.color).not.toBe(byId.get("sub2")!.color);
+  });
+
+  it("produces legend entries for each agent type", () => {
+    const result = computeTimelineLayout({
+      requests: [
+        makeReq({ requestId: "main1", timestamp: 1000 }),
+        makeReq({
+          requestId: "sub1",
+          timestamp: 2000,
+          isSubagent: true,
+          subagentId: "agent-A",
+          parentRequestId: "main1",
+          customAgentName: "Explore",
+        }),
+        makeReq({
+          requestId: "sub2",
+          timestamp: 3000,
+          isSubagent: true,
+          subagentId: "agent-B",
+          parentRequestId: "main1",
+          customAgentName: "Plan",
+        }),
+      ],
+      viewWidth: 800,
+    });
+
+    expect(result.legend).toHaveLength(3); // main + Explore + Plan
+    expect(result.legend[0].label).toBe("main");
+    const labels = result.legend.map((l) => l.label);
+    expect(labels).toContain("Explore");
+    expect(labels).toContain("Plan");
   });
 
   it("respects minimum bar spacing for content width", () => {
@@ -412,7 +484,7 @@ describe("connector geometry", () => {
     expect(result.connectors).toHaveLength(2);
   });
 
-  it("connector goes from parent right-edge to child left-edge", () => {
+  it("connector is a vertical drop at child's start x-position", () => {
     const result = computeTimelineLayout({
       requests: [
         makeReq({
@@ -434,8 +506,8 @@ describe("connector geometry", () => {
     const c = result.connectors[0];
     const parentBar = result.bars.find((b) => b.requestId === "main1")!;
     const childBar = result.bars.find((b) => b.requestId === "sub1")!;
-    expect(c.fromX).toBeCloseTo(parentBar.x + parentBar.width);
-    expect(c.toX).toBeCloseTo(childBar.x);
+    // Vertical drop at child's x position
+    expect(c.x).toBeCloseTo(childBar.x);
     expect(c.fromY).toBe(parentBar.y);
     expect(c.toY).toBe(childBar.y);
   });

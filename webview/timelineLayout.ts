@@ -24,16 +24,21 @@ export interface TimelineBar {
 export interface TimelineConnector {
   fromRequestId: string;
   toRequestId: string;
-  fromX: number;     // right edge of parent bar
-  fromY: number;     // vertical center of parent bar
-  toX: number;       // left edge of child bar
-  toY: number;       // vertical center of child bar
+  x: number;         // x-position of vertical drop (= child bar left edge)
+  fromY: number;     // y on parent track
+  toY: number;       // y on child track
+  color: string;
+}
+
+export interface LegendEntry {
+  label: string;
   color: string;
 }
 
 export interface TimelineLayoutResult {
   bars: TimelineBar[];
   connectors: TimelineConnector[];
+  legend: LegendEntry[];
   totalWidth: number;
   trackCount: number;              // total number of tracks (1 = main only)
   timeRange: [number, number];     // [minTimestamp, maxTimestamp]
@@ -142,6 +147,7 @@ export function computeTimelineLayout(
   const empty: TimelineLayoutResult = {
     bars: [],
     connectors: [],
+    legend: [],
     totalWidth: viewWidth,
     trackCount: 0,
     timeRange: [0, 0],
@@ -185,13 +191,25 @@ export function computeTimelineLayout(
     }
   }
 
-  // 5. Assign tracks using greedy interval scheduling
+  // 5. Assign colors by agent type (label), not per-instance
+  const agentTypeToColor = new Map<string, string>();
+  let colorIndex = 0;
+  for (const [, group] of subagentGroups) {
+    const label = group[0].customAgentName ?? group[0].agentId;
+    if (!agentTypeToColor.has(label)) {
+      agentTypeToColor.set(
+        label,
+        SUBAGENT_COLORS[colorIndex % SUBAGENT_COLORS.length],
+      );
+      colorIndex++;
+    }
+  }
+
+  // 6. Assign tracks using greedy interval scheduling
   //    Track 0 = main. Subagent groups get track 1+.
   const trackEnds: number[] = []; // index 0 unused (main track)
 
   const subagentIdToTrack = new Map<string, number>();
-  const subagentIdToColor = new Map<string, string>();
-  let colorIndex = 0;
 
   for (const [subagentId, group] of subagentGroups) {
     const groupMin = Math.min(...group.map((r) => r.timestamp));
@@ -213,16 +231,19 @@ export function computeTimelineLayout(
 
     trackEnds[assignedTrack] = groupMax;
     subagentIdToTrack.set(subagentId, assignedTrack);
-
-    const color = SUBAGENT_COLORS[colorIndex % SUBAGENT_COLORS.length];
-    subagentIdToColor.set(subagentId, color);
-    colorIndex++;
   }
 
   // trackCount = 1 (main) + number of distinct subagent tracks used
   const maxSubagentTrack =
     subagentIdToTrack.size > 0 ? Math.max(...subagentIdToTrack.values()) : 0;
   const trackCount = maxSubagentTrack + 1;
+
+  // Helper: get color for a request by its agent type
+  const colorForRequest = (r: SessionRequestLike): string => {
+    if (!(r.isSubagent === true && r.subagentId !== undefined)) return MAIN_COLOR;
+    const label = r.customAgentName ?? r.agentId;
+    return agentTypeToColor.get(label) ?? MAIN_COLOR;
+  };
 
   // 6. Sort requests per track (by timestamp) for gap-based width calculation
   const requestsByTrack = new Map<number, SessionRequestLike[]>();
@@ -248,9 +269,7 @@ export function computeTimelineLayout(
     const track = isSubagent
       ? (subagentIdToTrack.get(r.subagentId!) ?? 0)
       : 0;
-    const color = isSubagent
-      ? (subagentIdToColor.get(r.subagentId!) ?? MAIN_COLOR)
-      : MAIN_COLOR;
+    const color = colorForRequest(r);
     const x = tsToX(r.timestamp);
     const y = padding + track * trackHeight;
     const label = r.customAgentName ?? r.agentId;
@@ -303,11 +322,10 @@ export function computeTimelineLayout(
     barById.set(b.requestId, b);
   }
 
-  // 8. Build connectors (one per subagent group, from parent → first subagent)
+  // 8. Build connectors (vertical drop from parent track to child bar start)
   const connectors: TimelineConnector[] = [];
 
-  for (const [subagentId, group] of subagentGroups) {
-    const color = subagentIdToColor.get(subagentId)!;
+  for (const [, group] of subagentGroups) {
     const sorted = [...group].sort((a, b) => a.timestamp - b.timestamp);
     const first = sorted[0];
 
@@ -324,18 +342,24 @@ export function computeTimelineLayout(
       connectors.push({
         fromRequestId: parentBar.requestId,
         toRequestId: childBar.requestId,
-        fromX: parentBar.x + parentBar.width,
+        x: childBar.x,
         fromY: parentBar.y,
-        toX: childBar.x,
         toY: childBar.y,
-        color,
+        color: childBar.color,
       });
     }
+  }
+
+  // 9. Build legend entries
+  const legend: LegendEntry[] = [{ label: "main", color: MAIN_COLOR }];
+  for (const [label, color] of agentTypeToColor) {
+    legend.push({ label, color });
   }
 
   return {
     bars,
     connectors,
+    legend,
     totalWidth,
     trackCount,
     timeRange: [minTs, maxTs],

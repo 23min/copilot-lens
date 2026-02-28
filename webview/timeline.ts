@@ -14,6 +14,7 @@ import {
   computeMinimapViewport,
   type TimelineBar,
   type TimelineConnector,
+  type LegendEntry,
   type TimelineLayoutResult,
   type SessionRequestLike,
 } from "./timelineLayout.js";
@@ -91,6 +92,26 @@ export class SessionTimeline extends LitElement {
     }
     .minimap-viewport:active {
       cursor: grabbing;
+    }
+    .legend {
+      display: flex;
+      gap: 12px;
+      padding: 4px 10px;
+      font-size: 10px;
+      font-family: var(--vscode-font-family, sans-serif);
+      color: var(--vscode-descriptionForeground, #999);
+      border-bottom: 1px solid var(--vscode-editorWidget-border, #454545);
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .legend-swatch {
+      width: 10px;
+      height: 6px;
+      border-radius: 2px;
+      display: inline-block;
     }
     .tooltip {
       position: absolute;
@@ -328,8 +349,8 @@ export class SessionTimeline extends LitElement {
       return svg`
         <line
           class="connector-line"
-          x1="${c.fromX}" y1="${c.fromY}"
-          x2="${c.toX}" y2="${c.toY}"
+          x1="${c.x}" y1="${c.fromY}"
+          x2="${c.x}" y2="${c.toY}"
           stroke="${c.color}"
           stroke-width="1.5"
           stroke-opacity="0.6"
@@ -372,6 +393,25 @@ export class SessionTimeline extends LitElement {
     });
   }
 
+  private renderLegend(legend: LegendEntry[]) {
+    if (legend.length <= 1) return null; // skip legend if only main track
+    return html`
+      <div class="legend">
+        ${legend.map(
+          (entry) => html`
+            <span class="legend-item">
+              <span
+                class="legend-swatch"
+                style="background: ${entry.color}"
+              ></span>
+              ${entry.label}
+            </span>
+          `,
+        )}
+      </div>
+    `;
+  }
+
   protected render() {
     if (!this.layout || this.layout.bars.length === 0) return null;
 
@@ -391,6 +431,7 @@ export class SessionTimeline extends LitElement {
     const minimapScaleY = MINIMAP_HEIGHT / svgH;
 
     return html`
+      ${this.renderLegend(layout.legend)}
       <div class="main-viewport" @wheel="${this.onWheel}">
         <svg
           class="timeline-svg"
