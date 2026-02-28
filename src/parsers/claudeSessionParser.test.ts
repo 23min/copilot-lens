@@ -80,8 +80,58 @@ describe("parseClaudeSessionJsonl", () => {
     expect(session.title).toBe("My Summary");
   });
 
-  it("falls back to null title when no summary", () => {
+  it("derives title from first user message when no summary", () => {
     const session = parseClaudeSessionJsonl(BASIC_SESSION, null);
+    expect(session.title).toBe("Hello world");
+  });
+
+  it("truncates long first-message titles to 80 characters", () => {
+    const longMessage = "A".repeat(100);
+    const lines = [
+      userLine(longMessage, "u1"),
+      assistantLine({ uuid: "a1", parentUuid: "u1" }),
+    ].join("\n");
+
+    const session = parseClaudeSessionJsonl(lines, null);
+    expect(session.title).toBe("A".repeat(80) + "\u2026");
+  });
+
+  it("skips system-injected tags when deriving title", () => {
+    const lines = [
+      JSON.stringify({
+        type: "user",
+        sessionId: "sess-1",
+        uuid: "u1",
+        parentUuid: null,
+        isSidechain: false,
+        timestamp: "2026-02-14T10:00:00.000Z",
+        message: {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "<ide_opened_file>The user opened the file /foo/bar.ts</ide_opened_file>",
+            },
+            {
+              type: "text",
+              text: "let's fix the bug in the parser",
+            },
+          ],
+        },
+      }),
+      assistantLine({ uuid: "a1", parentUuid: "u1" }),
+    ].join("\n");
+
+    const session = parseClaudeSessionJsonl(lines, null);
+    expect(session.title).toBe("let's fix the bug in the parser");
+  });
+
+  it("falls back to null title when no summary and no user messages", () => {
+    const lines = [
+      assistantLine({ uuid: "a1", parentUuid: "u1" }),
+    ].join("\n");
+
+    const session = parseClaudeSessionJsonl(lines, null);
     expect(session.title).toBeNull();
   });
 
@@ -504,6 +554,48 @@ describe("buildSubagentTypeMap", () => {
     expect(map.get("abc123")).toBe("Explore");
   });
 
+  it("extracts agentId to subagentType mapping from Agent tool calls (renamed from Task)", () => {
+    const agentToolUseLine = JSON.stringify({
+      type: "assistant",
+      sessionId: "sess-1",
+      uuid: "a1",
+      parentUuid: "u1",
+      isSidechain: false,
+      timestamp: "2026-02-14T10:00:02.000Z",
+      message: {
+        model: "claude-opus-4-6",
+        role: "assistant",
+        content: [
+          {
+            type: "tool_use",
+            id: "toolu_1",
+            name: "Agent",
+            input: {
+              description: "explore the code",
+              subagent_type: "Explore",
+              prompt: "find the parser files",
+            },
+          },
+        ],
+        usage: { input_tokens: 50, output_tokens: 10 },
+      },
+    });
+
+    const lines = [
+      userLine("do something", "u1"),
+      agentToolUseLine,
+      taskToolResultLine({
+        uuid: "u2",
+        parentUuid: "a1",
+        toolUseId: "toolu_1",
+        agentId: "abc123",
+      }),
+    ].join("\n");
+
+    const map = buildSubagentTypeMap(lines);
+    expect(map.get("abc123")).toBe("Explore");
+  });
+
   it("returns empty map when no Task tool calls", () => {
     const map = buildSubagentTypeMap(BASIC_SESSION);
     expect(map.size).toBe(0);
@@ -849,6 +941,67 @@ describe("subagent parsing", () => {
     expect(subReq!.usage.completionTokens).toBe(20);
     expect(subReq!.usage.cacheReadTokens).toBe(5000);
     expect(subReq!.usage.cacheCreationTokens).toBe(1000);
+  });
+
+  it("detects preloaded skills from skill-format tags in subagent user messages", () => {
+    const subContent = [
+      // Task prompt
+      JSON.stringify({
+        type: "user",
+        sessionId: "sess-1",
+        uuid: "su1",
+        parentUuid: null,
+        isSidechain: true,
+        timestamp: "2026-02-14T10:00:03.000Z",
+        message: {
+          role: "user",
+          content: "implement the feature",
+        },
+      }),
+      // Preloaded skills injected as user message
+      JSON.stringify({
+        type: "user",
+        sessionId: "sess-1",
+        uuid: "su2",
+        parentUuid: "su1",
+        isSidechain: true,
+        timestamp: "2026-02-14T10:00:03.100Z",
+        message: {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "<command-message>project-context</command-message>\n<command-name>project-context</command-name>\n<skill-format>true</skill-format>",
+            },
+            {
+              type: "text",
+              text: "Base directory for this skill: /path/.claude/skills/project-context\n\n# Agent Lens -- Project Architecture",
+            },
+            {
+              type: "text",
+              text: "<command-message>testing</command-message>\n<command-name>testing</command-name>\n<skill-format>true</skill-format>",
+            },
+            {
+              type: "text",
+              text: "Base directory for this skill: /path/.claude/skills/testing\n\n# Testing Guide",
+            },
+          ],
+        },
+      }),
+      subagentAssistantLine({
+        uuid: "sa1",
+        parentUuid: "su2",
+        agentId: "abc123",
+      }),
+    ].join("\n");
+
+    const session = parseClaudeSessionJsonl(BASIC_SESSION, null, [
+      { content: subContent, agentId: "abc123", subagentType: "Implementer" },
+    ]);
+
+    const subReq = session.requests.find((r) => r.isSubagent);
+    expect(subReq!.loadedSkills).toContain("project-context");
+    expect(subReq!.loadedSkills).toContain("testing");
   });
 
   it("handles empty subagent content gracefully", () => {

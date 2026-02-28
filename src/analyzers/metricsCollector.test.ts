@@ -319,6 +319,109 @@ describe("collectMetrics", () => {
     expect(mainAgent?.count).toBe(1);
   });
 
+  it("does not mark built-in subagent types as custom", () => {
+    const sessions = [
+      makeSession({
+        requests: [
+          {
+            requestId: "r1",
+            timestamp: Date.now(),
+            agentId: "claude-code:subagent",
+            customAgentName: "Explore",
+            modelId: "claude-haiku-4-5",
+            messageText: "",
+            timings: { firstProgress: null, totalElapsed: null },
+            usage: { promptTokens: 100, completionTokens: 50 },
+            toolCalls: [],
+            availableSkills: [],
+            loadedSkills: [],
+            isSubagent: true,
+          },
+          {
+            requestId: "r2",
+            timestamp: Date.now(),
+            agentId: "claude-code:subagent",
+            customAgentName: "Plan",
+            modelId: "claude-opus-4-6",
+            messageText: "",
+            timings: { firstProgress: null, totalElapsed: null },
+            usage: { promptTokens: 100, completionTokens: 50 },
+            toolCalls: [],
+            availableSkills: [],
+            loadedSkills: [],
+            isSubagent: true,
+          },
+          {
+            requestId: "r3",
+            timestamp: Date.now(),
+            agentId: "claude-code:subagent",
+            customAgentName: "compact",
+            modelId: "claude-haiku-4-5",
+            messageText: "",
+            timings: { firstProgress: null, totalElapsed: null },
+            usage: { promptTokens: 100, completionTokens: 50 },
+            toolCalls: [],
+            availableSkills: [],
+            loadedSkills: [],
+            isSubagent: true,
+          },
+        ],
+      }),
+    ];
+
+    const metrics = collectMetrics(sessions, [], []);
+    const explore = metrics.agentUsage.find((a) => a.name === "Explore");
+    const plan = metrics.agentUsage.find((a) => a.name === "Plan");
+    const compact = metrics.agentUsage.find((a) => a.name === "compact");
+
+    expect(explore?.isCustom).toBeUndefined();
+    expect(plan?.isCustom).toBeUndefined();
+    expect(compact?.isCustom).toBeUndefined();
+  });
+
+  it("marks user-defined custom agents as custom", () => {
+    const sessions = [
+      makeSession({
+        requests: [
+          {
+            requestId: "r1",
+            timestamp: Date.now(),
+            agentId: "claude-code:subagent",
+            customAgentName: "my-code-reviewer",
+            modelId: "claude-opus-4-6",
+            messageText: "",
+            timings: { firstProgress: null, totalElapsed: null },
+            usage: { promptTokens: 100, completionTokens: 50 },
+            toolCalls: [],
+            availableSkills: [],
+            loadedSkills: [],
+            isSubagent: true,
+          },
+          {
+            requestId: "r2",
+            timestamp: Date.now(),
+            agentId: "github.copilot.editsAgent",
+            customAgentName: "Planner",
+            modelId: "copilot/claude-opus-4.6",
+            messageText: "plan this",
+            timings: { firstProgress: null, totalElapsed: null },
+            usage: { promptTokens: 100, completionTokens: 50 },
+            toolCalls: [],
+            availableSkills: [],
+            loadedSkills: [],
+          },
+        ],
+      }),
+    ];
+
+    const metrics = collectMetrics(sessions, [], []);
+    const reviewer = metrics.agentUsage.find((a) => a.name === "my-code-reviewer");
+    const planner = metrics.agentUsage.find((a) => a.name === "Planner");
+
+    expect(reviewer?.isCustom).toBe(true);
+    expect(planner?.isCustom).toBe(true);
+  });
+
   it("counts subagent child tool calls in tool usage", () => {
     const sessions = [
       makeSession({
