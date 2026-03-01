@@ -943,6 +943,147 @@ describe("subagent parsing", () => {
     expect(subReq!.usage.cacheCreationTokens).toBe(1000);
   });
 
+  it("sets subagentId on subagent requests", () => {
+    const subContent = [
+      subagentUserLine({ uuid: "su1", agentId: "abc123" }),
+      subagentAssistantLine({
+        uuid: "sa1",
+        parentUuid: "su1",
+        agentId: "abc123",
+      }),
+    ].join("\n");
+
+    const session = parseClaudeSessionJsonl(BASIC_SESSION, null, [
+      { content: subContent, agentId: "abc123", subagentType: "Explore" },
+    ]);
+
+    const subReq = session.requests.find((r) => r.isSubagent);
+    expect(subReq!.subagentId).toBe("abc123");
+  });
+
+  it("sets parentRequestId linking subagent to spawning main request", () => {
+    // Main session: user asks → assistant spawns Agent tool → tool_result returns agentId
+    const mainContent = [
+      userLine("do something", "u1"),
+      taskToolUseLine({
+        uuid: "a1",
+        parentUuid: "u1",
+        toolId: "toolu_1",
+        subagentType: "Explore",
+        description: "find files",
+        timestamp: "2026-02-14T10:00:01.000Z",
+      }),
+      taskToolResultLine({
+        uuid: "u2",
+        parentUuid: "a1",
+        toolUseId: "toolu_1",
+        agentId: "abc123",
+        timestamp: "2026-02-14T10:00:05.000Z",
+      }),
+    ].join("\n");
+
+    const subContent = [
+      subagentUserLine({
+        uuid: "su1",
+        agentId: "abc123",
+        timestamp: "2026-02-14T10:00:02.000Z",
+      }),
+      subagentAssistantLine({
+        uuid: "sa1",
+        parentUuid: "su1",
+        agentId: "abc123",
+        timestamp: "2026-02-14T10:00:03.000Z",
+      }),
+    ].join("\n");
+
+    const session = parseClaudeSessionJsonl(mainContent, null, [
+      { content: subContent, agentId: "abc123", subagentType: "Explore" },
+    ]);
+
+    const subReq = session.requests.find((r) => r.isSubagent);
+    // parentRequestId should be "a1" — the assistant message that made the Agent tool call
+    expect(subReq!.parentRequestId).toBe("a1");
+  });
+
+  it("links multiple subagents to their respective parent requests", () => {
+    const mainContent = [
+      userLine("start", "u1"),
+      taskToolUseLine({
+        uuid: "a1",
+        parentUuid: "u1",
+        toolId: "toolu_1",
+        subagentType: "Explore",
+        description: "find files",
+        timestamp: "2026-02-14T10:00:01.000Z",
+      }),
+      taskToolResultLine({
+        uuid: "u2",
+        parentUuid: "a1",
+        toolUseId: "toolu_1",
+        agentId: "abc123",
+        timestamp: "2026-02-14T10:00:04.000Z",
+      }),
+      taskToolUseLine({
+        uuid: "a2",
+        parentUuid: "u2",
+        toolId: "toolu_2",
+        subagentType: "Plan",
+        description: "design plan",
+        timestamp: "2026-02-14T10:00:05.000Z",
+      }),
+      taskToolResultLine({
+        uuid: "u3",
+        parentUuid: "a2",
+        toolUseId: "toolu_2",
+        agentId: "def456",
+        timestamp: "2026-02-14T10:00:09.000Z",
+      }),
+    ].join("\n");
+
+    const subContent1 = [
+      subagentUserLine({
+        uuid: "su1",
+        agentId: "abc123",
+        timestamp: "2026-02-14T10:00:02.000Z",
+      }),
+      subagentAssistantLine({
+        uuid: "sa1",
+        parentUuid: "su1",
+        agentId: "abc123",
+        timestamp: "2026-02-14T10:00:03.000Z",
+      }),
+    ].join("\n");
+
+    const subContent2 = [
+      subagentUserLine({
+        uuid: "su2",
+        agentId: "def456",
+        timestamp: "2026-02-14T10:00:06.000Z",
+      }),
+      subagentAssistantLine({
+        uuid: "sa2",
+        parentUuid: "su2",
+        agentId: "def456",
+        timestamp: "2026-02-14T10:00:07.000Z",
+      }),
+    ].join("\n");
+
+    const session = parseClaudeSessionJsonl(mainContent, null, [
+      { content: subContent1, agentId: "abc123", subagentType: "Explore" },
+      { content: subContent2, agentId: "def456", subagentType: "Plan" },
+    ]);
+
+    const exploreReq = session.requests.find(
+      (r) => r.isSubagent && r.customAgentName === "Explore",
+    );
+    const planReq = session.requests.find(
+      (r) => r.isSubagent && r.customAgentName === "Plan",
+    );
+
+    expect(exploreReq!.parentRequestId).toBe("a1");
+    expect(planReq!.parentRequestId).toBe("a2");
+  });
+
   it("detects preloaded skills from skill-format tags in subagent user messages", () => {
     const subContent = [
       // Task prompt

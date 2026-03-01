@@ -41,6 +41,18 @@ Keep the subject line under 72 characters. Use imperative mood ("add", not "adde
 
 Link commits to GitHub issues: use `Closes #N` or `Fixes #N` in the commit body (not subject line) so GitHub auto-closes the issue on merge.
 
+## Agent delegation
+
+Delegate to the appropriate custom agent (`.claude/agents/`) rather than working inline:
+
+- **Implementer** — all code writing, editing, and refactoring tasks
+- **Reviewer** — after implementation to review changes for correctness and style
+- **Researcher** — investigation, debugging root causes, exploring approaches
+- **Planner** — architecture decisions, breaking down features into steps
+- **Releaser** — version bumps, changelog updates, PR creation, releases
+
+Do not execute implementation, review, or research tasks directly in the main conversation. Spawn the appropriate agent instead.
+
 ## Working style
 
 - Never guess or assume. If unsure about something, or there are multiple valid approaches, ask the user and let them choose.

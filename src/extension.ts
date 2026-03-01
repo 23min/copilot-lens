@@ -68,7 +68,7 @@ async function refresh(
       agents.map((a) => ({ name: a.name, provider: a.provider })),
       skills.map((s) => ({ name: s.name, provider: s.provider })),
     );
-    SessionPanel.updateIfOpen(sessions);
+    SessionPanel.updateIfOpen(sessions, agents.map((a) => a.name));
 
     const elapsed = Date.now() - start;
     const nonEmpty = sessions.filter((s) => s.requests.length > 0).length;
@@ -148,7 +148,11 @@ export function activate(context: vscode.ExtensionContext): void {
     "agentLens.openSession",
     async () => {
       await refreshWithProgress(sessionCtx, treeProvider);
-      SessionPanel.show(context.extensionUri, cachedSessions);
+      SessionPanel.show(
+        context.extensionUri,
+        cachedSessions,
+        cachedAgents.map((a) => a.name),
+      );
     },
   );
 

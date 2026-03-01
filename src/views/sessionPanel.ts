@@ -10,6 +10,7 @@ export class SessionPanel {
 
   private currentFilter: SourceFilter = "all";
   private cachedSessions: Session[] = [];
+  private customAgentNames: string[] = [];
 
   private constructor(
     panel: vscode.WebviewPanel,
@@ -33,10 +34,11 @@ export class SessionPanel {
   static show(
     extensionUri: vscode.Uri,
     sessions: Session[],
+    customAgentNames: string[] = [],
   ): SessionPanel {
     if (SessionPanel.instance && !SessionPanel.instance.disposed) {
       SessionPanel.instance.panel.reveal();
-      SessionPanel.instance.updateSessions(sessions);
+      SessionPanel.instance.updateSessions(sessions, customAgentNames);
       return SessionPanel.instance;
     }
 
@@ -57,14 +59,15 @@ export class SessionPanel {
     SessionPanel.instance = instance;
 
     panel.webview.html = instance.getHtml(panel.webview);
-    instance.updateSessions(sessions);
+    instance.updateSessions(sessions, customAgentNames);
 
     return instance;
   }
 
-  updateSessions(sessions: Session[]): void {
+  updateSessions(sessions: Session[], customAgentNames?: string[]): void {
     if (this.disposed) return;
     this.cachedSessions = sessions;
+    if (customAgentNames) this.customAgentNames = customAgentNames;
     this.pushFilteredSessions();
   }
 
@@ -82,12 +85,13 @@ export class SessionPanel {
       sessions: nonEmpty,
       activeFilter: this.currentFilter,
       emptyCount,
+      customAgentNames: this.customAgentNames,
     });
   }
 
-  static updateIfOpen(sessions: Session[]): void {
+  static updateIfOpen(sessions: Session[], customAgentNames?: string[]): void {
     if (SessionPanel.instance && !SessionPanel.instance.disposed) {
-      SessionPanel.instance.updateSessions(sessions);
+      SessionPanel.instance.updateSessions(sessions, customAgentNames);
     }
   }
 

@@ -34,4 +34,4 @@ Important rules:
 - Never skip tests or build verification
 - Conventional commit format for the release commit
 - Package can be built locally with `npx @vscode/vsce package`
-- Always confirm with the user before merging and tagging — these are irreversible
+- **Always ask the user for confirmation** before any git operation that modifies history or shared state (commit, push, merge, tag, branch deletion) — these are irreversible

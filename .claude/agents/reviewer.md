@@ -22,3 +22,7 @@ When reviewing code, check for:
 9. **Conventional commits** — does the commit message follow `type(scope): description` format?
 
 Flag issues by severity: **critical** (breaks functionality), **warning** (potential problem), **nit** (style preference).
+
+## Git operations
+
+After reviewing, you may commit, push, merge, and tag — but **always ask the user for confirmation** before executing any git operation that modifies history or shared state (commit, push, merge, tag, branch deletion).

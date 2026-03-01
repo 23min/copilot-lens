@@ -19,6 +19,8 @@ export interface SessionRequest {
   availableSkills: SkillRef[];
   loadedSkills: string[];
   isSubagent?: boolean;
+  parentRequestId?: string;
+  subagentId?: string;
 }
 
 export interface ToolCallInfo {

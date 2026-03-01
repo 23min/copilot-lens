@@ -1,5 +1,6 @@
 import { LitElement, html, css } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import "./timeline.js";
 
 declare function acquireVsCodeApi(): {
   postMessage(msg: unknown): void;
@@ -42,6 +43,8 @@ interface SessionRequest {
   availableSkills: SkillRef[];
   loadedSkills: string[];
   isSubagent?: boolean;
+  parentRequestId?: string;
+  subagentId?: string;
 }
 
 interface Session {
@@ -111,6 +114,16 @@ class SessionExplorer extends LitElement {
       margin-left: 12px;
       white-space: nowrap;
     }
+    .back-header {
+      position: sticky;
+      top: 0;
+      z-index: 12;
+      background: var(--vscode-editor-background, #1e1e1e);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+    }
     .back-btn {
       background: none;
       border: 1px solid var(--vscode-button-border, #555);
@@ -119,11 +132,28 @@ class SessionExplorer extends LitElement {
       border-radius: 4px;
       cursor: pointer;
       font-size: 12px;
-      margin-bottom: 12px;
       font-family: inherit;
+      flex-shrink: 0;
     }
     .back-btn:hover {
       background: var(--vscode-button-hoverBackground, #333);
+    }
+    .back-header-title {
+      font-size: 13px;
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      opacity: 0.7;
+    }
+
+    /* Sticky timeline chart */
+    .timeline-sticky {
+      position: sticky;
+      top: 34px;
+      z-index: 10;
+      background: var(--vscode-editor-background, #1e1e1e);
+      padding-bottom: 8px;
     }
 
     /* Timeline */
@@ -142,8 +172,8 @@ class SessionExplorer extends LitElement {
     }
     .timeline-entry {
       position: relative;
-      margin-bottom: 16px;
-      padding: 12px;
+      margin-bottom: 8px;
+      padding: 10px 12px;
       background: var(--vscode-editorWidget-background, #252526);
       border: 1px solid var(--vscode-editorWidget-border, #454545);
       border-radius: 6px;
@@ -173,7 +203,7 @@ class SessionExplorer extends LitElement {
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
       font-size: 12px;
     }
     .entry-agent {
@@ -200,7 +230,7 @@ class SessionExplorer extends LitElement {
       display: flex;
       flex-wrap: wrap;
       gap: 4px;
-      margin-top: 8px;
+      margin-top: 6px;
     }
     .tool-tag {
       background: var(--vscode-badge-background, #4d4d4d);
@@ -246,7 +276,7 @@ class SessionExplorer extends LitElement {
     .entry-stats {
       display: flex;
       gap: 12px;
-      margin-top: 8px;
+      margin-top: 6px;
       font-size: 11px;
       opacity: 0.5;
     }
@@ -274,27 +304,32 @@ class SessionExplorer extends LitElement {
 
     /* Detail view */
     .detail-overlay {
-      margin-top: 16px;
-      padding: 16px;
+      margin-top: 8px;
+      padding: 8px 10px;
       background: var(--vscode-editorWidget-background, #252526);
       border: 1px solid var(--vscode-editorWidget-border, #454545);
-      border-radius: 6px;
+      border-radius: 4px;
     }
     .detail-section {
-      margin-bottom: 16px;
+      margin-bottom: 6px;
+    }
+    .detail-section:last-child {
+      margin-bottom: 0;
     }
     .detail-section h3 {
-      font-size: 12px;
+      font-size: 10px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      opacity: 0.6;
-      margin: 0 0 6px;
+      opacity: 0.5;
+      margin: 0 0 2px;
     }
     .detail-text {
-      font-size: 13px;
-      line-height: 1.5;
-      white-space: pre-wrap;
+      font-size: 12px;
+      line-height: 1.4;
       word-break: break-word;
+    }
+    .detail-text.pre {
+      white-space: pre-wrap;
     }
     .empty-state {
       opacity: 0.5;
@@ -407,6 +442,7 @@ class SessionExplorer extends LitElement {
   @state() private activeFilter: SourceFilter = "all";
   @state() private selectedSession: Session | null = null;
   @state() private selectedRequest: SessionRequest | null = null;
+  @state() private customAgentNames: string[] = [];
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -424,6 +460,9 @@ class SessionExplorer extends LitElement {
       this.emptyCount = e.data.emptyCount ?? 0;
       if (e.data.activeFilter) {
         this.activeFilter = e.data.activeFilter;
+      }
+      if (e.data.customAgentNames) {
+        this.customAgentNames = e.data.customAgentNames;
       }
 
       // Keep the selected session/request in sync with fresh data
@@ -683,16 +722,37 @@ class SessionExplorer extends LitElement {
 
   private renderTimeline(session: Session) {
     return html`
-      <button
-        class="back-btn"
-        @click="${() => {
-          this.selectedSession = null;
-          this.selectedRequest = null;
-        }}"
-      >
-        Back to sessions
-      </button>
-      <h2>${session.title ?? session.sessionId}</h2>
+      <div class="back-header">
+        <button
+          class="back-btn"
+          @click="${() => {
+            this.selectedSession = null;
+            this.selectedRequest = null;
+          }}"
+        >
+          Back to sessions
+        </button>
+        <span class="back-header-title">${session.title ?? session.sessionId}</span>
+      </div>
+
+      <div class="timeline-sticky">
+        <session-timeline
+          .requests="${session.requests}"
+          .customAgentNames="${this.customAgentNames}"
+          .selectedRequestId="${this.selectedRequest?.requestId ?? null}"
+          @request-select="${(e: CustomEvent) => {
+            const reqId = e.detail;
+            const req = session.requests.find((r) => r.requestId === reqId);
+            this.selectedRequest =
+              this.selectedRequest?.requestId === reqId ? null : (req ?? null);
+            // Scroll to the corresponding entry in the list
+            requestAnimationFrame(() => {
+              const el = this.renderRoot.querySelector(`#req-${CSS.escape(reqId)}`);
+              if (el) el.scrollIntoView({ behavior: "instant", block: "start" });
+            });
+          }}"
+        ></session-timeline>
+      </div>
 
       <div class="timeline">
         ${session.requests.map((req, i) => {
@@ -709,6 +769,7 @@ class SessionExplorer extends LitElement {
 
           return html`
             <div
+              id="req-${req.requestId}"
               class="timeline-entry ${isSubagent ? "subagent" : ""} ${agentSwitch ? "agent-switch" : ""} ${modelSwitch ? "model-switch" : ""}"
               @click="${() => {
                 this.selectedRequest =
@@ -733,7 +794,9 @@ class SessionExplorer extends LitElement {
                   >${this.formatDate(req.timestamp)}</span
                 >
               </div>
-              <div class="entry-prompt">${req.messageText}</div>
+              ${req.messageText
+                ? html`<div class="entry-prompt">${req.messageText}</div>`
+                : null}
               ${req.toolCalls.length > 0
                 ? html`
                     <div class="entry-tools">
@@ -750,10 +813,7 @@ class SessionExplorer extends LitElement {
                 : null}
               <div class="entry-stats">
                 <span>${this.formatDuration(req.timings.totalElapsed)}</span>
-                <span
-                  >${(req.usage.promptTokens + req.usage.completionTokens + (req.usage.cacheReadTokens ?? 0) + (req.usage.cacheCreationTokens ?? 0)).toLocaleString()}
-                  tokens</span
-                >
+                <span>${(req.usage.promptTokens + req.usage.completionTokens + (req.usage.cacheReadTokens ?? 0) + (req.usage.cacheCreationTokens ?? 0)).toLocaleString()} tokens</span>
               </div>
               ${this.selectedRequest?.requestId === req.requestId
                 ? this.renderRequestDetail(req)
@@ -766,46 +826,38 @@ class SessionExplorer extends LitElement {
   }
 
   private renderRequestDetail(req: SessionRequest) {
+    const cacheRead = req.usage.cacheReadTokens ?? 0;
+    const cacheCreate = req.usage.cacheCreationTokens ?? 0;
+    const timingLine = html`First token: ${this.formatDuration(req.timings.firstProgress)}<br>Total: ${this.formatDuration(req.timings.totalElapsed)}`;
+    const tokenLine = html`Prompt: ${req.usage.promptTokens.toLocaleString()}<br>Completion: ${req.usage.completionTokens.toLocaleString()}${cacheCreate > 0 ? html`<br>Cache create: ${cacheCreate.toLocaleString()}` : null}${cacheRead > 0 ? html`<br>Cache read: ${cacheRead.toLocaleString()}` : null}`;
+
     return html`
       <div class="detail-overlay" @click="${(e: Event) => e.stopPropagation()}">
-        <div class="detail-section">
-          <h3>Prompt</h3>
-          <div class="detail-text">${req.messageText}</div>
-        </div>
+        ${req.messageText
+          ? html`<div class="detail-section">
+              <h3>Prompt</h3>
+              <div class="detail-text pre">${req.messageText}</div>
+            </div>`
+          : null}
         ${req.toolCalls.length > 0
-          ? html`
-              <div class="detail-section">
-                <h3>Tool Calls (${req.toolCalls.length})</h3>
-                ${this.renderDetailToolCalls(req.toolCalls)}
-              </div>
-            `
+          ? html`<div class="detail-section">
+              <h3>Tool Calls (${req.toolCalls.length})</h3>
+              ${this.renderDetailToolCalls(req.toolCalls)}
+            </div>`
           : null}
         ${req.loadedSkills.length > 0
-          ? html`
-              <div class="detail-section">
-                <h3>Loaded Skills</h3>
-                ${req.loadedSkills.map(
-                  (s) => html`<div class="detail-text">${s}</div>`,
-                )}
-              </div>
-            `
+          ? html`<div class="detail-section">
+              <h3>Loaded Skills</h3>
+              ${req.loadedSkills.map((s) => html`<div class="detail-text">${s}</div>`)}
+            </div>`
           : null}
         <div class="detail-section">
           <h3>Timing</h3>
-          <div class="detail-text">
-            First token: ${this.formatDuration(req.timings.firstProgress)} |
-            Total: ${this.formatDuration(req.timings.totalElapsed)}
-          </div>
+          <div class="detail-text">${timingLine}</div>
         </div>
         <div class="detail-section">
           <h3>Tokens</h3>
-          <div class="detail-text">
-            Prompt: ${req.usage.promptTokens.toLocaleString()} | Completion:
-            ${req.usage.completionTokens.toLocaleString()}
-            ${(req.usage.cacheReadTokens ?? 0) > 0 || (req.usage.cacheCreationTokens ?? 0) > 0
-              ? html`<br>Cache Read: ${(req.usage.cacheReadTokens ?? 0).toLocaleString()} | Cache Creation: ${(req.usage.cacheCreationTokens ?? 0).toLocaleString()}`
-              : null}
-          </div>
+          <div class="detail-text">${tokenLine}</div>
         </div>
       </div>
     `;
