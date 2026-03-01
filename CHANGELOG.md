@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-03-01
+
+### Added
+- Session Timeline: horizontal bar chart in Session Explorer showing requests as proportional bars across agent swimlanes, with sticky header and minimap scrollbar
+- Session Timeline: vertical connector lines linking parent requests to spawned subagent bars, with click-to-scroll navigation
+- Session Timeline: color-coded legend — custom agents (from `.claude/agents/`, `.github/agents/`) in teal, built-in agents in amber, compact requests in coral
+- Session Timeline: dynamic custom agent detection from filesystem (no hardcoded agent names)
+- Session Timeline: day separator lines with date labels for multi-day sessions
+- Session Timeline: hover tooltip showing agent name, model, timing, token counts (including cache creation and cache read tokens)
+- Parser: subagent parent linking via `buildSubagentMaps` single-pass JSONL scan (replaces separate type/parent map functions)
+- Tests: 10 new tests for timeline format helpers (`formatTokens`, `formatCacheTokens`, `formatTime`)
+- CLAUDE.md: agent delegation section instructing Claude Code to use custom agents for implementation, review, research, planning, and release tasks
+- README: session timeline screenshot
+
+### Fixed
+- Session Timeline: correct custom vs built-in agent color mapping (custom agents from `.claude/agents/` now consistently teal)
+- Session Timeline: SVG label clipping at chart bottom boundary
+- Session Timeline: tooltip clamped within viewport on short charts
+- Session Timeline: token-proportional bar widths (replacing gap-based sizing)
+- Parser: system tag filtering now checks specific prefixes (`<ide_`, `<system-`, `<command-`, `<environment_`) instead of all `<`-prefixed text
+
 ## [0.0.19] - 2026-02-28
 
 ### Fixed
