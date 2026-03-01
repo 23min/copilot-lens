@@ -392,6 +392,7 @@ export function computeTimelineLayout(
   }
 
   // 9. Build legend from actual bars (deduplicated by label)
+  //    Sort order: built-in/main (amber) first, compact (coral), custom (teal) last
   const legendMap = new Map<string, string>();
   for (const b of bars) {
     if (!legendMap.has(b.label)) {
@@ -402,6 +403,12 @@ export function computeTimelineLayout(
   for (const [label, color] of legendMap) {
     legend.push({ label, color });
   }
+  legend.sort((a, b) => {
+    // group: 0 = built-in/main (amber), 1 = compact (coral), 2 = custom (teal)
+    const groupOf = (color: string) =>
+      CUSTOM_COLORS.includes(color) ? 2 : color === COMPACT_COLOR ? 1 : 0;
+    return groupOf(a.color) - groupOf(b.color);
+  });
 
   return {
     bars,
