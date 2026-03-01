@@ -6,7 +6,7 @@
 // Hover for tooltip, click to select a request.
 // ---------------------------------------------------------------------------
 
-import { LitElement, html, css, svg } from "lit";
+import { LitElement, html, css, svg, type SVGTemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { scaleTime } from "d3";
 import {
@@ -21,8 +21,34 @@ import {
 
 const TRACK_HEIGHT = 22;
 const PADDING = 16;
-const SVG_HEIGHT = 48;
 const MINIMAP_HEIGHT = 24;
+
+// ---------------------------------------------------------------------------
+// Pure helper functions (exported for testing)
+// ---------------------------------------------------------------------------
+
+export function formatTokens(
+  usage: SessionRequestLike["usage"],
+): string {
+  return `Prompt: ${usage.promptTokens.toLocaleString()} | Completion: ${usage.completionTokens.toLocaleString()}`;
+}
+
+export function formatCacheTokens(
+  usage: SessionRequestLike["usage"],
+): string | null {
+  const creation = usage.cacheCreationTokens ?? 0;
+  const read = usage.cacheReadTokens ?? 0;
+  if (creation === 0 && read === 0) return null;
+  const parts: string[] = [];
+  if (creation > 0) parts.push(`Cache create: ${creation.toLocaleString()}`);
+  if (read > 0) parts.push(`Cache read: ${read.toLocaleString()}`);
+  return parts.join(" | ");
+}
+
+export function formatTime(ts: number): string {
+  const d = new Date(ts);
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
 
 @customElement("session-timeline")
 export class SessionTimeline extends LitElement {
@@ -159,6 +185,7 @@ export class SessionTimeline extends LitElement {
     request: SessionRequestLike;
   } | null = null;
 
+  private _requestById = new Map<string, SessionRequestLike>();
   private resizeObserver?: ResizeObserver;
 
   connectedCallback(): void {
@@ -184,6 +211,12 @@ export class SessionTimeline extends LitElement {
   }
 
   private recomputeLayout(): void {
+    // Rebuild the lookup cache first
+    this._requestById = new Map<string, SessionRequestLike>();
+    for (const r of this.requests) {
+      this._requestById.set(r.requestId, r);
+    }
+
     if (this.requests.length === 0) {
       this.layout = null;
       return;
@@ -202,15 +235,6 @@ export class SessionTimeline extends LitElement {
     if (this.scrollX > maxScroll) {
       this.scrollX = maxScroll;
     }
-  }
-
-  // Build a requestId → SessionRequestLike lookup
-  private get requestById(): Map<string, SessionRequestLike> {
-    const m = new Map<string, SessionRequestLike>();
-    for (const r of this.requests) {
-      m.set(r.requestId, r);
-    }
-    return m;
   }
 
   // ---- Scroll interactions ----
@@ -269,7 +293,7 @@ export class SessionTimeline extends LitElement {
   // ---- Tooltip & selection ----
 
   private onBarHover(e: MouseEvent, bar: TimelineBar): void {
-    const req = this.requestById.get(bar.requestId);
+    const req = this._requestById.get(bar.requestId);
     if (!req) return;
     const hostRect = this.getBoundingClientRect();
     let x = e.clientX - hostRect.left + 16;
@@ -298,25 +322,6 @@ export class SessionTimeline extends LitElement {
     );
   }
 
-  private formatTokens(req: SessionRequestLike): string {
-    return `Prompt: ${req.usage.promptTokens.toLocaleString()} | Completion: ${req.usage.completionTokens.toLocaleString()}`;
-  }
-
-  private formatCacheTokens(req: SessionRequestLike): string | null {
-    const creation = req.usage.cacheCreationTokens ?? 0;
-    const read = req.usage.cacheReadTokens ?? 0;
-    if (creation === 0 && read === 0) return null;
-    const parts: string[] = [];
-    if (creation > 0) parts.push(`Cache create: ${creation.toLocaleString()}`);
-    if (read > 0) parts.push(`Cache read: ${read.toLocaleString()}`);
-    return parts.join(" | ");
-  }
-
-  private formatTime(ts: number): string {
-    const d = new Date(ts);
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  }
-
   // ---- SVG rendering ----
 
   private renderTimeAndDayMarkers(layout: TimelineLayoutResult) {
@@ -328,7 +333,7 @@ export class SessionTimeline extends LitElement {
       .range([PADDING, layout.totalWidth - PADDING]);
 
     const contentHeight = PADDING * 2 + layout.trackCount * TRACK_HEIGHT;
-    const result: unknown[] = [];
+    const result: SVGTemplateResult[] = [];
 
     // Time ticks (always shown)
     const ticks = scale.ticks(6);
@@ -448,10 +453,7 @@ export class SessionTimeline extends LitElement {
 
     const layout = this.layout;
     const LABEL_SPACE = 16; // room for time/day labels below tracks
-    const svgH = Math.max(
-      SVG_HEIGHT,
-      PADDING * 2 + layout.trackCount * TRACK_HEIGHT + LABEL_SPACE,
-    );
+    const svgH = PADDING * 2 + layout.trackCount * TRACK_HEIGHT + LABEL_SPACE;
 
     const vp = computeMinimapViewport(
       layout.totalWidth,
@@ -490,20 +492,24 @@ export class SessionTimeline extends LitElement {
         </svg>
       </div>
       ${this.tooltip
-        ? html`<div
-            class="tooltip"
-            style="left: ${this.tooltip.x}px; top: ${this.tooltip.y}px"
-          >
-            <div class="tooltip-label">${this.tooltip.bar.label}</div>
-            <div class="tooltip-detail">${this.formatTime(this.tooltip.request.timestamp)}</div>
-            <div class="tooltip-detail">${this.formatTokens(this.tooltip.request)}</div>
-            ${this.formatCacheTokens(this.tooltip.request)
-              ? html`<div class="tooltip-detail">${this.formatCacheTokens(this.tooltip.request)}</div>`
-              : null}
-            ${this.tooltip.request.modelId
-              ? html`<div class="tooltip-detail">${this.tooltip.request.modelId}</div>`
-              : null}
-          </div>`
+        ? (() => {
+            const req = this.tooltip.request;
+            const cacheTokens = formatCacheTokens(req.usage);
+            return html`<div
+              class="tooltip"
+              style="left: ${this.tooltip.x}px; top: ${this.tooltip.y}px"
+            >
+              <div class="tooltip-label">${this.tooltip.bar.label}</div>
+              <div class="tooltip-detail">${formatTime(req.timestamp)}</div>
+              <div class="tooltip-detail">${formatTokens(req.usage)}</div>
+              ${cacheTokens
+                ? html`<div class="tooltip-detail">${cacheTokens}</div>`
+                : null}
+              ${req.modelId
+                ? html`<div class="tooltip-detail">${req.modelId}</div>`
+                : null}
+            </div>`;
+          })()
         : null}
     `;
   }

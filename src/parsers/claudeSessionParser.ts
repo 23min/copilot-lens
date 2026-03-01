@@ -41,16 +41,21 @@ export interface SubagentInput {
 }
 
 /**
- * Scan main session content for Task tool_use blocks and their
- * corresponding tool_result responses to build a map of
- * agentId -> subagentType (e.g., "abc123" -> "Explore").
+ * Single-pass scan of main session content for Task/Agent tool_use blocks
+ * and their corresponding tool_result responses. Returns:
+ *   - typeMap: agentId -> subagentType (e.g., "abc123" -> "Explore")
+ *   - parentMap: agentId -> parentRequestUuid (assistant message UUID)
  */
-export function buildSubagentTypeMap(content: string): Map<string, string> {
+export function buildSubagentMaps(content: string): {
+  typeMap: Map<string, string>;
+  parentMap: Map<string, string>;
+} {
   const lines = content.split("\n").filter((l) => l.trim());
 
-  // Phase 1: collect tool_use_id -> subagent_type from Task tool_use blocks
+  // From tool_use blocks
   const toolIdToType = new Map<string, string>();
-  // Phase 2: collect tool_use_id -> agentId from tool_result blocks
+  const toolIdToParentUuid = new Map<string, string>();
+  // From tool_result blocks
   const toolIdToAgentId = new Map<string, string>();
 
   for (const line of lines) {
@@ -73,6 +78,7 @@ export function buildSubagentTypeMap(content: string): Map<string, string> {
           block.input?.subagent_type
         ) {
           toolIdToType.set(block.id, block.input.subagent_type);
+          toolIdToParentUuid.set(block.id, String(parsed.uuid ?? ""));
         }
       }
     }
@@ -102,83 +108,37 @@ export function buildSubagentTypeMap(content: string): Map<string, string> {
     }
   }
 
-  // Correlate: agentId -> subagentType
-  const result = new Map<string, string>();
+  // Correlate via shared toolUseId
+  const typeMap = new Map<string, string>();
+  const parentMap = new Map<string, string>();
   for (const [toolId, agentId] of toolIdToAgentId) {
     const subagentType = toolIdToType.get(toolId);
     if (subagentType) {
-      result.set(agentId, subagentType);
+      typeMap.set(agentId, subagentType);
     }
-  }
-  return result;
-}
-
-/**
- * Build a map of agentId -> parentRequestUuid by scanning Task/Agent tool_use
- * blocks and their tool_result responses. The parent is the assistant message
- * UUID that made the tool call.
- */
-function buildParentMap(content: string): Map<string, string> {
-  const lines = content.split("\n").filter((l) => l.trim());
-
-  // toolUseId -> assistant message UUID that made the call
-  const toolIdToParentUuid = new Map<string, string>();
-  // toolUseId -> agentId from tool_result
-  const toolIdToAgentId = new Map<string, string>();
-
-  for (const line of lines) {
-    let parsed: ClaudeLine;
-    try {
-      parsed = JSON.parse(line);
-    } catch {
-      continue;
-    }
-
-    if (parsed.type === "assistant" && !parsed.isSidechain) {
-      const blocks = Array.isArray(parsed.message?.content)
-        ? parsed.message!.content
-        : [];
-      for (const block of blocks) {
-        if (
-          block.type === "tool_use" &&
-          (block.name === "Task" || block.name === "Agent") &&
-          block.id &&
-          block.input?.subagent_type
-        ) {
-          toolIdToParentUuid.set(block.id, String(parsed.uuid ?? ""));
-        }
-      }
-    }
-
-    if (parsed.type === "user" && !parsed.isSidechain) {
-      const blocks = Array.isArray(parsed.message?.content)
-        ? parsed.message!.content
-        : [];
-      for (const block of blocks) {
-        if (block.type === "tool_result" && block.tool_use_id) {
-          const text = extractToolResultText(block);
-          let lastAgentId: string | null = null;
-          for (const m of text.matchAll(
-            /agentId: ([\w-]+) \(for resuming/g,
-          )) {
-            lastAgentId = m[1];
-          }
-          if (lastAgentId) {
-            toolIdToAgentId.set(block.tool_use_id, lastAgentId);
-          }
-        }
-      }
-    }
-  }
-
-  const result = new Map<string, string>();
-  for (const [toolId, agentId] of toolIdToAgentId) {
     const parentUuid = toolIdToParentUuid.get(toolId);
     if (parentUuid) {
-      result.set(agentId, parentUuid);
+      parentMap.set(agentId, parentUuid);
     }
   }
-  return result;
+  return { typeMap, parentMap };
+}
+
+/** @deprecated Use buildSubagentMaps instead */
+export function buildSubagentTypeMap(content: string): Map<string, string> {
+  return buildSubagentMaps(content).typeMap;
+}
+
+/** Check if text looks like a system-injected tag (e.g. <ide_opened_file>, <system-reminder>). */
+function isSystemTag(text: string): boolean {
+  const trimmed = text.trimStart();
+  return (
+    trimmed.startsWith("<ide_") ||
+    trimmed.startsWith("<system-") ||
+    trimmed.startsWith("<command-") ||
+    trimmed.startsWith("<environment_") ||
+    trimmed.startsWith("<user-prompt-submit-hook")
+  );
 }
 
 function extractToolResultText(block: ContentBlock): string {
@@ -248,10 +208,10 @@ export function parseClaudeSessionJsonl(
     if (parsed.type === "user" && !parsed.isSidechain && parsed.message?.content) {
       const content = parsed.message.content;
       if (typeof content === "string") {
-        lastUserText = content.trimStart().startsWith("<") ? "" : content;
+        lastUserText = isSystemTag(content) ? "" : content;
       } else if (Array.isArray(content)) {
         const textBlocks = content.filter(
-          (b) => b.type === "text" && b.text && !b.text.trimStart().startsWith("<"),
+          (b) => b.type === "text" && b.text && !isSystemTag(b.text),
         );
         if (textBlocks.length > 0) {
           lastUserText = textBlocks.map((b) => b.text).join("\n");
@@ -262,7 +222,7 @@ export function parseClaudeSessionJsonl(
         // (e.g. <ide_opened_file>, <ide_selection>, <system-reminder>)
         let titleCandidate: string | undefined;
         if (typeof content === "string") {
-          if (!content.trimStart().startsWith("<")) {
+          if (!isSystemTag(content)) {
             titleCandidate = content;
           }
         } else if (Array.isArray(content)) {
@@ -270,7 +230,7 @@ export function parseClaudeSessionJsonl(
             (b) =>
               b.type === "text" &&
               b.text &&
-              !b.text.trimStart().startsWith("<"),
+              !isSystemTag(b.text),
           );
           if (userBlocks.length > 0) {
             titleCandidate = userBlocks[0].text;
@@ -330,7 +290,7 @@ export function parseClaudeSessionJsonl(
 
   // Parse subagent content and merge into requests
   if (subagents) {
-    const parentMap = buildParentMap(content);
+    const { parentMap } = buildSubagentMaps(content);
 
     for (const sub of subagents) {
       const subRequests = parseSubagentContent(sub);

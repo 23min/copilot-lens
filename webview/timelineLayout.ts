@@ -51,8 +51,8 @@ export interface TimelineLayoutInput {
   minBarWidth?: number;        // default 6
   maxBarWidth?: number;        // default 40
   barHeight?: number;          // default 8
-  trackHeight?: number;        // default 30
-  padding?: number;            // default 40
+  trackHeight?: number;        // default 22
+  padding?: number;            // default 16
   customAgentNames?: string[]; // agent names from .claude/agents/ & .github/agents/
 }
 
@@ -161,8 +161,8 @@ export function computeTimelineLayout(
     minBarWidth = DEFAULT_MIN_BAR_WIDTH,
     maxBarWidth = DEFAULT_MAX_BAR_WIDTH,
     barHeight = DEFAULT_BAR_HEIGHT,
-    trackHeight = 30,
-    padding = 40,
+    trackHeight = 22,
+    padding = 16,
   } = input;
 
   const empty: TimelineLayoutResult = {
@@ -235,7 +235,7 @@ export function computeTimelineLayout(
     }
   }
 
-  // 6. Assign tracks using greedy interval scheduling
+  // 6. Assign tracks using greedy interval scheduling (track 0 = main)
   //    Track 0 = main. Subagent groups get track 1+.
   const trackEnds: number[] = []; // index 0 unused (main track)
 
@@ -256,7 +256,7 @@ export function computeTimelineLayout(
     }
 
     if (assignedTrack === -1) {
-      assignedTrack = trackEnds.length === 0 ? 1 : trackEnds.length + 1;
+      assignedTrack = 1; // first subagent group; loop didn't run (trackEnds empty)
     }
 
     trackEnds[assignedTrack] = groupMax;
@@ -281,7 +281,7 @@ export function computeTimelineLayout(
     return MAIN_COLOR;
   };
 
-  // 6. Sort requests per track (by timestamp) for gap-based width calculation
+  // 7. Sort requests per track (by timestamp) for gap-based width calculation
   const requestsByTrack = new Map<number, SessionRequestLike[]>();
   for (const r of requests) {
     const isSubagent = r.isSubagent === true && r.subagentId !== undefined;
@@ -299,14 +299,14 @@ export function computeTimelineLayout(
     list.sort((a, b) => a.timestamp - b.timestamp);
   }
 
-  // 7. Compute max token count for proportional bar widths
+  // 8. Compute max token count for proportional bar widths
   let maxTokens = 0;
   for (const r of requests) {
     const tokens = r.usage.promptTokens + r.usage.completionTokens;
     if (tokens > maxTokens) maxTokens = tokens;
   }
 
-  // 8. Build bars
+  // 9. Build bars
   const bars: TimelineBar[] = requests.map((r) => {
     const isSubagent = r.isSubagent === true && r.subagentId !== undefined;
     const track = isSubagent
@@ -363,7 +363,7 @@ export function computeTimelineLayout(
     barById.set(b.requestId, b);
   }
 
-  // 8. Build connectors (vertical drop from parent track to child bar start)
+  // 10. Build connectors (vertical drop from parent track to child bar start)
   const connectors: TimelineConnector[] = [];
 
   for (const [, group] of subagentGroups) {
@@ -391,7 +391,7 @@ export function computeTimelineLayout(
     }
   }
 
-  // 9. Build legend from actual bars (deduplicated by label)
+  // 11. Build legend from actual bars (deduplicated by label)
   //    Sort order: built-in/main (amber) first, compact (coral), custom (teal) last
   const legendMap = new Map<string, string>();
   for (const b of bars) {

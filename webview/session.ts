@@ -833,11 +833,32 @@ class SessionExplorer extends LitElement {
 
     return html`
       <div class="detail-overlay" @click="${(e: Event) => e.stopPropagation()}">
-        ${req.messageText ? html`<div class="detail-section"><h3>Prompt</h3><div class="detail-text pre">${req.messageText}</div></div>` : null}
-        ${req.toolCalls.length > 0 ? html`<div class="detail-section"><h3>Tool Calls (${req.toolCalls.length})</h3>${this.renderDetailToolCalls(req.toolCalls)}</div>` : null}
-        ${req.loadedSkills.length > 0 ? html`<div class="detail-section"><h3>Loaded Skills</h3>${req.loadedSkills.map((s) => html`<div class="detail-text">${s}</div>`)}</div>` : null}
-        <div class="detail-section"><h3>Timing</h3><div class="detail-text">${timingLine}</div></div>
-        <div class="detail-section"><h3>Tokens</h3><div class="detail-text">${tokenLine}</div></div>
+        ${req.messageText
+          ? html`<div class="detail-section">
+              <h3>Prompt</h3>
+              <div class="detail-text pre">${req.messageText}</div>
+            </div>`
+          : null}
+        ${req.toolCalls.length > 0
+          ? html`<div class="detail-section">
+              <h3>Tool Calls (${req.toolCalls.length})</h3>
+              ${this.renderDetailToolCalls(req.toolCalls)}
+            </div>`
+          : null}
+        ${req.loadedSkills.length > 0
+          ? html`<div class="detail-section">
+              <h3>Loaded Skills</h3>
+              ${req.loadedSkills.map((s) => html`<div class="detail-text">${s}</div>`)}
+            </div>`
+          : null}
+        <div class="detail-section">
+          <h3>Timing</h3>
+          <div class="detail-text">${timingLine}</div>
+        </div>
+        <div class="detail-section">
+          <h3>Tokens</h3>
+          <div class="detail-text">${tokenLine}</div>
+        </div>
       </div>
     `;
   }
