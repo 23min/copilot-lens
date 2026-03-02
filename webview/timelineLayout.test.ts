@@ -532,6 +532,149 @@ describe("connector geometry", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Tests — case-insensitive custom agent matching
+// ---------------------------------------------------------------------------
+
+describe("case-insensitive custom agent matching", () => {
+  it("assigns teal color to custom agents with case-insensitive matching", () => {
+    const TEAL_COLORS = ["#5eead4", "#2dd4bf", "#14b8a6", "#0d9488", "#0f766e"];
+
+    const result = computeTimelineLayout({
+      requests: [
+        makeReq({ requestId: "main1", timestamp: 1000 }),
+        makeReq({
+          requestId: "sub1",
+          timestamp: 2000,
+          isSubagent: true,
+          subagentId: "agent-A",
+          parentRequestId: "main1",
+          customAgentName: "planner",
+        }),
+      ],
+      viewWidth: 800,
+      customAgentNames: ["Planner"],
+    });
+
+    const byId = new Map(result.bars.map((b) => [b.requestId, b]));
+    const subBar = byId.get("sub1")!;
+    expect(TEAL_COLORS).toContain(subBar.color);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests — MCP mini-bars
+// ---------------------------------------------------------------------------
+
+describe("MCP mini-bars", () => {
+  it("generates MCP mini-bars below parent bar", () => {
+    const result = computeTimelineLayout({
+      requests: [
+        makeReq({
+          requestId: "r1",
+          timestamp: 1000,
+          mcpToolCalls: [{ name: "read_file", server: "FastMCP" }],
+        }),
+      ],
+      viewWidth: 800,
+    });
+
+    const mcpBars = result.bars.filter((b) => b.isMcp);
+    expect(mcpBars).toHaveLength(1);
+    const mcpBar = mcpBars[0];
+    expect(mcpBar.isMcp).toBe(true);
+    expect(mcpBar.mcpServer).toBe("FastMCP");
+    expect(mcpBar.mcpToolName).toBe("read_file");
+    expect(mcpBar.requestId).toBe("r1");
+    expect(mcpBar.height).toBe(4);
+
+    // Mini-bar should be positioned below its parent
+    const parentBar = result.bars.find((b) => b.requestId === "r1" && !b.isMcp)!;
+    expect(mcpBar.y).toBeGreaterThan(parentBar.y);
+    expect(mcpBar.x).toBe(parentBar.x);
+    expect(mcpBar.width).toBe(parentBar.width);
+  });
+
+  it("stacks multiple MCP mini-bars with 2px gap", () => {
+    const result = computeTimelineLayout({
+      requests: [
+        makeReq({
+          requestId: "r1",
+          timestamp: 1000,
+          mcpToolCalls: [
+            { name: "read_file", server: "FastMCP" },
+            { name: "write_file", server: "FastMCP" },
+          ],
+        }),
+      ],
+      viewWidth: 800,
+    });
+
+    const mcpBars = result.bars.filter((b) => b.isMcp);
+    expect(mcpBars).toHaveLength(2);
+    // Second mini-bar should be below the first
+    expect(mcpBars[1].y).toBeGreaterThan(mcpBars[0].y);
+    // Gap between them should be exactly 4 (height) + 2 (gap)
+    expect(mcpBars[1].y - mcpBars[0].y).toBe(4 + 2);
+  });
+
+  it("produces no isMcp bars when no mcpToolCalls", () => {
+    const result = computeTimelineLayout({
+      requests: [
+        makeReq({ requestId: "r1", timestamp: 1000 }),
+        makeReq({ requestId: "r2", timestamp: 2000 }),
+      ],
+      viewWidth: 800,
+    });
+
+    const mcpBars = result.bars.filter((b) => b.isMcp);
+    expect(mcpBars).toHaveLength(0);
+  });
+
+  it("does not increase trackCount for MCP mini-bars", () => {
+    const result = computeTimelineLayout({
+      requests: [
+        makeReq({
+          requestId: "r1",
+          timestamp: 1000,
+          mcpToolCalls: [
+            { name: "read_file", server: "FastMCP" },
+            { name: "list_dir", server: "FastMCP" },
+            { name: "search", server: "GitKraken" },
+          ],
+        }),
+      ],
+      viewWidth: 800,
+    });
+
+    // Only one main track — MCP bars must not add tracks
+    expect(result.trackCount).toBe(1);
+  });
+
+  it("adds MCP servers to the legend", () => {
+    const result = computeTimelineLayout({
+      requests: [
+        makeReq({
+          requestId: "r1",
+          timestamp: 1000,
+          mcpToolCalls: [
+            { name: "read_file", server: "FastMCP" },
+            { name: "commit", server: "GitKraken" },
+          ],
+        }),
+      ],
+      viewWidth: 800,
+    });
+
+    const legendLabels = result.legend.map((e) => e.label);
+    expect(legendLabels).toContain("MCP: FastMCP");
+    expect(legendLabels).toContain("MCP: GitKraken");
+
+    const fastmcpEntry = result.legend.find((e) => e.label === "MCP: FastMCP");
+    expect(fastmcpEntry?.color).toBe("#60a5fa");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Tests — computeMinimapViewport
 // ---------------------------------------------------------------------------
 

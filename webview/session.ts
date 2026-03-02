@@ -737,7 +737,12 @@ class SessionExplorer extends LitElement {
 
       <div class="timeline-sticky">
         <session-timeline
-          .requests="${session.requests}"
+          .requests="${session.requests.map((req) => ({
+            ...req,
+            mcpToolCalls: req.toolCalls
+              .filter((tc) => tc.mcpServer)
+              .map((tc) => ({ name: tc.name, server: tc.mcpServer! })),
+          }))}"
           .customAgentNames="${this.customAgentNames}"
           .selectedRequestId="${this.selectedRequest?.requestId ?? null}"
           @request-select="${(e: CustomEvent) => {

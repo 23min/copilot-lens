@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatTokens, formatCacheTokens, formatTime } from "./timeline.js";
+import { formatTokens, formatCacheTokens, formatTime, formatMcpServers } from "./timeline.js";
 
 describe("formatTokens", () => {
   it("formats prompt and completion tokens", () => {
@@ -68,6 +68,39 @@ describe("formatCacheTokens", () => {
       cacheReadTokens: 3000,
     });
     expect(result).toBe("Cache create: 5,000 | Cache read: 3,000");
+  });
+});
+
+describe("formatMcpServers", () => {
+  it("returns null when mcpToolCalls is undefined", () => {
+    expect(formatMcpServers(undefined)).toBeNull();
+  });
+
+  it("returns null when mcpToolCalls is empty", () => {
+    expect(formatMcpServers([])).toBeNull();
+  });
+
+  it("formats a single server with one tool", () => {
+    const result = formatMcpServers([{ name: "read_file", server: "FastMCP" }]);
+    expect(result).toBe("MCP: FastMCP (1 tool)");
+  });
+
+  it("formats a single server with multiple tools", () => {
+    const result = formatMcpServers([
+      { name: "read_file", server: "FastMCP" },
+      { name: "write_file", server: "FastMCP" },
+      { name: "list_dir", server: "FastMCP" },
+    ]);
+    expect(result).toBe("MCP: FastMCP (3 tools)");
+  });
+
+  it("formats multiple servers with their tool counts", () => {
+    const result = formatMcpServers([
+      { name: "read_file", server: "FastMCP" },
+      { name: "write_file", server: "FastMCP" },
+      { name: "commit", server: "GitKraken" },
+    ]);
+    expect(result).toBe("MCP: FastMCP (2 tools), GitKraken (1 tool)");
   });
 });
 

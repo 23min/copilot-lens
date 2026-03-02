@@ -19,6 +19,9 @@ export interface TimelineBar {
   color: string;     // bar fill color
   label: string;     // agent name for tooltip
   isSubagent: boolean;
+  isMcp?: boolean;
+  mcpServer?: string;
+  mcpToolName?: string;
 }
 
 export interface TimelineConnector {
@@ -75,6 +78,7 @@ export interface SessionRequestLike {
   timings?: {
     totalElapsed: number | null;
   };
+  mcpToolCalls?: { name: string; server: string }[];
 }
 
 export interface MinimapViewport {
@@ -110,6 +114,7 @@ const BUILTIN_COLORS = [
   "#d97706",  // amber-600
   "#b45309",  // amber-700
 ];
+const MCP_COLOR = "#60a5fa";  // blue-400
 const DEFAULT_MIN_BAR_WIDTH = 6;
 const DEFAULT_MAX_BAR_WIDTH = 40;
 const DEFAULT_BAR_HEIGHT = 8;
@@ -216,7 +221,7 @@ export function computeTimelineLayout(
   //    Custom agents (from .claude/agents/ etc.) → teal cycle
   //    Built-in agents → amber cycle
   //    compact → coral
-  const customNameSet = new Set(input.customAgentNames ?? []);
+  const customNameSet = new Set((input.customAgentNames ?? []).map((n) => n.toLowerCase()));
   const agentTypeToColor = new Map<string, string>();
   let customColorIdx = 0;
   let builtinColorIdx = 0;
@@ -225,7 +230,7 @@ export function computeTimelineLayout(
     if (!agentTypeToColor.has(label)) {
       if (label === "compact") {
         agentTypeToColor.set(label, COMPACT_COLOR);
-      } else if (customNameSet.has(label)) {
+      } else if (customNameSet.has(label.toLowerCase())) {
         agentTypeToColor.set(label, CUSTOM_COLORS[customColorIdx % CUSTOM_COLORS.length]);
         customColorIdx++;
       } else {
@@ -363,6 +368,32 @@ export function computeTimelineLayout(
     barById.set(b.requestId, b);
   }
 
+  // 9b. Generate MCP mini-bars (stacked below each parent bar, 4px tall, 2px gap)
+  //     These do NOT consume a new track — they are purely visual decorations.
+  for (const r of requests) {
+    if (!r.mcpToolCalls || r.mcpToolCalls.length === 0) continue;
+    const parentBar = barById.get(r.requestId);
+    if (!parentBar) continue;
+
+    r.mcpToolCalls.forEach((tc, idx) => {
+      const miniY = parentBar.y + parentBar.height / 2 + 2 + idx * (4 + 2);
+      bars.push({
+        requestId: r.requestId,
+        x: parentBar.x,
+        y: miniY,
+        width: parentBar.width,
+        height: 4,
+        track: parentBar.track,
+        color: MCP_COLOR,
+        label: `MCP: ${tc.server}`,
+        isSubagent: parentBar.isSubagent,
+        isMcp: true,
+        mcpServer: tc.server,
+        mcpToolName: tc.name,
+      });
+    });
+  }
+
   // 10. Build connectors (vertical drop from parent track to child bar start)
   const connectors: TimelineConnector[] = [];
 
@@ -392,22 +423,41 @@ export function computeTimelineLayout(
   }
 
   // 11. Build legend from actual bars (deduplicated by label)
-  //    Sort order: built-in/main (amber) first, compact (coral), custom (teal) last
+  //    Sort order: built-in/main (amber) first, compact (coral), custom (teal), MCP (blue) last
   const legendMap = new Map<string, string>();
   for (const b of bars) {
+    // Skip MCP mini-bars — they are added separately below
+    if (b.isMcp) continue;
     if (!legendMap.has(b.label)) {
       legendMap.set(b.label, b.color);
     }
+  }
+  // Add MCP servers to legend (deduplicated by server name)
+  const mcpServersInLegend = new Set<string>();
+  for (const r of requests) {
+    if (!r.mcpToolCalls) continue;
+    for (const tc of r.mcpToolCalls) {
+      mcpServersInLegend.add(tc.server);
+    }
+  }
+  for (const server of mcpServersInLegend) {
+    legendMap.set(`MCP: ${server}`, MCP_COLOR);
   }
   const legend: LegendEntry[] = [];
   for (const [label, color] of legendMap) {
     legend.push({ label, color });
   }
   legend.sort((a, b) => {
-    // group: 0 = built-in/main (amber), 1 = compact (coral), 2 = custom (teal)
-    const groupOf = (color: string) =>
-      CUSTOM_COLORS.includes(color) ? 2 : color === COMPACT_COLOR ? 1 : 0;
-    return groupOf(a.color) - groupOf(b.color);
+    // group: 0 = built-in/main (amber), 1 = compact (coral), 2 = custom (teal), 3 = MCP (blue)
+    const aIsCustom = customNameSet.has(a.label.toLowerCase());
+    const bIsCustom = customNameSet.has(b.label.toLowerCase());
+    const groupOf = (entry: LegendEntry, isCustom: boolean) => {
+      if (entry.color === MCP_COLOR) return 3;
+      if (isCustom || CUSTOM_COLORS.includes(entry.color)) return 2;
+      if (entry.color === COMPACT_COLOR) return 1;
+      return 0;
+    };
+    return groupOf(a, aIsCustom) - groupOf(b, bIsCustom);
   });
 
   return {
