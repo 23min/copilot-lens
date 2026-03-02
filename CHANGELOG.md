@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-03-02
+
+### Fixed
+- Session Timeline: case-insensitive custom agent name matching — Copilot agents from `.github/agents/` now correctly render in teal regardless of filename casing (Fixes #61)
+
+### Added
+- Session Timeline: MCP mini-bars — small blue bars stacked below each request bar showing the count and proportion of MCP tool calls, with per-bar tooltip (agent, MCP call count, total tokens) and legend entry (Fixes #61)
+
 ## [0.1.0] - 2026-03-01
 
 ### Added
