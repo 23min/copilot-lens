@@ -50,6 +50,21 @@ export function formatTime(ts: number): string {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+export function formatMcpServers(
+  mcpToolCalls: { name: string; server: string }[] | undefined,
+): string | null {
+  if (!mcpToolCalls || mcpToolCalls.length === 0) return null;
+  // Count tools per server
+  const counts = new Map<string, number>();
+  for (const tc of mcpToolCalls) {
+    counts.set(tc.server, (counts.get(tc.server) ?? 0) + 1);
+  }
+  const parts = Array.from(counts.entries()).map(([server, count]) =>
+    `${server} (${count} tool${count === 1 ? "" : "s"})`,
+  );
+  return `MCP: ${parts.join(", ")}`;
+}
+
 @customElement("session-timeline")
 export class SessionTimeline extends LitElement {
   static styles = css`
@@ -493,13 +508,24 @@ export class SessionTimeline extends LitElement {
       </div>
       ${this.tooltip
         ? (() => {
+            const bar = this.tooltip.bar;
             const req = this.tooltip.request;
+            if (bar.isMcp) {
+              return html`<div
+                class="tooltip"
+                style="left: ${this.tooltip.x}px; top: ${this.tooltip.y}px"
+              >
+                <div class="tooltip-label">${bar.mcpToolName}</div>
+                <div class="tooltip-detail">MCP server: ${bar.mcpServer}</div>
+              </div>`;
+            }
             const cacheTokens = formatCacheTokens(req.usage);
+            const mcpLine = formatMcpServers(req.mcpToolCalls);
             return html`<div
               class="tooltip"
               style="left: ${this.tooltip.x}px; top: ${this.tooltip.y}px"
             >
-              <div class="tooltip-label">${this.tooltip.bar.label}</div>
+              <div class="tooltip-label">${bar.label}</div>
               <div class="tooltip-detail">${formatTime(req.timestamp)}</div>
               <div class="tooltip-detail">${formatTokens(req.usage)}</div>
               ${cacheTokens
@@ -507,6 +533,9 @@ export class SessionTimeline extends LitElement {
                 : null}
               ${req.modelId
                 ? html`<div class="tooltip-detail">${req.modelId}</div>`
+                : null}
+              ${mcpLine
+                ? html`<div class="tooltip-detail">${mcpLine}</div>`
                 : null}
             </div>`;
           })()
